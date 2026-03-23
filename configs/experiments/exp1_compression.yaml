@@ -1,0 +1,31 @@
+# ============================================================
+# Exp 1: Context Compression
+# ============================================================
+experiment: exp1_compression
+strategy: context_compression
+description: "启用 TopK + 函数级 + Token Budget 压缩，减少 input token"
+
+agent:
+  type: mini-swe-agent
+  max_steps: 30
+
+gateway:
+  base_url: "http://localhost:8080/v1"
+  api_key: "${OPENAI_API_KEY}"
+  default_model: "deepseek-chat"
+
+compression:
+  strategy: hybrid              # topk | function | budget | hybrid
+  top_k_files: 5                # 只选最相关的 5 个文件
+  token_budget: 8000            # 单次请求最大 input token
+  keep_imports: true
+  keep_class_signatures: true
+
+pruning:
+  enable_dedup: false
+  enable_step_limit: true
+  max_steps: 30
+  enable_search_limit: false
+  enable_early_stop: false
+
+output_dir: "experiments/exp1_compression"

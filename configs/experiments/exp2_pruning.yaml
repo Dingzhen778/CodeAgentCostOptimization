@@ -1,0 +1,28 @@
+# ============================================================
+# Exp 2: Trajectory Pruning
+# ============================================================
+experiment: exp2_pruning
+strategy: trajectory_pruning
+description: "启用去重 + Search 上限 + EarlyStop，减少步骤数"
+
+agent:
+  type: mini-swe-agent
+  max_steps: 25
+
+gateway:
+  base_url: "http://localhost:8080/v1"
+  api_key: "${OPENAI_API_KEY}"
+  default_model: "deepseek-chat"
+
+compression:
+  strategy: none
+
+pruning:
+  enable_dedup: true            # 去重文件读取
+  enable_step_limit: true
+  max_steps: 25                 # 比 vanilla 少 5 步
+  enable_search_limit: true
+  max_search_calls: 8           # 最多搜索 8 次
+  enable_early_stop: true       # patch 生成后最多 2 次 bash
+
+output_dir: "experiments/exp2_pruning"

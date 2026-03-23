@@ -1,0 +1,32 @@
+# ============================================================
+# Exp 3: Hybrid（Context Compression + Trajectory Pruning）
+# ============================================================
+experiment: exp3_hybrid
+strategy: hybrid
+description: "组合压缩+剪枝，最大化 cost 节省（论文核心实验）"
+
+agent:
+  type: mini-swe-agent
+  max_steps: 25
+
+gateway:
+  base_url: "http://localhost:8080/v1"
+  api_key: "${OPENAI_API_KEY}"
+  default_model: "deepseek-chat"
+
+compression:
+  strategy: hybrid
+  top_k_files: 5
+  token_budget: 6000            # 更严格的 budget
+  keep_imports: true
+  keep_class_signatures: true
+
+pruning:
+  enable_dedup: true
+  enable_step_limit: true
+  max_steps: 25
+  enable_search_limit: true
+  max_search_calls: 8
+  enable_early_stop: true
+
+output_dir: "experiments/exp3_hybrid"

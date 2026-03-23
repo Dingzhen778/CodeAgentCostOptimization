@@ -1,0 +1,213 @@
+"""
+Agent Runner
+
+将 SWE-bench instance 交给 mini-swe-agent（或 Claude Code）运行，
+同时注入 LLM Gateway 和 Token Logger。
+
+使用方式：
+    runner = AgentRunner.from_config("configs/experiments/baseline_vanilla.yaml")
+    result = runner.run(instance)
+"""
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import tempfile
+import time
+from pathlib import Path
+from typing import Optional
+
+import yaml
+from loguru import logger
+
+from src.gateway.token_logger import TokenLogger
+from src.agent.trajectory import Trajectory
+
+
+class InstanceResult:
+    """单个 SWE-bench instance 的运行结果"""
+
+    def __init__(
+        self,
+        instance_id: str,
+        success: bool,
+        patch: str,
+        token_summary: dict,
+        runtime: float,
+        log_dir: Path,
+    ):
+        self.instance_id = instance_id
+        self.success = success
+        self.patch = patch
+        self.token_summary = token_summary
+        self.runtime = runtime
+        self.log_dir = log_dir
+
+    def to_dict(self) -> dict:
+        return {
+            "instance_id": self.instance_id,
+            "success": self.success,
+            "runtime": round(self.runtime, 2),
+            **self.token_summary,
+        }
+
+    def save(self):
+        out = self.log_dir / "result.json"
+        with out.open("w") as f:
+            json.dump(self.to_dict(), f, indent=2)
+
+        if self.patch:
+            patch_file = self.log_dir / "patch.diff"
+            patch_file.write_text(self.patch)
+
+        logger.info(f"[{self.instance_id}] success={self.success} "
+                    f"tokens={self.token_summary.get('total_tokens', '?')} "
+                    f"runtime={self.runtime:.1f}s")
+
+
+class AgentRunner:
+    """
+    封装 mini-swe-agent 运行逻辑，注入自定义 LLM Gateway。
+
+    config 示例（configs/experiments/baseline_vanilla.yaml）：
+        experiment: baseline_vanilla
+        strategy: vanilla
+        agent:
+          type: mini-swe-agent        # 或 claude-code
+          max_steps: 30
+        gateway:
+          base_url: http://localhost:8080/v1
+          api_key: ${OPENAI_API_KEY}
+          default_model: deepseek-chat
+        output_dir: experiments/baseline_vanilla
+    """
+
+    def __init__(self, config: dict):
+        self.config = config
+        self.experiment = config.get("experiment", "default")
+        self.strategy = config.get("strategy", "vanilla")
+        self.output_dir = Path(config.get("output_dir", "experiments/default"))
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Gateway 配置
+        self.gateway_config = config.get("gateway", {})
+
+    @classmethod
+    def from_config(cls, config_path: str | Path) -> "AgentRunner":
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+        return cls(config)
+
+    # ------------------------------------------------------------------
+    # 核心接口
+    # ------------------------------------------------------------------
+
+    def run(self, instance: dict) -> InstanceResult:
+        """运行单个 SWE-bench instance"""
+        instance_id = instance["instance_id"]
+        log_dir = self.output_dir / instance_id
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+        token_logger = TokenLogger(
+            log_dir=log_dir,
+            instance_id=instance_id,
+            experiment=self.experiment,
+            strategy=self.strategy,
+        )
+        trajectory = Trajectory(instance_id=instance_id, log_dir=log_dir)
+
+        t0 = time.monotonic()
+        try:
+            patch, success = self._run_agent(instance, token_logger, trajectory, log_dir)
+        except Exception as e:
+            logger.error(f"[{instance_id}] Agent failed: {e}")
+            patch, success = "", False
+
+        runtime = time.monotonic() - t0
+        summary = token_logger.save_summary(success=success)
+        token_summary = token_logger.summary()
+        token_summary["success"] = success
+
+        result = InstanceResult(
+            instance_id=instance_id,
+            success=success,
+            patch=patch,
+            token_summary=token_summary,
+            runtime=runtime,
+            log_dir=log_dir,
+        )
+        result.save()
+        return result
+
+    def _run_agent(
+        self,
+        instance: dict,
+        token_logger: TokenLogger,
+        trajectory: Trajectory,
+        log_dir: Path,
+    ) -> tuple[str, bool]:
+        """
+        调用 mini-swe-agent。
+        通过设置环境变量 OPENAI_BASE_URL 指向本地 Gateway，实现 token 追踪。
+
+        若你使用 Claude Code，可在此处调用 `claude` CLI 并解析输出。
+        """
+        agent_type = self.config.get("agent", {}).get("type", "mini-swe-agent")
+
+        if agent_type == "mini-swe-agent":
+            return self._run_mini_swe_agent(instance, log_dir)
+        elif agent_type == "mock":
+            return self._run_mock(instance, token_logger, trajectory)
+        else:
+            raise ValueError(f"Unknown agent type: {agent_type}")
+
+    def _run_mini_swe_agent(self, instance: dict, log_dir: Path) -> tuple[str, bool]:
+        """通过 subprocess 调用 mini-swe-agent，注入 Gateway 环境变量"""
+        env = os.environ.copy()
+        gw = self.gateway_config
+        if gw.get("base_url"):
+            env["OPENAI_BASE_URL"] = gw["base_url"]
+        if gw.get("api_key"):
+            env["OPENAI_API_KEY"] = gw["api_key"]
+
+        cmd = [
+            "python", "-m", "sweagent.run",
+            "--instance-id", instance["instance_id"],
+            "--output-dir", str(log_dir),
+            "--model", gw.get("default_model", "deepseek-chat"),
+            "--max-steps", str(self.config.get("agent", {}).get("max_steps", 30)),
+        ]
+
+        result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=600)
+        patch_file = log_dir / "patch.diff"
+        patch = patch_file.read_text() if patch_file.exists() else ""
+        success = result.returncode == 0 and bool(patch)
+        return patch, success
+
+    def _run_mock(self, instance: dict, token_logger: TokenLogger, trajectory: Trajectory) -> tuple[str, bool]:
+        """
+        Mock Agent（用于本地调试，不需要真实 SWE-bench 环境）
+        模拟一个 5 步的 agent 流程，写入假 token 数据
+        """
+        import random
+        steps = [
+            ("search", "bug report keywords", 800, 150),
+            ("read_file", "src/main.py", 2000, 100),
+            ("read_file", "src/utils.py", 1500, 80),
+            ("bash", "run tests", 300, 200),
+            ("edit", "src/main.py", 1800, 400),
+        ]
+        for i, (action, target, inp, out) in enumerate(steps, 1):
+            token_logger.log(
+                step=i, tool=action, model="mock-model",
+                input_tokens=inp + random.randint(-100, 100),
+                output_tokens=out + random.randint(-20, 20),
+                latency=random.uniform(0.5, 2.0),
+            )
+            trajectory.add(step=i, action=action, target=target,
+                           input_tokens=inp, output_tokens=out)
+
+        mock_patch = f"--- a/src/main.py\n+++ b/src/main.py\n@@ -10,1 +10,1 @@\n-bug\n+fix\n"
+        success = random.random() > 0.3
+        return mock_patch, success

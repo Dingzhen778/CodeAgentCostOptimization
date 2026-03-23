@@ -1,0 +1,35 @@
+# ============================================================
+# Exp 4: Model Routing（可选实验）
+# ============================================================
+experiment: exp4_routing
+strategy: model_routing
+description: "search/read 用小模型，edit/write 用大模型，平衡性能与成本"
+
+agent:
+  type: mini-swe-agent
+  max_steps: 30
+
+gateway:
+  base_url: "http://localhost:8080/v1"
+  api_key: "${OPENAI_API_KEY}"
+  default_model: "deepseek-chat"
+  routing:
+    default:    "deepseek-chat"
+    read_file:  "deepseek-chat"     # 便宜模型足够
+    search:     "deepseek-chat"
+    bash:       "deepseek-chat"
+    edit:       "claude-3-haiku"    # 关键操作用更强的模型
+    write_file: "claude-3-haiku"
+
+compression:
+  strategy: topk
+  top_k_files: 8
+
+pruning:
+  enable_dedup: true
+  enable_step_limit: true
+  max_steps: 30
+  enable_search_limit: false
+  enable_early_stop: true
+
+output_dir: "experiments/exp4_routing"

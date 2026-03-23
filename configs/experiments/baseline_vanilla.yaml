@@ -1,0 +1,27 @@
+# ============================================================
+# Baseline: Vanilla Agent（无任何优化）
+# ============================================================
+experiment: baseline_vanilla
+strategy: vanilla
+description: "无压缩、无剪枝的原始 Agent，作为性能和成本基准"
+
+agent:
+  type: mini-swe-agent          # 或 mock（本地调试）
+  max_steps: 30
+
+gateway:
+  base_url: "http://localhost:8080/v1"
+  api_key: "${OPENAI_API_KEY}"
+  default_model: "deepseek-chat"
+
+compression:
+  strategy: none                # 不启用压缩
+
+pruning:
+  enable_dedup: false
+  enable_step_limit: true
+  max_steps: 30
+  enable_search_limit: false
+  enable_early_stop: false
+
+output_dir: "experiments/baseline_vanilla"
