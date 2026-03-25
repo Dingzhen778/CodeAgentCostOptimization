@@ -19,10 +19,13 @@ from typing import Any
 import httpx
 import uvicorn
 import yaml
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from loguru import logger
 from pathlib import Path
+
+from src.config_utils import resolve_env_placeholders
 
 app = FastAPI(title="LLM Cost Gateway", version="0.1.0")
 
@@ -42,6 +45,9 @@ async def chat_completions(request: Request) -> JSONResponse:
 
     # 解析 tool 类型（从请求 headers 或 body 中的自定义字段）
     tool_hint: str = request.headers.get("X-Tool-Hint", "default")
+    instance_id: str = request.headers.get("X-Instance-Id", "")
+    experiment: str = request.headers.get("X-Experiment-Name", "")
+    strategy: str = request.headers.get("X-Strategy-Name", "")
 
     # 路由到目标模型
     routing: dict = _config.get("routing", {})
@@ -74,6 +80,9 @@ async def chat_completions(request: Request) -> JSONResponse:
     # 记录 token 用量
     usage = data.get("usage", {})
     _log_usage(
+        instance_id=instance_id,
+        experiment=experiment,
+        strategy=strategy,
         model=target_model,
         tool=tool_hint,
         input_tokens=usage.get("prompt_tokens", 0),
@@ -88,9 +97,21 @@ async def chat_completions(request: Request) -> JSONResponse:
 # Token 日志
 # -----------------------------------------------------------------------
 
-def _log_usage(model: str, tool: str, input_tokens: int, output_tokens: int, latency: float):
+def _log_usage(
+    model: str,
+    tool: str,
+    input_tokens: int,
+    output_tokens: int,
+    latency: float,
+    instance_id: str = "",
+    experiment: str = "",
+    strategy: str = "",
+):
     record = {
         "ts": time.time(),
+        "instance_id": instance_id,
+        "experiment": experiment,
+        "strategy": strategy,
         "model": model,
         "tool": tool,
         "input_tokens": input_tokens,
@@ -127,8 +148,9 @@ def main():
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
+    load_dotenv()
     with open(args.config) as f:
-        _config = yaml.safe_load(f)
+        _config = resolve_env_placeholders(yaml.safe_load(f))
 
     log_dir = Path(_config.get("log_dir", "logs/gateway"))
     log_dir.mkdir(parents=True, exist_ok=True)

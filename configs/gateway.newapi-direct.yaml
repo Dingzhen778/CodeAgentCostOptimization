@@ -1,0 +1,16 @@
+# New API 直连配置
+# 适合直接验证账号与模型，不经过本地 gateway。
+
+base_url: "${NEW_API_BASE_URL:-https://newapi.deepwisdom.ai/v1}"
+api_key: "${NEW_API_KEY}"
+default_model: "${NEW_API_MODEL:-deepseek-v3.2}"
+
+routing:
+  default: "${NEW_API_MODEL:-deepseek-v3.2}"
+  read_file: "${NEW_API_READ_MODEL:-deepseek-v3.2}"
+  search: "${NEW_API_SEARCH_MODEL:-deepseek-v3.2}"
+  bash: "${NEW_API_BASH_MODEL:-deepseek-v3.2}"
+  edit: "${NEW_API_EDIT_MODEL:-glm-4.7}"
+  write_file: "${NEW_API_WRITE_MODEL:-glm-4.7}"
+
+timeout: 180

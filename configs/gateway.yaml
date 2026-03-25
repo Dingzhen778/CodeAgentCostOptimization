@@ -2,19 +2,19 @@
 # 中转站将 Agent 请求路由到廉价 API
 
 # 上游 API（廉价中转站）
-upstream_url: "https://api.deepseek.com/v1"
-upstream_key: "${DEEPSEEK_API_KEY}"          # 从环境变量读取
+upstream_url: "${NEW_API_BASE_URL:-https://newapi.deepwisdom.ai/v1}"
+upstream_key: "${NEW_API_KEY}"          # 从环境变量读取
 
-default_model: "deepseek-chat"
+default_model: "${NEW_API_MODEL:-deepseek-v3.2}"
 
 # 按工具类型路由不同模型（Model Routing 实验）
 routing:
-  default:    "deepseek-chat"
-  read_file:  "deepseek-chat"
-  search:     "deepseek-chat"
-  bash:       "deepseek-chat"
-  edit:       "deepseek-chat"       # Exp4 可换成 claude-3-sonnet
-  write_file: "deepseek-chat"
+  default:    "${NEW_API_MODEL:-deepseek-v3.2}"
+  read_file:  "${NEW_API_READ_MODEL:-deepseek-v3.2}"
+  search:     "${NEW_API_SEARCH_MODEL:-deepseek-v3.2}"
+  bash:       "${NEW_API_BASH_MODEL:-deepseek-v3.2}"
+  edit:       "${NEW_API_EDIT_MODEL:-glm-4.7}"
+  write_file: "${NEW_API_WRITE_MODEL:-glm-4.7}"
 
 # 日志目录
 log_dir: "logs/gateway"

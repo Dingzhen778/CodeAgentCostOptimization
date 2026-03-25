@@ -26,6 +26,8 @@ class CostAnalyzer:
 
     def __init__(self, experiments_dir: str | Path = "experiments"):
         self.experiments_dir = Path(experiments_dir)
+        self.project_root = self.experiments_dir.parent
+        self.gateway_log_dir = self.project_root / "logs" / "gateway"
         self._df: Optional[pd.DataFrame] = None
 
     # ------------------------------------------------------------------
@@ -38,6 +40,15 @@ class CostAnalyzer:
         每行 = 一个 instance 的结果
         """
         records = []
+        if not self.experiments_dir.exists():
+            self._df = pd.DataFrame()
+            return self._df
+
+        gateway_rows = self._load_gateway_instance_rows()
+        gateway_by_key = {
+            (row["experiment"], row["instance_id"]): row for row in gateway_rows
+        }
+
         for exp_dir in sorted(self.experiments_dir.iterdir()):
             if not exp_dir.is_dir():
                 continue
@@ -48,6 +59,19 @@ class CostAnalyzer:
                     with summary_file.open() as f:
                         data = json.load(f)
                     data["experiment"] = experiment
+                    gateway_row = gateway_by_key.get((experiment, data.get("instance_id", "")))
+                    if gateway_row:
+                        data.update({
+                            "input_tokens": gateway_row.get("input_tokens", data.get("input_tokens")),
+                            "output_tokens": gateway_row.get("output_tokens", data.get("output_tokens")),
+                            "total_tokens": gateway_row.get("total_tokens", data.get("total_tokens")),
+                            "total_calls": gateway_row.get("total_calls", data.get("total_calls")),
+                            "total_latency": gateway_row.get("total_latency", data.get("total_latency")),
+                            "tool_breakdown": gateway_row.get("tool_breakdown", data.get("tool_breakdown")),
+                            "token_source": "gateway",
+                        })
+                    else:
+                        data["token_source"] = "local"
                     records.append(data)
 
         self._df = pd.DataFrame(records)
@@ -97,6 +121,10 @@ class CostAnalyzer:
 
     def cost_breakdown(self, experiment: str) -> pd.DataFrame:
         """分析单个实验的 tool-level token 分布"""
+        gateway_breakdown = self._gateway_cost_breakdown(experiment)
+        if not gateway_breakdown.empty:
+            return gateway_breakdown
+
         df = self.df[self.df["experiment"] == experiment]
         if df.empty:
             return pd.DataFrame()
@@ -137,3 +165,89 @@ class CostAnalyzer:
         return self.summary_table()[
             ["experiment", "avg_total_tokens", "pass_rate", "efficiency"]
         ].copy()
+
+    # ------------------------------------------------------------------
+    # Gateway 优先加载
+    # ------------------------------------------------------------------
+
+    def _load_gateway_instance_rows(self) -> list[dict]:
+        rows: list[dict] = []
+        for exp_dir in sorted(self.experiments_dir.iterdir()):
+            if not exp_dir.is_dir():
+                continue
+            summary_file = exp_dir / "gateway_instance_summary.json"
+            if not summary_file.exists():
+                continue
+            with summary_file.open() as f:
+                data = json.load(f)
+            for row in data:
+                row = dict(row)
+                row.setdefault("experiment", exp_dir.name)
+                rows.append(row)
+        return rows
+
+    def _gateway_cost_breakdown(self, experiment: str) -> pd.DataFrame:
+        summary_file = self.experiments_dir / experiment / "gateway_instance_summary.json"
+        if summary_file.exists():
+            with summary_file.open() as f:
+                rows = json.load(f)
+        else:
+            rows = self._load_gateway_breakdown_from_global_log(experiment)
+
+        if not rows:
+            return pd.DataFrame()
+
+        totals: dict[str, dict[str, float]] = {}
+        for row in rows:
+            for tool, stats in row.get("tool_breakdown", {}).items():
+                agg = totals.setdefault(tool, {"calls": 0, "total_tokens": 0})
+                agg["calls"] += stats.get("calls", 0)
+                agg["total_tokens"] += stats.get("tokens", 0)
+
+        if not totals:
+            return pd.DataFrame()
+
+        breakdown = pd.DataFrame([
+            {
+                "tool": tool,
+                "calls": stats["calls"],
+                "total_tokens": stats["total_tokens"],
+                "avg_tokens": stats["total_tokens"] / max(stats["calls"], 1),
+            }
+            for tool, stats in totals.items()
+        ])
+        return breakdown.sort_values("total_tokens", ascending=False)
+
+    def _load_gateway_breakdown_from_global_log(self, experiment: str) -> list[dict]:
+        log_file = self.gateway_log_dir / "gateway_token_log.jsonl"
+        if not log_file.exists():
+            return []
+
+        grouped: dict[tuple[str, str, str], dict] = {}
+        with log_file.open() as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                record = json.loads(line)
+                if record.get("experiment") != experiment:
+                    continue
+                instance_id = record.get("instance_id", "")
+                if not instance_id:
+                    continue
+                key = (
+                    instance_id,
+                    record.get("experiment", ""),
+                    record.get("strategy", ""),
+                )
+                if key not in grouped:
+                    grouped[key] = {
+                        "instance_id": instance_id,
+                        "experiment": record.get("experiment", ""),
+                        "strategy": record.get("strategy", ""),
+                        "tool_breakdown": {},
+                    }
+                tool = record.get("tool", "default")
+                tb = grouped[key]["tool_breakdown"].setdefault(tool, {"calls": 0, "tokens": 0})
+                tb["calls"] += 1
+                tb["tokens"] += record.get("total_tokens", 0)
+        return list(grouped.values())

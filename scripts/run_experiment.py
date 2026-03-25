@@ -23,6 +23,7 @@ import argparse
 import json
 import os
 import sys
+import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -127,6 +128,8 @@ def main():
     logger.info(f"Avg Tokens: {total_tokens / max(1, len(results)):,.0f}")
     logger.info(f"{'='*50}")
 
+    _write_gateway_instance_summary(runner)
+
     # 写入实验汇总
     summary_out = Path(runner.output_dir) / "experiment_summary.json"
     with summary_out.open("w") as f:
@@ -139,6 +142,35 @@ def main():
             "results": results,
         }, f, indent=2)
     logger.info(f"Summary saved to: {summary_out}")
+
+
+def _write_gateway_instance_summary(runner: AgentRunner):
+    """从全局 gateway log 聚合当前实验的实例级 token 汇总。"""
+    script = Path(__file__).parent / "aggregate_gateway_logs.py"
+    gateway_log = Path("logs/gateway/gateway_token_log.jsonl")
+    if not gateway_log.exists():
+        logger.warning("Gateway log not found, skipping gateway instance summary.")
+        return
+
+    output = Path(runner.output_dir) / "gateway_instance_summary.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--log-file",
+            str(gateway_log),
+            "--output",
+            str(output),
+            "--experiment",
+            runner.experiment,
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        logger.warning(f"Failed to aggregate gateway logs: {result.stderr.strip()}")
+        return
+    logger.info(result.stdout.strip())
 
 
 if __name__ == "__main__":

@@ -18,6 +18,7 @@ import httpx
 from openai import AsyncOpenAI, OpenAI
 from openai.types.chat import ChatCompletion
 
+from src.config_utils import resolve_env_placeholders
 from src.gateway.token_logger import TokenLogger
 
 
@@ -108,6 +109,7 @@ class LLMGateway:
 
     @classmethod
     def from_config(cls, config: dict, token_logger: Optional[TokenLogger] = None) -> "LLMGateway":
+        config = resolve_env_placeholders(config)
         return cls(
             base_url=config["base_url"],
             api_key=config["api_key"],

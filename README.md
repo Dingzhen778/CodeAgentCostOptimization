@@ -78,18 +78,50 @@ CodeAgentCostOptimization/
 ├── scripts/
 │   ├── run_experiment.py   # 运行单个/批量实验
 │   ├── analyze_results.py  # 分析结果，生成图表
+│   ├── aggregate_gateway_logs.py # 聚合 gateway 全局日志到实例级汇总
 │   ├── quick_test.py       # 本地验证框架（无需API）
+│   ├── smoke_test_e2e.py   # gateway + mini-swe-agent 端到端冒烟测试
+│   ├── test_newapi_models.py # 列出/验证 New API 模型
 │   └── setup_env.sh        # 一键初始化环境
 ├── experiments/            # 实验结果（gitignore，体积大）
 ├── logs/                   # 运行日志（gitignore）
 ├── figures/                # 生成的图表
 ├── tests/
 │   ├── test_token_logger.py
-│   └── test_compression.py
+│   ├── test_compression.py
+│   ├── test_config_utils.py
+│   ├── test_gateway_log_aggregation.py
+│   └── test_cost_analyzer_gateway.py
 ├── requirements.txt        # 项目依赖（宽松版本约束）
 ├── requirements.lock       # 精确锁定版本（pip freeze）
 └── .env.example            # API Key 配置模板
 ```
+
+---
+
+## 当前进度（2026-03-25）
+
+当前仓库已经从“框架草图”推进到“New API 可真实跑通、gateway token 可按 instance 汇总、分析链可优先读取真实 token”的状态。
+
+已经完成：
+- New API（`https://newapi.deepwisdom.ai/v1`）真实可用，已验证 `deepseek-v3.2`、`glm-4.7`、`kimi-k2.5`
+- `scripts/test_newapi_models.py` 可直接列模型并发最小请求
+- `scripts/smoke_test_e2e.py` 可自动完成 `gateway -> direct chat -> mini-swe-agent` 冒烟
+- `src/gateway/server.py` 会把 `instance_id / experiment / strategy` 写入 `logs/gateway/gateway_token_log.jsonl`
+- `scripts/aggregate_gateway_logs.py` 可把 gateway 全局日志聚合成实例级 summary
+- `src/analysis/cost_analyzer.py` 已改为优先读取 `gateway_instance_summary.json`
+- `src/agent/runner.py` 已从旧的 `sweagent.run` 切到实际存在的 `minisweagent.run.mini`
+- 配置支持 `${VAR:-default}`，只配 `NEW_API_KEY` 也能跑默认链路
+
+当前推荐默认模型路由：
+- `NEW_API_MODEL=deepseek-v3.2`
+- `NEW_API_EDIT_MODEL=glm-4.7`
+- `NEW_API_WRITE_MODEL=glm-4.7`
+
+已知边界：
+- `glm-4.7` / `kimi-k2.5` 有时会把主要内容放进 `reasoning_content`
+- `kimi-k2.5` 需要 `temperature=1`
+- 旧的 `tests/test_compression.py::test_function_trimmer` 依然是仓库内原有失败点，和本次 New API / gateway 适配无关
 
 ---
 
@@ -122,10 +154,23 @@ pip install -e mini-swe-agent/
 
 # 4. 配置 API Key
 cp .env.example .env
-# 编辑 .env，填入你的 API key（DeepSeek / OpenRouter 等）
+# 编辑 .env，填入你的 API key（推荐 New API）
+
+# 推荐：直接使用 New API 环境变量
+export NEW_API_BASE_URL=https://newapi.deepwisdom.ai/v1
+export NEW_API_KEY=你的NEW_API_KEY
+export NEW_API_MODEL=deepseek-v3.2
+export NEW_API_EDIT_MODEL=glm-4.7
+export NEW_API_WRITE_MODEL=glm-4.7
 
 # 5. 验证安装
 python scripts/quick_test.py
+
+# 6. 验证 New API 模型
+python scripts/test_newapi_models.py --models deepseek-v3.2 glm-4.7 kimi-k2.5
+
+# 7. 端到端冒烟测试（gateway + mini-swe-agent + token日志）
+python scripts/smoke_test_e2e.py
 ```
 
 ---
@@ -159,13 +204,17 @@ Python 3.12（推荐），3.10+ 均可。
 ### 测试状态
 
 ```
-5/5 tests passed — All tests passed! Framework is ready.
+当前新增链路已验证：
 
 ✅ TokenLogger      — token记录与JSONL写入
 ✅ Trajectory       — 轨迹记录与去重查询
 ✅ ContextCompressor — 10→3 文件压缩，ratio=0.30
 ✅ TrajectoryPruner  — 去重+步骤限制，2次剪枝
 ✅ AgentRunner(mock) — 完整运行流程（无需API）
+✅ New API Model Test — deepseek/glm/kimi 最小调用通过
+✅ E2E Smoke Test — gateway + mini-swe-agent 跑通
+✅ Gateway Aggregation — instance级 token 汇总通过
+✅ CostAnalyzer(gateway-first) — 优先读取真实 gateway token
 ```
 
 ---
@@ -196,9 +245,123 @@ python scripts/run_experiment.py \
     --config configs/experiments/exp3_hybrid.yaml \
     --split lite --instances 50 --workers 4
 
+# 聚合 gateway token 日志为实例级成本文件
+python scripts/aggregate_gateway_logs.py \
+    --log-file logs/gateway/gateway_token_log.jsonl \
+    --output experiments/exp3_hybrid/gateway_instance_summary.json \
+    --experiment exp3_hybrid
+
 # 分析结果，生成图表
 python scripts/analyze_results.py --exp-dir experiments/ --output figures/
 ```
+
+说明：
+- `scripts/run_experiment.py` 现在会在实验结束后自动尝试写入 `experiments/<experiment>/gateway_instance_summary.json`
+- `src/analysis/cost_analyzer.py` 会优先读取这个 gateway 实例级汇总做 Pareto / summary / breakdown
+- 如果该文件不存在，才回退到旧的 `summary.json` / `request_log.jsonl`
+
+---
+
+## How To Use
+
+### 1. 新机器最短上手路径
+
+```bash
+git clone --recurse-submodules <repo>
+cd CodeAgentCostOptimization
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install -e mini-swe-agent/
+cp .env.example .env
+```
+
+`.env` 至少保证有：
+
+```bash
+export NEW_API_KEY=你的token
+```
+
+可选但推荐：
+
+```bash
+export NEW_API_BASE_URL=https://newapi.deepwisdom.ai/v1
+export NEW_API_MODEL=deepseek-v3.2
+export NEW_API_EDIT_MODEL=glm-4.7
+export NEW_API_WRITE_MODEL=glm-4.7
+```
+
+### 2. 先验证 API 是否可用
+
+```bash
+python scripts/test_newapi_models.py --filter deepseek glm kimi --list
+python scripts/test_newapi_models.py --models deepseek-v3.2 glm-4.7 kimi-k2.5
+```
+
+### 3. 跑完整冒烟
+
+```bash
+python scripts/smoke_test_e2e.py
+```
+
+这一步会验证：
+- gateway 能启动
+- gateway 能真实转发到 New API
+- mini-swe-agent 能经由 gateway 完成一个最小任务
+- 轨迹文件能落盘
+
+### 4. 跑真实实验
+
+```bash
+python scripts/run_experiment.py \
+  --config configs/experiments/exp3_hybrid.yaml \
+  --split lite \
+  --instances 10 \
+  --workers 1
+```
+
+### 5. 分析真实 token 成本
+
+通常 `run_experiment.py` 结束后会自动写：
+
+```bash
+experiments/<experiment>/gateway_instance_summary.json
+```
+
+如果没有自动写出来，手动执行：
+
+```bash
+python scripts/aggregate_gateway_logs.py \
+  --log-file logs/gateway/gateway_token_log.jsonl \
+  --output experiments/exp3_hybrid/gateway_instance_summary.json \
+  --experiment exp3_hybrid
+```
+
+然后分析：
+
+```bash
+python scripts/analyze_results.py --exp-dir experiments --output figures
+```
+
+---
+
+## 接手说明
+
+给下一位 Codex / 新服务器的最重要信息：
+
+1. 真实 token 成本的“真来源”现在是 gateway 日志，不是旧的本地 `request_log.jsonl`
+2. `src/analysis/cost_analyzer.py` 已经优先读取 `gateway_instance_summary.json`
+3. `scripts/aggregate_gateway_logs.py` 是连接“全局 gateway 日志”和“实验级分析”的关键桥梁
+4. `src/agent/runner.py` 现在依赖 `minisweagent.run.mini`，不要再切回旧的 `sweagent.run`
+5. 如果换服务器，优先先跑 `python scripts/smoke_test_e2e.py`，不要直接开大规模 experiment
+6. 如果分析结果 token 还是空，先检查：
+   - `logs/gateway/gateway_token_log.jsonl` 是否存在
+   - 日志里是否带 `instance_id`
+   - `experiments/<experiment>/gateway_instance_summary.json` 是否生成
+7. 如果要继续做论文实验，下一步最值得推进的是：
+   - 把更多 tool hint（search / edit / read_file）真正传到 gateway
+   - 做 `exp4_routing` 的真实多模型路由实验
+   - 把 gateway instance summary 自动 merge 回每个 `summary.json`
 
 ---
 
@@ -225,11 +388,19 @@ Efficiency = Pass Rate / Avg Token Cost × 10^6
 
 ```
 experiments/{exp_name}/{instance_id}/
-    ├── request_log.jsonl   # 每次 LLM 调用记录（step/tool/tokens/latency）
-    ├── trajectory.jsonl    # 每步 Agent 动作记录
+    ├── request_log.jsonl   # 旧的本地 token logger（mock/旧链路）
+    ├── trajectory.json     # mini-swe-agent 轨迹
     ├── summary.json        # 汇总统计（tokens/steps/success）
     ├── result.json         # 最终结果
     └── patch.diff          # 生成的代码补丁
+```
+
+全局 gateway 真实 token 日志：
+
+```
+logs/gateway/
+    ├── gateway_token_log.jsonl         # 每次代理请求一条
+    └── gateway_instance_summary.json   # 按 instance 聚合后的汇总
 ```
 
 ---

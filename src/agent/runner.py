@@ -13,16 +13,19 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
 from typing import Optional
 
 import yaml
+from dotenv import load_dotenv
 from loguru import logger
 
 from src.gateway.token_logger import TokenLogger
 from src.agent.trajectory import Trajectory
+from src.config_utils import resolve_env_placeholders
 
 
 class InstanceResult:
@@ -95,8 +98,9 @@ class AgentRunner:
 
     @classmethod
     def from_config(cls, config_path: str | Path) -> "AgentRunner":
+        load_dotenv()
         with open(config_path) as f:
-            config = yaml.safe_load(f)
+            config = resolve_env_placeholders(yaml.safe_load(f))
         return cls(config)
 
     # ------------------------------------------------------------------
@@ -165,24 +169,52 @@ class AgentRunner:
     def _run_mini_swe_agent(self, instance: dict, log_dir: Path) -> tuple[str, bool]:
         """通过 subprocess 调用 mini-swe-agent，注入 Gateway 环境变量"""
         env = os.environ.copy()
+        env.setdefault("MSWEA_CONFIGURED", "true")
+        env.setdefault("MSWEA_COST_TRACKING", "ignore_errors")
         gw = self.gateway_config
-        if gw.get("base_url"):
-            env["OPENAI_BASE_URL"] = gw["base_url"]
         if gw.get("api_key"):
             env["OPENAI_API_KEY"] = gw["api_key"]
+        if gw.get("base_url"):
+            api_base = gw["base_url"]
+        else:
+            api_base = ""
 
+        task = instance.get("problem_statement") or f"Investigate instance {instance['instance_id']}."
+        traj_file = log_dir / "trajectory.json"
+        extra_headers = {
+            "X-Instance-Id": instance["instance_id"],
+            "X-Experiment-Name": self.experiment,
+            "X-Strategy-Name": self.strategy,
+        }
+        model_name = gw.get("default_model", "deepseek-v3.2")
+        if "/" not in model_name:
+            model_name = f"openai/{model_name}"
         cmd = [
-            "python", "-m", "sweagent.run",
-            "--instance-id", instance["instance_id"],
-            "--output-dir", str(log_dir),
-            "--model", gw.get("default_model", "deepseek-chat"),
-            "--max-steps", str(self.config.get("agent", {}).get("max_steps", 30)),
+            sys.executable,
+            "-m",
+            "minisweagent.run.mini",
+            "-m",
+            model_name,
+            "-t",
+            task,
+            "-y",
+            "--exit-immediately",
+            "-o",
+            str(traj_file),
+            "-c",
+            "mini.yaml",
+            "-c",
+            f"agent.step_limit={self.config.get('agent', {}).get('max_steps', 30)}",
         ]
+        if api_base:
+            cmd.extend(["-c", f"model.model_kwargs.api_base={api_base}"])
+        cmd.extend(["-c", f"model.model_kwargs.extra_headers={json.dumps(extra_headers)}"])
+        cmd.extend(["-c", "model.cost_tracking=ignore_errors"])
 
         result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=600)
         patch_file = log_dir / "patch.diff"
         patch = patch_file.read_text() if patch_file.exists() else ""
-        success = result.returncode == 0 and bool(patch)
+        success = result.returncode == 0 and traj_file.exists()
         return patch, success
 
     def _run_mock(self, instance: dict, token_logger: TokenLogger, trajectory: Trajectory) -> tuple[str, bool]:

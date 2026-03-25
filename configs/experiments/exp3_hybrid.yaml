@@ -10,9 +10,9 @@ agent:
   max_steps: 25
 
 gateway:
-  base_url: "http://localhost:8080/v1"
-  api_key: "${OPENAI_API_KEY}"
-  default_model: "deepseek-chat"
+  base_url: "${NEW_API_BASE_URL:-https://newapi.deepwisdom.ai/v1}"
+  api_key: "${NEW_API_KEY}"
+  default_model: "${NEW_API_MODEL:-deepseek-v3.2}"
 
 compression:
   strategy: hybrid
