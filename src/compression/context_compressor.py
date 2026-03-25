@@ -106,7 +106,7 @@ class FunctionLevelTrimmer:
         """返回压缩后的文件内容"""
         lines = content.split("\n")
         blocks = self._split_into_blocks(lines)
-        query_terms = set(re.findall(r"\w+", query.lower()))
+        query_terms = self._expand_terms(query)
 
         kept: list[str] = []
         for block_type, block_lines in blocks:
@@ -115,13 +115,59 @@ class FunctionLevelTrimmer:
             elif block_type == "class_sig" and self.keep_class_signatures:
                 kept.extend(block_lines)
             elif block_type in ("function", "class", "top_level"):
-                block_text = "\n".join(block_lines).lower()
-                block_terms = set(re.findall(r"\w+", block_text))
-                if query_terms & block_terms:
+                block_text = "\n".join(block_lines)
+                if self._is_relevant_block(block_text, query_terms):
                     kept.extend(block_lines)
             # 无关代码块：丢弃
 
         return "\n".join(kept)
+
+    @classmethod
+    def _expand_terms(cls, text: str) -> set[str]:
+        terms: set[str] = set()
+        for token in re.findall(r"\w+", text.lower()):
+            if not token:
+                continue
+            terms.add(token)
+            for part in cls._split_identifier(token):
+                if part:
+                    terms.add(part)
+        return terms
+
+    @staticmethod
+    def _split_identifier(token: str) -> list[str]:
+        parts = re.split(r"[_\W]+", token)
+        expanded: list[str] = []
+        for part in parts:
+            if not part:
+                continue
+            camel_parts = re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z]|$)|\d+", part)
+            if camel_parts:
+                expanded.extend(p.lower() for p in camel_parts if p)
+            else:
+                expanded.append(part.lower())
+        return expanded
+
+    @classmethod
+    def _is_relevant_block(cls, block_text: str, query_terms: set[str]) -> bool:
+        block_lower = block_text.lower()
+        block_terms = cls._expand_terms(block_text)
+        if query_terms & block_terms:
+            return True
+
+        # Fallback to substring / prefix matching for cases like:
+        # "login authentication bug" -> "def login_user" / "authenticate(...)"
+        for query_term in query_terms:
+            if len(query_term) < 4:
+                continue
+            if query_term in block_lower:
+                return True
+            for block_term in block_terms:
+                if len(block_term) < 4:
+                    continue
+                if query_term.startswith(block_term) or block_term.startswith(query_term):
+                    return True
+        return False
 
     @staticmethod
     def _split_into_blocks(lines: list[str]) -> list[tuple[str, list[str]]]:

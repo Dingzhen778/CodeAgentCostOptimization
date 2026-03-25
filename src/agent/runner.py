@@ -14,7 +14,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 from typing import Optional
@@ -167,7 +166,7 @@ class AgentRunner:
             raise ValueError(f"Unknown agent type: {agent_type}")
 
     def _run_mini_swe_agent(self, instance: dict, log_dir: Path) -> tuple[str, bool]:
-        """通过 subprocess 调用 mini-swe-agent，注入 Gateway 环境变量"""
+        """通过 subprocess 调用 mini-swe-agent 的 SWE-bench Docker 路径。"""
         env = os.environ.copy()
         env.setdefault("MSWEA_CONFIGURED", "true")
         env.setdefault("MSWEA_COST_TRACKING", "ignore_errors")
@@ -181,11 +180,21 @@ class AgentRunner:
 
         task = instance.get("problem_statement") or f"Investigate instance {instance['instance_id']}."
         traj_file = log_dir / "trajectory.json"
+        swebench_config = (
+            Path(__file__).resolve().parents[2]
+            / "mini-swe-agent"
+            / "src"
+            / "minisweagent"
+            / "config"
+            / "benchmarks"
+            / "swebench.yaml"
+        )
         extra_headers = {
             "X-Instance-Id": instance["instance_id"],
             "X-Experiment-Name": self.experiment,
             "X-Strategy-Name": self.strategy,
         }
+        image_name = self._get_swebench_image_name(instance)
         model_name = gw.get("default_model", "deepseek-v3.2")
         if "/" not in model_name:
             model_name = f"openai/{model_name}"
@@ -202,9 +211,13 @@ class AgentRunner:
             "-o",
             str(traj_file),
             "-c",
-            "mini.yaml",
+            str(swebench_config),
             "-c",
             f"agent.step_limit={self.config.get('agent', {}).get('max_steps', 30)}",
+            "-c",
+            "environment.environment_class=docker",
+            "-c",
+            f"environment.image={image_name}",
         ]
         if api_base:
             cmd.extend(["-c", f"model.model_kwargs.api_base={api_base}"])
@@ -212,10 +225,29 @@ class AgentRunner:
         cmd.extend(["-c", "model.cost_tracking=ignore_errors"])
 
         result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=600)
-        patch_file = log_dir / "patch.diff"
-        patch = patch_file.read_text() if patch_file.exists() else ""
-        success = result.returncode == 0 and traj_file.exists()
+        patch = self._extract_submission_patch(traj_file)
+        success = result.returncode == 0 and bool(patch)
         return patch, success
+
+    @staticmethod
+    def _get_swebench_image_name(instance: dict) -> str:
+        image_name = instance.get("image_name") or instance.get("docker_image")
+        if image_name:
+            return image_name
+
+        iid = instance["instance_id"]
+        docker_compatible = iid.replace("__", "_1776_")
+        return f"docker.io/swebench/sweb.eval.x86_64.{docker_compatible}:latest".lower()
+
+    @staticmethod
+    def _extract_submission_patch(traj_file: Path) -> str:
+        if not traj_file.exists():
+            return ""
+        try:
+            data = json.loads(traj_file.read_text())
+        except json.JSONDecodeError:
+            return ""
+        return data.get("info", {}).get("submission", "") or ""
 
     def _run_mock(self, instance: dict, token_logger: TokenLogger, trajectory: Trajectory) -> tuple[str, bool]:
         """

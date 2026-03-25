@@ -105,13 +105,15 @@ CodeAgentCostOptimization/
 
 已经完成：
 - New API（`https://newapi.deepwisdom.ai/v1`）真实可用，已验证 `deepseek-v3.2`、`glm-4.7`、`kimi-k2.5`
+- New API 额外可用模型已验证 `MiniMax-M2.5`、`MiniMax-M2.7`
 - `scripts/test_newapi_models.py` 可直接列模型并发最小请求
 - `scripts/smoke_test_e2e.py` 可自动完成 `gateway -> direct chat -> mini-swe-agent` 冒烟
 - `src/gateway/server.py` 会把 `instance_id / experiment / strategy` 写入 `logs/gateway/gateway_token_log.jsonl`
 - `scripts/aggregate_gateway_logs.py` 可把 gateway 全局日志聚合成实例级 summary
 - `src/analysis/cost_analyzer.py` 已改为优先读取 `gateway_instance_summary.json`
-- `src/agent/runner.py` 已从旧的 `sweagent.run` 切到实际存在的 `minisweagent.run.mini`
+- `src/agent/runner.py` 已从旧的 `sweagent.run` 改为使用 `mini-swe-agent` 的 SWE-bench Docker 配置路径
 - 配置支持 `${VAR:-default}`，只配 `NEW_API_KEY` 也能跑默认链路
+- `FunctionLevelTrimmer` 的真实失败测试已经修复，`tests/test_compression.py` 现已通过
 
 当前推荐默认模型路由：
 - `NEW_API_MODEL=deepseek-v3.2`
@@ -121,7 +123,9 @@ CodeAgentCostOptimization/
 已知边界：
 - `glm-4.7` / `kimi-k2.5` 有时会把主要内容放进 `reasoning_content`
 - `kimi-k2.5` 需要 `temperature=1`
-- 旧的 `tests/test_compression.py::test_function_trimmer` 依然是仓库内原有失败点，和本次 New API / gateway 适配无关
+- `MiniMax-M2.5` / `MiniMax-M2.7` 也会偏向把输出放进 `reasoning_content`
+- 当前这台机器不能启动 Docker，因此 `AgentRunner` 的 SWE-bench Docker 路径已经接好，但尚未在本机完成容器级验证
+- `tests/test_compression.py::test_function_trimmer` 已修复；如果压缩测试再失败，应优先检查 `FunctionLevelTrimmer` 相关性匹配逻辑
 
 ---
 
@@ -215,6 +219,7 @@ Python 3.12（推荐），3.10+ 均可。
 ✅ E2E Smoke Test — gateway + mini-swe-agent 跑通
 ✅ Gateway Aggregation — instance级 token 汇总通过
 ✅ CostAnalyzer(gateway-first) — 优先读取真实 gateway token
+✅ FunctionLevelTrimmer Fix — 真实失败测试已修复
 ```
 
 ---
@@ -312,6 +317,9 @@ python scripts/smoke_test_e2e.py
 
 ### 4. 跑真实实验
 
+如果机器可以运行 Docker，优先走这条路径。
+当前 `AgentRunner` 已按 `mini-swe-agent` 的 SWE-bench benchmark 方式配置为 Docker 环境。
+
 ```bash
 python scripts/run_experiment.py \
   --config configs/experiments/exp3_hybrid.yaml \
@@ -319,6 +327,11 @@ python scripts/run_experiment.py \
   --instances 10 \
   --workers 1
 ```
+
+如果当前机器不能运行 Docker：
+- 不要直接用 `run_experiment.py` 跑正式 SWE-bench 实验
+- 先只使用 `test_newapi_models.py`、`smoke_test_e2e.py` 和分析脚本维护上层链路
+- 等换到能起 Docker 的服务器后，再跑正式 benchmark
 
 ### 5. 分析真实 token 成本
 
@@ -353,12 +366,16 @@ python scripts/analyze_results.py --exp-dir experiments --output figures
 2. `src/analysis/cost_analyzer.py` 已经优先读取 `gateway_instance_summary.json`
 3. `scripts/aggregate_gateway_logs.py` 是连接“全局 gateway 日志”和“实验级分析”的关键桥梁
 4. `src/agent/runner.py` 现在依赖 `minisweagent.run.mini`，不要再切回旧的 `sweagent.run`
-5. 如果换服务器，优先先跑 `python scripts/smoke_test_e2e.py`，不要直接开大规模 experiment
-6. 如果分析结果 token 还是空，先检查：
+5. `src/agent/runner.py` 现在会按 SWE-bench Docker 路径构造镜像名：
+   - 优先使用 `instance["image_name"]` 或 `instance["docker_image"]`
+   - 否则回退到 `docker.io/swebench/sweb.eval.x86_64.<instance_id>:latest`
+6. 如果当前机器不能起 Docker，优先先跑 `python scripts/smoke_test_e2e.py`，不要直接开大规模 experiment
+7. 如果换到新服务器，先确认 `docker` 可用，再跑正式 SWE-bench instance
+8. 如果分析结果 token 还是空，先检查：
    - `logs/gateway/gateway_token_log.jsonl` 是否存在
    - 日志里是否带 `instance_id`
    - `experiments/<experiment>/gateway_instance_summary.json` 是否生成
-7. 如果要继续做论文实验，下一步最值得推进的是：
+9. 如果要继续做论文实验，下一步最值得推进的是：
    - 把更多 tool hint（search / edit / read_file）真正传到 gateway
    - 做 `exp4_routing` 的真实多模型路由实验
    - 把 gateway instance summary 自动 merge 回每个 `summary.json`
