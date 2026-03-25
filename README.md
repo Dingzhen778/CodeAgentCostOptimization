@@ -101,7 +101,7 @@ CodeAgentCostOptimization/
 
 ## 当前进度（2026-03-25）
 
-当前仓库已经从“框架草图”推进到“New API 可真实跑通、gateway token 可按 instance 汇总、分析链可优先读取真实 token”的状态。
+当前仓库已经从“框架草图”推进到“mini-swe-agent + official SWE-bench Docker + gateway token统计 + 阶段化token分析”都能真实跑通的状态。
 
 已经完成：
 - New API（`https://newapi.deepwisdom.ai/v1`）真实可用，已验证 `deepseek-v3.2`、`glm-4.7`、`kimi-k2.5`
@@ -112,6 +112,10 @@ CodeAgentCostOptimization/
 - `scripts/aggregate_gateway_logs.py` 可把 gateway 全局日志聚合成实例级 summary
 - `src/analysis/cost_analyzer.py` 已改为优先读取 `gateway_instance_summary.json`
 - `src/agent/runner.py` 已从旧的 `sweagent.run` 改为使用 `mini-swe-agent` 的 SWE-bench Docker 配置路径
+- 本机 Docker 已可用，已成功拉起官方 `SWE-bench Verified` 镜像并在容器内执行真实 issue
+- `src/gateway/server.py` 已修复“显式请求模型被 routing.default 覆盖”的问题，`DPSK / GLM / MINIMAX` 现在会按指定模型真实发出请求
+- 已完成一轮 `verified_model_sweep_150` 中途暂停实验，并沉淀阶段化 token 分析产物
+- `src/analysis/token_phase_analyzer.py` 与 `scripts/analyze_token_phases.py` 已可输出阶段化 token 画像
 - 配置支持 `${VAR:-default}`，只配 `NEW_API_KEY` 也能跑默认链路
 - `FunctionLevelTrimmer` 的真实失败测试已经修复，`tests/test_compression.py` 现已通过
 
@@ -124,7 +128,7 @@ CodeAgentCostOptimization/
 - `glm-4.7` / `kimi-k2.5` 有时会把主要内容放进 `reasoning_content`
 - `kimi-k2.5` 需要 `temperature=1`
 - `MiniMax-M2.5` / `MiniMax-M2.7` 也会偏向把输出放进 `reasoning_content`
-- 当前这台机器不能启动 Docker，因此 `AgentRunner` 的 SWE-bench Docker 路径已经接好，但尚未在本机完成容器级验证
+- `verified_model_sweep_150` 是一次真实中途暂停的 sweep，不是最终 benchmark；目录里既有成功落盘的结果，也有被暂停或 APIError 提前终止的实例目录
 - `tests/test_compression.py::test_function_trimmer` 已修复；如果压缩测试再失败，应优先检查 `FunctionLevelTrimmer` 相关性匹配逻辑
 
 ---
@@ -328,10 +332,21 @@ python scripts/run_experiment.py \
   --workers 1
 ```
 
-如果当前机器不能运行 Docker：
-- 不要直接用 `run_experiment.py` 跑正式 SWE-bench 实验
-- 先只使用 `test_newapi_models.py`、`smoke_test_e2e.py` 和分析脚本维护上层链路
-- 等换到能起 Docker 的服务器后，再跑正式 benchmark
+如果要跑官方 `SWE-bench Verified` 的大规模实验，推荐优先用单独脚本控制批次和模型：
+
+```bash
+python scripts/run_verified_model_sweep.py \
+  --batch minimax \
+  --per-model 10 \
+  --max-steps 60 \
+  --start-index 0 \
+  --output-dir experiments/verified_model_sweep_150
+```
+
+说明：
+- `--batch dpsk|glm|minimax|all` 控制跑哪个模型批次
+- 当前脚本会把前 `3 * per-model` 个 verified instance 切成互不重叠的 3 段
+- `verified_model_sweep_150` 是真实 sweep 产物目录，不是固定配置名；可以换成新的输出目录重复实验
 
 ### 5. 分析真实 token 成本
 
@@ -369,16 +384,16 @@ python scripts/analyze_results.py --exp-dir experiments --output figures
 5. `src/agent/runner.py` 现在会按 SWE-bench Docker 路径构造镜像名：
    - 优先使用 `instance["image_name"]` 或 `instance["docker_image"]`
    - 否则回退到 `docker.io/swebench/sweb.eval.x86_64.<instance_id>:latest`
-6. 如果当前机器不能起 Docker，优先先跑 `python scripts/smoke_test_e2e.py`，不要直接开大规模 experiment
-7. 如果换到新服务器，先确认 `docker` 可用，再跑正式 SWE-bench instance
+6. 当前机器已经可以运行 Docker；如果换到新服务器，先确认 `docker` 可用，再跑正式 SWE-bench instance
+7. 如果只想验证上层链路是否通，优先先跑 `python scripts/smoke_test_e2e.py`，不要直接开大规模 experiment
 8. 如果分析结果 token 还是空，先检查：
    - `logs/gateway/gateway_token_log.jsonl` 是否存在
    - 日志里是否带 `instance_id`
    - `experiments/<experiment>/gateway_instance_summary.json` 是否生成
 9. 如果要继续做论文实验，下一步最值得推进的是：
-   - 把更多 tool hint（search / edit / read_file）真正传到 gateway
-   - 做 `exp4_routing` 的真实多模型路由实验
-   - 把 gateway instance summary 自动 merge 回每个 `summary.json`
+   - 基于 `token_phase_analysis.json` 先做 token 消耗结构分析
+   - 优先推进 `search + read` 侧的 token 节省方法（RAG / observation compression）
+   - 再做 `exp4_routing` 的真实多模型路由实验
 
 ---
 
@@ -420,6 +435,103 @@ logs/gateway/
     └── gateway_instance_summary.json   # 按 instance 聚合后的汇总
 ```
 
+### `experiments/` 目录说明
+
+当前 `experiments/` 里既有历史 smoke run，也有真实 issue run 和中途暂停的 sweep。目录名本身就是实验语义的一部分，后续继续加实验时应尽量沿用这种命名风格。
+
+常见目录含义如下：
+
+- `local_docker_smoke/`
+  - 最早的本地 Docker 冒烟验证
+  - 目标是确认 `mini-swe-agent -> docker -> patch -> token统计` 链路是否可用
+  - patch 不是正式 benchmark patch
+
+- `local_docker_smoke_v2/`
+  - 第二版本地 Docker 冒烟
+  - 在 `runner` 支持从 gateway 日志回填 token 之后重跑
+  - 用于验证 `result.json` 里能写入真实 token 字段
+
+- `resolve_pandas_63136_try1/`
+- `resolve_pandas_63136_fullrun_1/`
+- `resolve_pandas_63136_steps60_try2/`
+  - 针对本地 `pandas__pandas-63136` 镜像的真实 issue 运行
+  - 用于验证“不是 smoke task，而是真实问题描述”时的 agent 行为
+  - `fullrun` / `steps60` 反映了不同 step budget 或不同尝试轮次
+
+- `verified_astropy_14365_try1/`
+- `verified_astropy_14365_glm47/`
+- `verified_astropy_14365_minimax27/`
+- `tmp_glm_verified_14365*`
+- `tmp_minimax_verified_14365*`
+  - 单实例的官方 `SWE-bench Verified` 探针实验
+  - 作用是验证：
+    - 官方镜像能否拉起
+    - 指定模型是否真的生效
+    - `mini-swe-agent` 是否能消费对应模型的输出格式
+
+- `verified_parallel10_steps60/`
+  - 一次并发 10 个 verified instance、`step=60` 的中间实验目录
+  - 该目录主要用于观察“更高 step + 并发”时的收敛情况
+  - 目录里可能只有 `trajectory.json` 而没有完整 `result.json`
+
+- `verified_model_sweep_150/`
+  - 当前最重要的实验目录
+  - 这是 `DPSK / GLM / MINIMAX` 三个模型分批 sweep 的输出根目录
+  - 子目录：
+    - `verified_dpsk_50/`
+    - `verified_glm_50/`
+    - `verified_minimax_50/`
+  - 每个子目录下再按 `instance_id/` 存放单实例结果
+  - 注意：这是一次中途暂停的真实 sweep，所以有些实例是完整结果，有些是部分轨迹，有些是 APIError 提前结束
+
+- `sample_20_instance_comparison.json`
+  - 论文/汇报用的 mock summary 数据
+  - 不是线上真实实验结果
+
+### `verified_model_sweep_150/` 内部文件说明
+
+这个目录现在同时承担了“中间实验结果仓库”和“阶段分析产物仓库”的角色。
+
+- `verified_*_50/<instance_id>/trajectory.json`
+  - mini-swe-agent 原始轨迹
+  - 是做 step-level / phase-level token 分析的主数据源
+
+- `verified_*_50/<instance_id>/result.json`
+  - 单实例最终结果
+  - 包含 `success`、`runtime`、`input_tokens`、`output_tokens`、`total_tokens`
+
+- `verified_*_50/<instance_id>/patch.diff`
+  - 仅在成功提交 patch 时存在
+
+- `verified_*_50_gateway.log`
+  - 当次批量运行时本地 gateway 的 stdout/stderr 日志
+  - 用于排查模型路由、APIError、健康检查等问题
+
+- `token_phase_analysis.json`
+  - 详细阶段分析结果
+  - 包含每个实验、每个实例的 phase breakdown
+
+- `token_phase_summary.json`
+  - 从详细分析中抽出的机器可读摘要
+  - 适合后续脚本消费
+
+- `token_phase_summary.csv`
+  - 表格化汇总
+  - 适合直接导入 Excel / pandas / 画图脚本
+
+- `token_phase_findings.md`
+  - 当前阶段分析的文字结论
+  - 适合快速了解“token 到底花在哪”
+
+### 后续维护建议
+
+- 新增实验目录时，优先用“任务语义 + 轮次/设置”命名，例如：
+  - `verified_minimax_steps40_try1`
+  - `rag_verified_minimax_20`
+  - `compression_ablation_v1`
+- 如果是中途暂停或 probe 实验，目录名里显式写出 `tmp`、`probe`、`tryN`，避免后续误当最终 benchmark
+- 如果目录里主要是分析产物，应把结论文档和机器可读摘要都放在同一层，保持和 `verified_model_sweep_150/` 一样的组织方式
+
 ---
 
 ## 分阶段规划
@@ -427,9 +539,9 @@ logs/gateway/
 | Phase | 内容 | 时长 | 状态 |
 |-------|------|------|------|
 | Phase 0 | 框架搭建 + 环境配置 + 基础模块 | 1 周 | ✅ 完成 |
-| Phase 1 | 接入真实 API + baseline token 记录 | 1 周 | 🔲 进行中 |
-| Phase 2 | Token 消耗结构分析（breakdown） | 1 周 | 🔲 待开始 |
-| Phase 3 | Context Compression 实验 | 1–2 周 | 🔲 待开始 |
+| Phase 1 | 接入真实 API + baseline token 记录 | 1 周 | ✅ 完成 |
+| Phase 2 | Token 消耗结构分析（breakdown） | 1 周 | ✅ 第一版完成 |
+| Phase 3 | Context Compression / Retrieval 实验 | 1–2 周 | 🔲 待开始 |
 | Phase 4 | Trajectory Pruning 实验 | 1–2 周 | 🔲 待开始 |
 | Phase 5 | 综合实验 + Pareto 曲线 | 1 周 | 🔲 待开始 |
 

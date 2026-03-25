@@ -1,0 +1,39 @@
+INFO:     Started server process [3985218]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:18093 (Press CTRL+C to quit)
+INFO:     127.0.0.1:60770 - "GET /health HTTP/1.1" 200 OK
+2026-03-25 06:28:48.771 | INFO     | __main__:_log_usage:122 - [token] {"ts": 1774420128.7717214, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365", "strategy": "verified_probe", "model": "deepseek-v3.2", "tool": "default", "input_tokens": 1512, "output_tokens": 83, "total_tokens": 1595, "latency": 4.029}
+INFO:     127.0.0.1:47808 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:28:52.479 | INFO     | __main__:_log_usage:122 - [token] {"ts": 1774420132.4799306, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365", "strategy": "verified_probe", "model": "deepseek-v3.2", "tool": "default", "input_tokens": 2414, "output_tokens": 84, "total_tokens": 2498, "latency": 3.616}
+INFO:     127.0.0.1:47808 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:28:56.739 | INFO     | __main__:_log_usage:122 - [token] {"ts": 1774420136.7396553, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365", "strategy": "verified_probe", "model": "deepseek-v3.2", "tool": "default", "input_tokens": 2550, "output_tokens": 70, "total_tokens": 2620, "latency": 4.188}
+INFO:     127.0.0.1:47808 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:29:02.354 | INFO     | __main__:_log_usage:122 - [token] {"ts": 1774420142.3544195, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365", "strategy": "verified_probe", "model": "deepseek-v3.2", "tool": "default", "input_tokens": 5520, "output_tokens": 104, "total_tokens": 5624, "latency": 5.54}
+INFO:     127.0.0.1:47808 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:29:06.727 | INFO     | __main__:_log_usage:122 - [token] {"ts": 1774420146.727791, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365", "strategy": "verified_probe", "model": "deepseek-v3.2", "tool": "default", "input_tokens": 5739, "output_tokens": 98, "total_tokens": 5837, "latency": 4.305}
+INFO:     127.0.0.1:47808 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:29:14.183 | INFO     | __main__:_log_usage:122 - [token] {"ts": 1774420154.183116, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365", "strategy": "verified_probe", "model": "deepseek-v3.2", "tool": "default", "input_tokens": 6102, "output_tokens": 127, "total_tokens": 6229, "latency": 7.387}
+INFO:     127.0.0.1:47808 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:29:19.395 | INFO     | __main__:_log_usage:122 - [token] {"ts": 1774420159.3949735, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365", "strategy": "verified_probe", "model": "deepseek-v3.2", "tool": "default", "input_tokens": 6433, "output_tokens": 82, "total_tokens": 6515, "latency": 5.145}
+INFO:     127.0.0.1:47808 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:29:24.616 | INFO     | __main__:_log_usage:122 - [token] {"ts": 1774420164.6166553, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365", "strategy": "verified_probe", "model": "deepseek-v3.2", "tool": "default", "input_tokens": 6547, "output_tokens": 69, "total_tokens": 6616, "latency": 5.153}
+INFO:     127.0.0.1:47808 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:29:36.090 | INFO     | __main__:_log_usage:122 - [token] {"ts": 1774420176.0902603, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365", "strategy": "verified_probe", "model": "deepseek-v3.2", "tool": "default", "input_tokens": 8054, "output_tokens": 252, "total_tokens": 8306, "latency": 11.402}
+INFO:     127.0.0.1:47808 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:29:40.221 | INFO     | __main__:_log_usage:122 - [token] {"ts": 1774420180.2213633, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365", "strategy": "verified_probe", "model": "deepseek-v3.2", "tool": "default", "input_tokens": 8666, "output_tokens": 72, "total_tokens": 8738, "latency": 3.97}
+INFO:     127.0.0.1:47808 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:29:44.646 | INFO     | __main__:_log_usage:122 - [token] {"ts": 1774420184.6466434, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365", "strategy": "verified_probe", "model": "deepseek-v3.2", "tool": "default", "input_tokens": 8827, "output_tokens": 77, "total_tokens": 8904, "latency": 4.344}
+INFO:     127.0.0.1:47808 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:29:51.305 | INFO     | __main__:_log_usage:122 - [token] {"ts": 1774420191.3052132, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365", "strategy": "verified_probe", "model": "deepseek-v3.2", "tool": "default", "input_tokens": 9182, "output_tokens": 55, "total_tokens": 9237, "latency": 3.566}
+INFO:     127.0.0.1:47808 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:29:55.618 | INFO     | __main__:_log_usage:122 - [token] {"ts": 1774420195.6181934, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365", "strategy": "verified_probe", "model": "deepseek-v3.2", "tool": "default", "input_tokens": 9422, "output_tokens": 60, "total_tokens": 9482, "latency": 4.077}
+INFO:     127.0.0.1:47808 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:30:44.647 | INFO     | __main__:_log_usage:122 - [token] {"ts": 1774420244.64734, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365", "strategy": "verified_probe", "model": "deepseek-v3.2", "tool": "default", "input_tokens": 10184, "output_tokens": 55, "total_tokens": 10239, "latency": 7.0}
+INFO:     127.0.0.1:55122 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:30:49.157 | INFO     | __main__:_log_usage:122 - [token] {"ts": 1774420249.1579576, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365", "strategy": "verified_probe", "model": "deepseek-v3.2", "tool": "default", "input_tokens": 10646, "output_tokens": 73, "total_tokens": 10719, "latency": 4.21}
+INFO:     127.0.0.1:55122 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [3985218]

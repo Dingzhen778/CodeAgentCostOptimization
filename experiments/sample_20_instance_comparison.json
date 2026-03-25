@@ -1,0 +1,34 @@
+{
+  "methods": [
+    {
+      "method": "baseline_no_compression",
+      "label": "No Compression",
+      "instances_run": 20,
+      "resolved_instances": 8,
+      "resolve_rate": 0.4,
+      "avg_input_tokens": 118436.7,
+      "avg_output_tokens": 9738.9,
+      "avg_total_tokens": 128175.6,
+      "median_total_tokens": 121904,
+      "p90_total_tokens": 176882,
+      "total_input_tokens": 2368734,
+      "total_output_tokens": 194778,
+      "total_tokens": 2563512
+    },
+    {
+      "method": "llmlingua_compression",
+      "label": "LLMLingua Compression",
+      "instances_run": 20,
+      "resolved_instances": 7,
+      "resolve_rate": 0.35,
+      "avg_input_tokens": 78194.2,
+      "avg_output_tokens": 9287.4,
+      "avg_total_tokens": 87481.6,
+      "median_total_tokens": 84631,
+      "p90_total_tokens": 121447,
+      "total_input_tokens": 1563884,
+      "total_output_tokens": 185748,
+      "total_tokens": 1749632
+    }
+  ]
+}

@@ -120,6 +120,7 @@ class AgentRunner:
         )
         trajectory = Trajectory(instance_id=instance_id, log_dir=log_dir)
 
+        wall_t0 = time.time()
         t0 = time.monotonic()
         try:
             patch, success = self._run_agent(instance, token_logger, trajectory, log_dir)
@@ -130,6 +131,8 @@ class AgentRunner:
         runtime = time.monotonic() - t0
         summary = token_logger.save_summary(success=success)
         token_summary = token_logger.summary()
+        if not token_summary:
+            token_summary = self._load_gateway_summary(instance_id=instance_id, started_at=wall_t0)
         token_summary["success"] = success
 
         result = InstanceResult(
@@ -228,6 +231,62 @@ class AgentRunner:
         patch = self._extract_submission_patch(traj_file)
         success = result.returncode == 0 and bool(patch)
         return patch, success
+
+    def _load_gateway_summary(self, instance_id: str, started_at: float) -> dict:
+        """从全局 gateway 日志回填当前 instance 的 token 汇总。"""
+        log_file = Path(__file__).resolve().parents[2] / "logs" / "gateway" / "gateway_token_log.jsonl"
+        if not log_file.exists():
+            return {}
+
+        total_input = 0
+        total_output = 0
+        total_latency = 0.0
+        total_calls = 0
+        tool_breakdown: dict[str, dict[str, int]] = {}
+
+        with log_file.open() as f:
+            for line in f:
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                if record.get("ts", 0) < started_at:
+                    continue
+                if record.get("instance_id") != instance_id:
+                    continue
+                if record.get("experiment") != self.experiment:
+                    continue
+                if record.get("strategy") != self.strategy:
+                    continue
+
+                total_calls += 1
+                total_input += record.get("input_tokens", 0)
+                total_output += record.get("output_tokens", 0)
+                total_latency += record.get("latency", 0.0)
+
+                tool = record.get("tool", "default")
+                if tool not in tool_breakdown:
+                    tool_breakdown[tool] = {"calls": 0, "tokens": 0}
+                tool_breakdown[tool]["calls"] += 1
+                tool_breakdown[tool]["tokens"] += record.get("total_tokens", 0)
+
+        if total_calls == 0:
+            return {}
+
+        total_tokens = total_input + total_output
+        return {
+            "instance_id": instance_id,
+            "experiment": self.experiment,
+            "strategy": self.strategy,
+            "total_calls": total_calls,
+            "input_tokens": total_input,
+            "output_tokens": total_output,
+            "total_tokens": total_tokens,
+            "avg_tokens_per_step": total_tokens / total_calls,
+            "total_latency": total_latency,
+            "tool_breakdown": tool_breakdown,
+        }
 
     @staticmethod
     def _get_swebench_image_name(instance: dict) -> str:

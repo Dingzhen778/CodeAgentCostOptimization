@@ -1,0 +1,48 @@
+INFO:     Started server process [3989567]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:18095 (Press CTRL+C to quit)
+INFO:     127.0.0.1:46004 - "GET /health HTTP/1.1" 200 OK
+2026-03-25 06:31:31.374 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420291.3744953, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365_v2", "strategy": "verified_probe", "model": "glm-4.7", "tool": "default", "input_tokens": 1328, "output_tokens": 163, "total_tokens": 1491, "latency": 27.254}
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 429 Too Many Requests
+2026-03-25 06:32:06.492 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420326.4928727, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365_v2", "strategy": "verified_probe", "model": "glm-4.7", "tool": "default", "input_tokens": 1478, "output_tokens": 48, "total_tokens": 1526, "latency": 33.896}
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 429 Too Many Requests
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 429 Too Many Requests
+2026-03-25 06:32:11.799 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420331.7991974, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365_v2", "strategy": "verified_probe", "model": "glm-4.7", "tool": "default", "input_tokens": 4318, "output_tokens": 68, "total_tokens": 4386, "latency": 2.521}
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 429 Too Many Requests
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 429 Too Many Requests
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 429 Too Many Requests
+2026-03-25 06:32:34.058 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420354.058725, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365_v2", "strategy": "verified_probe", "model": "glm-4.7", "tool": "default", "input_tokens": 4544, "output_tokens": 110, "total_tokens": 4654, "latency": 14.595}
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 429 Too Many Requests
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 429 Too Many Requests
+2026-03-25 06:32:40.220 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420360.220236, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365_v2", "strategy": "verified_probe", "model": "glm-4.7", "tool": "default", "input_tokens": 5253, "output_tokens": 120, "total_tokens": 5373, "latency": 3.326}
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 429 Too Many Requests
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 429 Too Many Requests
+2026-03-25 06:32:46.788 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420366.7886133, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365_v2", "strategy": "verified_probe", "model": "glm-4.7", "tool": "default", "input_tokens": 5525, "output_tokens": 128, "total_tokens": 5653, "latency": 3.643}
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 429 Too Many Requests
+2026-03-25 06:32:53.415 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420373.415948, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365_v2", "strategy": "verified_probe", "model": "glm-4.7", "tool": "default", "input_tokens": 5704, "output_tokens": 129, "total_tokens": 5833, "latency": 5.392}
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 429 Too Many Requests
+2026-03-25 06:33:13.069 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420393.06898, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365_v2", "strategy": "verified_probe", "model": "glm-4.7", "tool": "default", "input_tokens": 5947, "output_tokens": 499, "total_tokens": 6446, "latency": 18.436}
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:33:15.426 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420395.4259956, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365_v2", "strategy": "verified_probe", "model": "glm-4.7", "tool": "default", "input_tokens": 6622, "output_tokens": 47, "total_tokens": 6669, "latency": 2.198}
+INFO:     127.0.0.1:39414 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38998 - "POST /v1/chat/completions HTTP/1.1" 429 Too Many Requests
+2026-03-25 06:34:10.543 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420450.5434015, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365_v2", "strategy": "verified_probe", "model": "glm-4.7", "tool": "default", "input_tokens": 6717, "output_tokens": 37, "total_tokens": 6754, "latency": 2.332}
+INFO:     127.0.0.1:38998 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38998 - "POST /v1/chat/completions HTTP/1.1" 429 Too Many Requests
+2026-03-25 06:34:42.134 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420482.134516, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365_v2", "strategy": "verified_probe", "model": "glm-4.7", "tool": "default", "input_tokens": 7086, "output_tokens": 200, "total_tokens": 7286, "latency": 30.111}
+INFO:     127.0.0.1:38998 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38998 - "POST /v1/chat/completions HTTP/1.1" 429 Too Many Requests
+2026-03-25 06:34:56.639 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420496.6393936, "instance_id": "astropy__astropy-14365", "experiment": "tmp_glm_verified_14365_v2", "strategy": "verified_probe", "model": "glm-4.7", "tool": "default", "input_tokens": 7654, "output_tokens": 479, "total_tokens": 8133, "latency": 13.037}
+INFO:     127.0.0.1:38998 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [3989567]

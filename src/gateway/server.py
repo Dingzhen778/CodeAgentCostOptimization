@@ -34,6 +34,15 @@ _config: dict = {}
 _token_log_file: Path | None = None
 
 
+def _resolve_target_model(body: dict[str, Any], tool_hint: str) -> str:
+    requested_model = body.get("model")
+    default_model = _config.get("default_model", "deepseek-chat")
+    routing: dict = _config.get("routing", {})
+    if requested_model:
+        return requested_model
+    return routing.get(tool_hint, routing.get("default", default_model))
+
+
 # -----------------------------------------------------------------------
 # 路由：OpenAI-compatible /v1/chat/completions
 # -----------------------------------------------------------------------
@@ -41,7 +50,6 @@ _token_log_file: Path | None = None
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request) -> JSONResponse:
     body = await request.json()
-    model: str = body.get("model", _config.get("default_model", "deepseek-chat"))
 
     # 解析 tool 类型（从请求 headers 或 body 中的自定义字段）
     tool_hint: str = request.headers.get("X-Tool-Hint", "default")
@@ -50,8 +58,7 @@ async def chat_completions(request: Request) -> JSONResponse:
     strategy: str = request.headers.get("X-Strategy-Name", "")
 
     # 路由到目标模型
-    routing: dict = _config.get("routing", {})
-    target_model = routing.get(tool_hint, routing.get("default", model))
+    target_model = _resolve_target_model(body, tool_hint)
 
     # 构造转发请求
     upstream_url = _config.get("upstream_url", "https://api.deepseek.com/v1")

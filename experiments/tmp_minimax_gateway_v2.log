@@ -1,0 +1,33 @@
+INFO:     Started server process [3989568]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:18096 (Press CTRL+C to quit)
+INFO:     127.0.0.1:48688 - "GET /health HTTP/1.1" 200 OK
+2026-03-25 06:31:11.820 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420271.8205986, "instance_id": "astropy__astropy-14365", "experiment": "tmp_minimax_verified_14365_v2", "strategy": "verified_probe", "model": "MiniMax-M2.7", "tool": "default", "input_tokens": 1328, "output_tokens": 235, "total_tokens": 1563, "latency": 7.679}
+INFO:     127.0.0.1:54832 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:31:14.635 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420274.6357152, "instance_id": "astropy__astropy-14365", "experiment": "tmp_minimax_verified_14365_v2", "strategy": "verified_probe", "model": "MiniMax-M2.7", "tool": "default", "input_tokens": 1645, "output_tokens": 74, "total_tokens": 1719, "latency": 2.695}
+INFO:     127.0.0.1:54832 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:31:21.791 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420281.7916744, "instance_id": "astropy__astropy-14365", "experiment": "tmp_minimax_verified_14365_v2", "strategy": "verified_probe", "model": "MiniMax-M2.7", "tool": "default", "input_tokens": 4556, "output_tokens": 214, "total_tokens": 4770, "latency": 7.084}
+INFO:     127.0.0.1:54832 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:31:35.427 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420295.4272974, "instance_id": "astropy__astropy-14365", "experiment": "tmp_minimax_verified_14365_v2", "strategy": "verified_probe", "model": "MiniMax-M2.7", "tool": "default", "input_tokens": 5625, "output_tokens": 497, "total_tokens": 6122, "latency": 13.567}
+INFO:     127.0.0.1:54832 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:31:38.788 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420298.7888687, "instance_id": "astropy__astropy-14365", "experiment": "tmp_minimax_verified_14365_v2", "strategy": "verified_probe", "model": "MiniMax-M2.7", "tool": "default", "input_tokens": 6458, "output_tokens": 75, "total_tokens": 6533, "latency": 3.201}
+INFO:     127.0.0.1:54832 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:32:22.748 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420342.748464, "instance_id": "astropy__astropy-14365", "experiment": "tmp_minimax_verified_14365_v2", "strategy": "verified_probe", "model": "MiniMax-M2.7", "tool": "default", "input_tokens": 6608, "output_tokens": 52, "total_tokens": 6660, "latency": 2.095}
+INFO:     127.0.0.1:40172 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:32:32.313 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420352.3133032, "instance_id": "astropy__astropy-14365", "experiment": "tmp_minimax_verified_14365_v2", "strategy": "verified_probe", "model": "MiniMax-M2.7", "tool": "default", "input_tokens": 7030, "output_tokens": 343, "total_tokens": 7373, "latency": 9.258}
+INFO:     127.0.0.1:40172 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:32:57.154 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420377.1542032, "instance_id": "astropy__astropy-14365", "experiment": "tmp_minimax_verified_14365_v2", "strategy": "verified_probe", "model": "MiniMax-M2.7", "tool": "default", "input_tokens": 7810, "output_tokens": 1086, "total_tokens": 8896, "latency": 24.588}
+INFO:     127.0.0.1:40172 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:33:07.308 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420387.3084066, "instance_id": "astropy__astropy-14365", "experiment": "tmp_minimax_verified_14365_v2", "strategy": "verified_probe", "model": "MiniMax-M2.7", "tool": "default", "input_tokens": 9102, "output_tokens": 341, "total_tokens": 9443, "latency": 10.057}
+INFO:     127.0.0.1:40172 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:33:11.181 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420391.1815786, "instance_id": "astropy__astropy-14365", "experiment": "tmp_minimax_verified_14365_v2", "strategy": "verified_probe", "model": "MiniMax-M2.7", "tool": "default", "input_tokens": 9752, "output_tokens": 75, "total_tokens": 9827, "latency": 3.805}
+INFO:     127.0.0.1:40172 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:33:15.567 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420395.5675976, "instance_id": "astropy__astropy-14365", "experiment": "tmp_minimax_verified_14365_v2", "strategy": "verified_probe", "model": "MiniMax-M2.7", "tool": "default", "input_tokens": 9870, "output_tokens": 149, "total_tokens": 10019, "latency": 4.318}
+INFO:     127.0.0.1:40172 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-03-25 06:33:18.471 | INFO     | __main__:_log_usage:129 - [token] {"ts": 1774420398.471203, "instance_id": "astropy__astropy-14365", "experiment": "tmp_minimax_verified_14365_v2", "strategy": "verified_probe", "model": "MiniMax-M2.7", "tool": "default", "input_tokens": 10048, "output_tokens": 61, "total_tokens": 10109, "latency": 2.835}
+INFO:     127.0.0.1:40172 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [3989568]
