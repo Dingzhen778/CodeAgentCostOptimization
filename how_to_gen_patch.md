@@ -177,6 +177,35 @@ experiments/{experiment}/{instance_id}/
   - [experiments/verified_model_sweep_150/verified_minimax_50/django__django-13551/patch.diff](/home/azureuser/jrh/CodeAgentCostOptimization/experiments/verified_model_sweep_150/verified_minimax_50/django__django-13551/patch.diff)
   - [experiments/verified_model_sweep_150/verified_minimax_50/django__django-13568/patch.diff](/home/azureuser/jrh/CodeAgentCostOptimization/experiments/verified_model_sweep_150/verified_minimax_50/django__django-13568/patch.diff)
 
+## 5.1 已成功 resolve 的 verified instance_id
+
+如果你要直接复现“已经做出来”的 case，当前可用的 verified `instance_id` 如下：
+
+- `astropy__astropy-13977`
+- `astropy__astropy-14309`
+- `django__django-11603`
+- `django__django-13128`
+- `django__django-13158`
+- `django__django-13195`
+- `django__django-13212`
+- `django__django-13297`
+- `django__django-13315`
+- `django__django-13343`
+- `django__django-13346`
+- `django__django-13363`
+- `django__django-13401`
+- `django__django-13410`
+- `django__django-13417`
+- `django__django-13512`
+- `django__django-13516`
+- `django__django-13551`
+- `django__django-13568`
+
+对应的机器可读列表在这里：
+
+- [experiments/verified_model_sweep_150/resolved_instances.json](/home/azureuser/jrh/CodeAgentCostOptimization/experiments/verified_model_sweep_150/resolved_instances.json)
+- [experiments/verified_model_sweep_150/resolved_instances.csv](/home/azureuser/jrh/CodeAgentCostOptimization/experiments/verified_model_sweep_150/resolved_instances.csv)
+
 ## 6. 如何快速检查某个 patch 是否存在
 
 例如查看所有已生成 patch：
