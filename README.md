@@ -99,13 +99,18 @@ CodeAgentCostOptimization/
 
 ---
 
-## 当前进度（2026-03-25）
+## 当前进度（2026-03-30）
 
 当前仓库已经从“框架草图”推进到“mini-swe-agent + official SWE-bench Docker + gateway token统计 + 阶段化token分析”都能真实跑通的状态。
 
 已经完成：
 - New API（`https://newapi.deepwisdom.ai/v1`）真实可用，已验证 `deepseek-v3.2`、`glm-4.7`、`kimi-k2.5`
 - New API 额外可用模型已验证 `MiniMax-M2.5`、`MiniMax-M2.7`
+- 当前 Scitix provider（`.env` 中 `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN`）已验证可用模型：
+  - `zai-org/GLM-5`
+  - `moonshotai/Kimi-K2.5`
+  - `MiniMaxAI/MiniMax-M2.5`
+  - `Qwen/Qwen3.5-397B-A17B`
 - `scripts/test_newapi_models.py` 可直接列模型并发最小请求
 - `scripts/smoke_test_e2e.py` 可自动完成 `gateway -> direct chat -> mini-swe-agent` 冒烟
 - `src/gateway/server.py` 会把 `instance_id / experiment / strategy` 写入 `logs/gateway/gateway_token_log.jsonl`
@@ -124,11 +129,20 @@ CodeAgentCostOptimization/
 - `NEW_API_EDIT_MODEL=glm-4.7`
 - `NEW_API_WRITE_MODEL=glm-4.7`
 
+当前这轮 provider 试跑的经验结论：
+- 如果目标是“先把题跑通 + token 不要太高”，优先考虑 `zai-org/GLM-5`
+- `moonshotai/Kimi-K2.5` 可用，但要注意 `temperature=1`
+- `MiniMaxAI/MiniMax-M2.5`、`Qwen/Qwen3.5-397B-A17B` 可用，但输出风格偏 reasoning-heavy
+- `deepseek-ai/DeepSeek-V3.2` 虽然能在 `/models` 中列出，但当前 provider 实际调用返回 404，暂时不要作为正式实验默认模型
+
 已知边界：
 - `glm-4.7` / `kimi-k2.5` 有时会把主要内容放进 `reasoning_content`
 - `kimi-k2.5` 需要 `temperature=1`
 - `MiniMax-M2.5` / `MiniMax-M2.7` 也会偏向把输出放进 `reasoning_content`
 - `verified_model_sweep_150` 是一次真实中途暂停的 sweep，不是最终 benchmark；目录里既有成功落盘的结果，也有被暂停或 APIError 提前终止的实例目录
+- `Qwen/Qwen3.5-397B-A17B` 可用，但这轮小题测试中 token 消耗高于 `GLM-5`
+- 当前 Scitix provider 上 `deepseek-ai/DeepSeek-V3.2` 在 `chat.completions` 和 `completions` 两条路径都返回 404
+- Docker 可用性取决于当前服务器；正式 SWE-bench benchmark 之前必须先确认 `docker --version` 和单题实例拉起是否正常
 - `tests/test_compression.py::test_function_trimmer` 已修复；如果压缩测试再失败，应优先检查 `FunctionLevelTrimmer` 相关性匹配逻辑
 
 ---
@@ -307,6 +321,8 @@ python scripts/test_newapi_models.py --filter deepseek glm kimi --list
 python scripts/test_newapi_models.py --models deepseek-v3.2 glm-4.7 kimi-k2.5
 ```
 
+如果你当前主要使用的是 Scitix provider（即 `.env` 中 `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN` 这组变量），建议先单独做一轮最小模型验证，再决定正式实验默认模型。
+
 ### 3. 跑完整冒烟
 
 ```bash
@@ -394,6 +410,104 @@ python scripts/analyze_results.py --exp-dir experiments --output figures
    - 基于 `token_phase_analysis.json` 先做 token 消耗结构分析
    - 优先推进 `search + read` 侧的 token 节省方法（RAG / observation compression）
    - 再做 `exp4_routing` 的真实多模型路由实验
+
+---
+
+## 下一步实验方案
+
+以下方案按“先验证基础设施，再拿有效数据”的顺序组织，适合下一台能起 Docker 的服务器继续执行。
+
+### Phase 1: 环境与单题验证
+
+目标：
+- 确认 Docker 可用
+- 确认单个 SWE-bench instance 能正常拉起镜像
+- 确认 gateway token 日志包含 `instance_id`
+
+建议步骤：
+1. 检查 `docker --version`
+2. 跑一个单题实例（优先 SWE-bench Lite，`workers=1`）
+3. 检查：
+   - `logs/gateway/gateway_token_log.jsonl`
+   - `experiments/<experiment>/<instance_id>/trajectory.json`
+   - `experiments/<experiment>/gateway_instance_summary.json`
+
+成功标准：
+- agent 能提交 `submission/patch`
+- gateway log 中出现该 `instance_id`
+- analyzer 能读取该实验 token
+
+### Phase 2: 模型筛选实验
+
+目标：
+- 在同一小批样本上比较不同模型的 token / latency / 可用性
+- 选出正式实验的 base model
+
+建议候选模型：
+- `zai-org/GLM-5`
+- `moonshotai/Kimi-K2.5`
+- `MiniMaxAI/MiniMax-M2.5`
+- `Qwen/Qwen3.5-397B-A17B`
+
+暂不建议作为默认模型：
+- `deepseek-ai/DeepSeek-V3.2`
+原因：当前 provider 实际调用 404
+
+建议设置：
+- 单次只跑 `lite` 子集前 `5~10` 题
+- `workers=1`
+- 固定 prompt / config
+
+输出指标：
+- `pass_rate`
+- `avg_total_tokens`
+- `avg_runtime`
+- `tool_breakdown`
+
+### Phase 3: 方法实验
+
+目标：
+- 比较 baseline / compression / pruning / hybrid
+
+建议顺序：
+1. `baseline_vanilla`
+2. `exp1_compression`
+3. `exp2_pruning`
+4. `exp3_hybrid`
+
+建议规模：
+- 第一轮：每个实验 `10~20` 题
+- 第二轮：筛掉明显差的配置，再扩大到 `50+` 题
+
+### Phase 4: 路由实验
+
+目标：
+- 验证不同动作用不同模型是否能降低成本
+
+建议起步配置：
+- `read/search/bash` -> `zai-org/GLM-5`
+- `edit/write_file` -> `Qwen/Qwen3.5-397B-A17B` 或 `MiniMaxAI/MiniMax-M2.5`
+
+观察重点：
+- edit 类动作的 patch 成功率是否提高
+- token 是否明显下降
+- reasoning-heavy 模型是否导致 tool call 风格不稳定
+
+### Phase 5: 论文数据沉淀
+
+最终需要固定保存：
+- 每个实验的 `experiment_summary.json`
+- 每个实验的 `gateway_instance_summary.json`
+- `figures/` 下的 Pareto / comparison / breakdown 图
+
+最终表格建议至少包含：
+- model
+- experiment
+- instances
+- pass_rate
+- avg_total_tokens
+- token_saving_pct
+- efficiency
 
 ---
 
