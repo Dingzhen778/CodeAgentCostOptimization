@@ -22,6 +22,7 @@ import yaml
 from dotenv import load_dotenv
 from loguru import logger
 
+from src.agent.task_context import TaskContextBuilder
 from src.gateway.token_logger import TokenLogger
 from src.agent.trajectory import Trajectory
 from src.config_utils import resolve_env_placeholders
@@ -91,6 +92,7 @@ class AgentRunner:
         self.strategy = config.get("strategy", "vanilla")
         self.output_dir = Path(config.get("output_dir", "experiments/default"))
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.task_context_builder = TaskContextBuilder.from_runner_config(config)
 
         # Gateway 配置
         self.gateway_config = config.get("gateway", {})
@@ -181,7 +183,6 @@ class AgentRunner:
         else:
             api_base = ""
 
-        task = instance.get("problem_statement") or f"Investigate instance {instance['instance_id']}."
         traj_file = log_dir / "trajectory.json"
         swebench_config = (
             Path(__file__).resolve().parents[2]
@@ -198,9 +199,15 @@ class AgentRunner:
             "X-Strategy-Name": self.strategy,
         }
         image_name = self._get_swebench_image_name(instance)
+        base_task = instance.get("problem_statement") or f"Investigate instance {instance['instance_id']}."
+        task = self.task_context_builder.build_task(
+            instance=instance,
+            image_name=image_name,
+            base_task=base_task,
+        )
         model_name = gw.get("default_model", "deepseek-v3.2")
-        if "/" not in model_name:
-            model_name = f"openai/{model_name}"
+        if api_base:
+            model_name = self._normalize_openai_model_name(model_name)
         cmd = [
             sys.executable,
             "-m",
@@ -231,6 +238,24 @@ class AgentRunner:
         patch = self._extract_submission_patch(traj_file)
         success = result.returncode == 0 and bool(patch)
         return patch, success
+
+    @staticmethod
+    def _normalize_openai_model_name(model_name: str) -> str:
+        known_prefixes = (
+            "openai/",
+            "anthropic/",
+            "bedrock/",
+            "vertex_ai/",
+            "gemini/",
+            "azure/",
+            "huggingface/",
+            "ollama/",
+            "deepseek/",
+            "openrouter/",
+        )
+        if model_name.startswith(known_prefixes):
+            return model_name
+        return f"openai/{model_name}"
 
     def _load_gateway_summary(self, instance_id: str, started_at: float) -> dict:
         """从全局 gateway 日志回填当前 instance 的 token 汇总。"""

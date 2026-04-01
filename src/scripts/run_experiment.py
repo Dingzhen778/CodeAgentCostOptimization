@@ -31,7 +31,7 @@ from loguru import logger
 from tqdm import tqdm
 
 # 项目根目录加入 sys.path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from src.agent.runner import AgentRunner
 
@@ -47,6 +47,14 @@ def load_swebench_instances(split: str = "lite", n: int = None) -> list[dict]:
     except ImportError:
         logger.warning("swebench not installed, using mock instances")
         return _mock_instances(n or 5)
+
+
+def load_instances_from_file(path: str | Path) -> list[dict]:
+    with open(path) as f:
+        data = json.load(f)
+    if not isinstance(data, list):
+        raise ValueError("Instance file must contain a JSON list of SWE-bench instances.")
+    return data
 
 
 def _mock_instances(n: int) -> list[dict]:
@@ -95,6 +103,8 @@ def main():
     parser.add_argument("--instances", type=int, default=None, help="运行前 N 个 instance（调试用）")
     parser.add_argument("--workers", type=int, default=1, help="并发 worker 数")
     parser.add_argument("--mock", action="store_true", help="使用 mock agent（不需要真实 API）")
+    parser.add_argument("--instance-file", help="显式指定一个 JSON instance 列表文件")
+    parser.add_argument("--instance-ids", nargs="*", help="只运行这些 instance_id")
     args = parser.parse_args()
 
     # 加载配置
@@ -106,10 +116,16 @@ def main():
         logger.info("Running in MOCK mode")
 
     # 加载 instances
-    if args.mock:
+    if args.instance_file:
+        instances = load_instances_from_file(args.instance_file)
+    elif args.mock:
         instances = _mock_instances(args.instances or 5)
     else:
         instances = load_swebench_instances(split=args.split, n=args.instances)
+
+    if args.instance_ids:
+        keep = set(args.instance_ids)
+        instances = [inst for inst in instances if inst["instance_id"] in keep]
 
     logger.info(f"Experiment: {runner.experiment} | Instances: {len(instances)} | Workers: {args.workers}")
 

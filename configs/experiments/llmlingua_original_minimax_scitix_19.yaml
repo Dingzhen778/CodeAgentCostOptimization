@@ -1,0 +1,23 @@
+experiment: llmlingua_original_minimax_scitix_19
+strategy: llmlingua_original
+description: "LLMLingua original-style cross-file ranking on resolved verified subset using Scitix MiniMax"
+
+agent:
+  type: mini-swe-agent
+  max_steps: 40
+
+gateway:
+  base_url: "http://127.0.0.1:18110/v1"
+  api_key: "dummy"
+  default_model: "MiniMaxAI/MiniMax-M2.5"
+
+method:
+  name: llmlingua_original
+  top_k_files: 4
+  max_candidate_files: 12
+  snippet_lines: 180
+  enable_function_trim: true
+  llmlingua_model_name: "deepseek-ai/deepseek-coder-1.3b-base"
+  llmlingua_device_map: "cpu"
+
+output_dir: "experiments/llmlingua_original_minimax_scitix_19"
