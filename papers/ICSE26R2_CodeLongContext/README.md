@@ -1,0 +1,12 @@
+TODO:
+- 提交前删掉页码
+- 不同表里分数不一致。这个问题有点大啊。要解释为什么实验设置不统一。可以只用2048的实验吗
+- abstract和intro的contribution list里描述实验结果的时候，用哪个分数。留overall的分数。
+- GitHubEval的构建和描述。开源？
+- 用词，data construction, training data construction. 描述test data construction.
+- 用词，natural candidates, weighted PPL.
+- 用词，baseline -> None.
+- 用词 training -> inference
+- 用词统一，generator, backbone LLMs
+- 检查titles, captions统一
+- 全文检查提升ratio的数字

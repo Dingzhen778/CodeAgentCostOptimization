@@ -1,0 +1,9 @@
+upstream_url: ${SCITIX_API_BASE_URL:-https://api.scitix.ai/model-api}
+upstream_key: ${SCITIX_API_KEY}
+default_model: ${SCITIX_MODEL:-MiniMaxAI/MiniMax-M2.5}
+routing:
+  default: ${SCITIX_MODEL:-MiniMaxAI/MiniMax-M2.5}
+log_dir: logs/gateway_scitix_minimax_100
+host: 127.0.0.1
+port: 18110
+timeout: 180

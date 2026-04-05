@@ -1,0 +1,819 @@
+
+\chapter{Web3智能合约漏洞分析与检测方案}\label{chapter4}
+本章针对Web3智能合约中常见的八类通用漏洞进行分析，包括访问控制漏洞、不安全随机数漏洞、整数溢出、重入攻击、区块信息依赖漏洞、拒绝服务攻击、未检查的外部调用以及短地址攻击。通过对具体漏洞案例的深入探讨，对这八类漏洞产生的原理进行深入探讨，并提出相应的检测方法。
+
+
+\section{访问控制漏洞分析}
+在Web3智能合约中，访问控制机制用于确保Web3应用的后端即智能合约中的关键操作仅能由授权用户执行，例如修改状态变量、调用敏感函数或转移资金等。然而，如果开发者在设计合约时未能正确实施访问权限管理，可能会导致未授权用户调用本应受限的函数或修改合约状态变量，从而引发访问控制漏洞。 
+访问控制漏洞通常由权限管理不当引起，例如函数缺少onlyOwner等权限修饰符，或者对于关键操作缺少相应的权限验证，或合约使用了错误的权限验证逻辑（如依赖tx.origin进行权限检查，使得攻击者可以通过合约间调用绕过权限限制），进而可能导致资金损失、权限滥用甚至合约被恶意控制。
+
+为避免此类风险，开发者通常采用基于msg.sender的安全权限校验方式，例如明确使用修饰符（如onlyOwner）或显式校验调用者地址，确保敏感函数或状态变量只能被预期的用户或合约调用。此外，开发者还应避免使用不安全的身份标识（如tx.origin），因为其仅代表交易最初发起者而非直接调用合约的地址，易被攻击者操控并绕过访问控制约束。因此，访问控制机制必须严格、明确地定义权限边界和调用者身份验证逻辑，避免权限绕过、资产滥用或合约遭到恶意控制。
+
+在接下来的小节中将介绍3种访问控制漏洞的实例及相应的检测方案，这3种漏洞分别是状态变量访问控制缺失漏洞、 delegatecall访问控制缺失漏洞和tx.origin导致的不安全身份验证漏洞。
+
+
+
+\subsection{状态变量访问控制缺失漏洞实例}
+状态变量的访问控制缺失可能导致任意用户修改合约的敏感状态，从而带来安全风险。该漏洞的实例如图~\ref{lst:solidity-AC1}所示，该合约的set函数（第4–9行）中存在访问控制漏洞，该函数允许任意用户向map数组（第2行）写入数据，而未实施任何权限限制。具体而言，set函数接收key和value两个参数（第4行），当map数组长度小于或等于key时（第5行），会扩展数组长度至key+1（第6行），随后将value赋值到map[key]（第8行）。
+问题出在set函数缺乏权限控制（第4行），未对函数调用者进行任何验证，导致任何用户均可调用该函数修改map数组，破坏合约状态的完整性。例如攻击者可写入恶意数据干扰合约逻辑，若map数组被用于资金结算或权限存储，则可通过构造输入绕过关键约束，造成严重后果。
+
+
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-AC1} ~~~状态变量访问控制缺失漏洞代码}
+\begin{lstlisting}[language=Solidity, style=Solidity, caption={状态变量访问控制缺失漏洞代码}, label={lst:solidity-AC1}]
+contract Map {
+    uint256[] map;
+
+    function set(uint256 key, uint256 value) public {
+        if (map.length <= key) {
+            map.length = key + 1;
+        }
+        map[key] = value;
+    }
+}
+\end{lstlisting}
+
+
+\subsection{状态变量访问控制缺失漏洞检测方案}
+根据上一节的分析，状态变量访问控制缺失漏洞的主要特征为：在执行关键状态变量（如map[key]）存储操作（SSTORE）前，未严格验证调用者身份（如msg.sender），导致任意用户可修改敏感合约状态。具体而言，符号执行路径中缺失必要的权限校验序列（EQ → ISZERO → JUMPI），导致攻击者可绕过访问控制。该漏洞的符号执行路径为：
+\[
+\text{CALLER} \to \text{(缺失 EQ $\to$ ISZERO $\to$ JUMPI 权限校验序列)} \to \text{SSTORE(敏感操作)}
+\]
+由该路径可知，未严格验证调用者身份（如msg.sender）进行修改状态变量的SSTORE操作，但未经过EQ访问权限验证时，可能导致关键状态变量被修改。为检测智能合约中 SSTORE指令可能导致的访问控制漏洞，我们设计了如下检测方案。
+
+
+状态变量访问控制缺失漏洞的检测方案如算法~\ref{alg:state-var-access}所示。该算法以合约的字节码与抽象语法树（AST）~\cite{ast_wikipedia}为输入，首先通过符号执行模拟智能合约的执行。在模拟合约执行过程中，检查当前执行指令是否为SSTORE操作（第2行），若匹配则利用抽象语法树分析当前指令所属的Solidity函数，并提取其函数信息（第3行）。接着，调用大语言模型（本文调用DeepSeek v3），使用如图~\ref{lst:prompt-sensitive}所示的提示词，判断该函数是否涉及敏感状态写操作（第4行）。若模型返回结果为True，则说明该函数属于敏感函数，需进一步进行控制流分析（第5行）。控制流分析将回溯当前指令的控制路径，获取其前驱基本块序列（第6行），并检查其中是否包含权限校验的典型操作码序列，即 CALLER $\rightarrow$ EQ $\rightarrow$ ISZERO（第7行）。若路径中存在该校验序列，说明对调用者身份进行了有效权限保护，算法返回False，表示不存在访问控制漏洞（第8行）；反之，若未检测到相应校验逻辑，则判定存在访问控制缺失漏洞，返回True（第10行）。若指令序列中无任何风险指令触发检测，最终返回False（第11行）。
+
+\addtocounter{figure}{1}
+\begin{figure}[htbp]
+\centering
+\begin{tcolorbox}[
+  enhanced,
+  breakable,
+  frame hidden,  %① 不要默认框
+  borderline north={0.5pt}{0pt}{black}, %② 上边线
+  borderline west={0.5pt}{0pt}{black},  %③ 左边线
+  borderline east={0.5pt}{0pt}{black},  %④ 右边线
+  borderline south={0pt}{0pt}{black},   %⑤ 下边线设为 0pt，相当于不画
+  colback=gray!10,
+  colbacktitle=black,
+  coltitle=white,
+  boxrule=0.5pt,
+  arc=0pt,
+  left=5pt,
+  right=5pt,
+  top=5pt,
+  bottom=5pt,
+  title={分析函数是否涉及敏感操作的提示词示例}, 
+  fonttitle=\bfseries
+]
+
+\#\#\#候选函数：
+
+\{Source code\}
+
+\#\#\#请判断候选函数是否涉及敏感操作，TRUE 表示涉及，FALSE 表示不涉及，敏感操作包括：
+
+1. 涉及转账操作
+
+2. 存储变量修改（例如对owner、balance等关键状态变量的修改）  
+
+3. 权限管理（如改变owner）
+
+\#\#\#判断结果以JSON的形式返回，示例：
+
+\{"hasSensitiveOperation": true\}
+\end{tcolorbox}
+\caption{分析函数是否涉及敏感操作的提示词示例}
+\label{lst:prompt-sensitive}
+\end{figure}
+
+
+
+
+\begin{algorithm}[H]
+  \caption{状态变量访问控制缺失漏洞检测算法}
+  \label{alg:state-var-access}
+  \KwIn{runtime\_opcode, AST}
+  \KwOut{True if access control vulnerability for state variables exists, otherwise False}
+
+  execute $runtime\_opcode$ using symbolic execution\;
+
+   \If{$op(pc, \texttt{"SSTORE"})$}{
+      $function\_info \leftarrow AST\_analysis(pc, AST)$\;
+      $api\_response \leftarrow call\_external\_API(function\_info)$\;
+
+      \If{$api\_response["hasSensitiveOperation"] = True$}{
+          $control\_flow\_path \leftarrow get\_predecessor\_blocks(pc)$\;
+
+          \eIf{$contains\_sequence(control\_flow\_path, [\texttt{"CALLER"}, \texttt{"EQ"}, \texttt{"ISZERO"}])$}{
+              \Return False\;
+          }{
+              \Return True\;
+          }
+      }
+  }
+  \Return False\;
+\end{algorithm}
+
+
+
+\subsection{delegatecall访问控制缺失漏洞实例}
+该漏洞的实例如图~\ref{lst:solidity-AC2}所示，该合约的withdraw函数（第5–9行）与fallback函数（第11–13行）中均存在访问控制缺失问题。合约通过delegatecall调用外部合约fibonacciLibrary（第7、12行），其中withdraw函数中使用delegatecall调用外部函数并将返回结果赋值给状态变量calculatedFibNumber（第3行），随后基于该变量向调用者转账（第9行）；而fallback函数则允许任意外部用户发送任意交易数据，并通过delegatecall执行相应逻辑（第12行）。
+问题出在上述两个函数中均未对调用者身份（msg.sender）进行权限验证（第5行与第12行），导致任意用户都可触发delegatecall执行敏感逻辑，从而非法修改合约状态。例如，攻击者可将fibonacciLibrary（第2行）替换为受控的恶意合约，在其setFibonacci(uint256)方法中将calculatedFibNumber赋值为超大数值，进而在调用withdraw()（第5行）时实现超额提取，耗尽合约资金。此外，攻击者还可构造恶意的调用数据直接触发fallback函数中的delegatecall（第12行），进一步操控合约状态，破坏业务逻辑，造成资产损失。
+
+\addtocounter{lstlisting}{1}% 计数器 +1
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-AC2} ~~~delegatecall访问控制缺失漏洞代码}
+\begin{lstlisting}[language=Solidity, style=Solidity, caption={delegatecall访问控制缺失漏洞代码}, label={lst:solidity-AC2}]
+contract VulnerableFibonacciBalance {
+    address public fibonacciLibrary;
+    uint public calculatedFibNumber;
+    
+    function withdraw() public {
+        ...
+        (bool success, ) = fibonacciLibrary.delegatecall(...);
+        require(success);
+        msg.sender.transfer(calculatedFibNumber * 1 ether);
+    }
+
+    function() external payable {
+        (bool success, ) = fibonacciLibrary.delegatecall(msg.data);
+        require(success);
+    }}
+\end{lstlisting}
+
+
+\subsection{delegatecall访问控制缺失漏洞检测方案}
+DELEGATECALL用于调用外部合约，但调用前缺乏 msg.sender校验，可能影响合约的存储变量或发起执行非法转账，从而破坏存储状态或盗取资金。该漏洞的符号执行路径为：
+\[
+\text{CALLER} \to \text{(缺失 EQ $\to$ ISZERO $\to$ JUMPI 权限校验序列)} \to \text{DELEGATECALL}
+\]
+由该路径可知，msg.sender未经过EQ访问权限验证，即可执行DELEGATECALL，将可能因此影响合约存储变量。为检测智能合约中 DELEGATECALL 指令可能导致的访问控制漏洞，我们设计了如下检测方案。
+
+算法~\ref{alg:delegatecall-access}展示了delegatecall访问控制缺失漏洞的检测方案。首先，在符号执行过程中执行合约运行时字节码（第2行）。随后，检查当前指令的指令是否为DELEGATECALL（第3行），若是，则利用抽象语法树（AST）分析该指令所属的Solidity函数，并提取其结构信息和上下文（第4行）。接着，调用外部大语言模型API，并使用如图~\ref{lst:prompt-sensitive}所示的提示词，判断该函数是否涉及敏感操作（第5行）。若调用大模型的返回结果为True，说明该DELEGATECALL出现在敏感函数中（第6行），则系统进一步回溯该指令的控制流，获取其前驱基本块（第7行），并检查路径中是否存在CALLER→EQ→ISZERO→JUMPI的权限校验指令序列（第8行）。若该序列存在，说明对msg.sender的身份检查逻辑完整，访问控制机制成立，算法返回False（第9行）；否则，若权限校验缺失或路径不完整，则系统将访问控制漏洞标志置为True（第10行）。最终，算法返回检测结果（第12行）。
+
+
+\begin{algorithm}[H]
+  \caption{delegatecall访问控制缺失漏洞检测算法}
+  \label{alg:delegatecall-access}
+  \KwIn{runtime\_opcode, AST}
+  \KwOut{True if delegatecall access control vulnerability is detected, otherwise False}
+
+  $AccessControl \leftarrow False$\;
+  execute $runtime\_opcode$ using symbolic execution\;
+
+   \If{$op(pc, \texttt{"DELEGATECALL"})$}{
+      $function\_info \leftarrow AST\_analysis(pc, AST)$\;
+      $api\_response \leftarrow call\_external\_API(function\_info)$\;
+
+      \If{$api\_response["hasSensitiveOperation"] = True$}{
+          $control\_flow\_path \leftarrow get\_predecessor\_blocks(pc)$\;
+
+          \If{$contains\_sequence(control\_flow\_path, [\texttt{"CALLER"}, \texttt{"EQ"}, \texttt{"ISZERO"}, \texttt{"JUMPI"}])$}{
+              \Return $AccessControl$\;
+          }\Else{
+              $AccessControl \leftarrow True$\;
+          }
+      }
+  }
+
+  \Return $AccessControl$\;
+\end{algorithm}
+
+
+\subsection{tx.origin导致的不安全身份验证漏洞实例}
+在Web3智能合约中，开发者应使用msg.sender进行权限验证，而避免使用tx.origin进行身份判断，否则可能引发访问控制漏洞。图~\ref{lst:solidity-AC4}所示为一处典型示例，该合约中，withdrawAll函数（第4–7行）允许合约owner将全部资金提取至指定地址recipient（第6行），并通过require(tx.origin==owner)判断调用权限（第5行）。
+问题出在权限验证机制上（第5行），合约错误地使用tx.origin进行身份校验，而tx.origin表示发起原始交易的账户，非当前调用合约的账户（即msg.sender）。攻击者可构造一个恶意合约诱导owner调用该恶意合约，再由该合约中继调用withdrawAll函数，从而使tx.origin仍为owner，但msg.sender实际为攻击者控制的合约地址，从而绕过权限验证，非法转出合约资金。
+
+
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-AC4} ~~~tx.origin导致的不安全身份验证漏洞实例}
+\begin{lstlisting}[language=Solidity, style=Solidity, caption={tx.origin导致的不安全身份验证漏洞实例}, label={lst:solidity-AC4}]
+contract Phishable {
+    address public owner;
+
+    function withdrawAll(address payable recipient) public {
+        require(tx.origin == owner, "Not authorized");
+        recipient.transfer(address(this).balance);
+    }
+}
+\end{lstlisting}
+
+\subsection{tx.origin导致的不安全身份验证漏洞检测方案}
+由上一节的分析可知，基于tx.origin的不安全身份验证机制存在访问控制失效的安全风险。其主要特征为：合约在权限校验时错误地使用了tx.origin（交易的最初发起账户），而非直接调用合约的账户msg.sender。因此，攻击者可通过构造中间合约改变调用链，使得权限验证无法准确区分真实调用来源，从而绕过访问控制机制，非法篡改合约敏感状态或提取合约资金，导致安全失效。
+
+算法~\ref{alg:tx-origin-access}显示了tx.origin访问控制失效漏洞的检测方案。首先，在符号执行过程中对合约运行时字节码进行模拟执行（第2行）。模拟执行过程中，检查当前指令是否是ORIGIN操作码（第3行），并将该指令的输出作为污点源（第4行）。随后，算法判断是否存在EQ指令，其操作数依赖于前面标记的污点源（第5行）。如果该依赖关系成立，说明tx.origin被用于访问控制逻辑，可能导致安全风险，算法将访问控制漏洞标志设置为True（第6行）。否则，若EQ的操作数不依赖于ORIGIN，说明权限校验未受tx.origin影响，返回的访问控制漏洞标志则为默认值False（第8行）。最后，算法在第9行返回检测结果。
+
+
+
+
+\begin{algorithm}[H]
+  \caption{基于tx.origin的不安全身份验证漏洞检测算法}
+  \label{alg:tx-origin-access}
+  \KwIn{runtime\_opcode: The opcode executed during contract runtime}
+  \KwOut{True if vulnerability is detected, False otherwise}
+
+  $AccessControl \leftarrow False$\;
+  execute $runtime\_opcode$ symbolically\;
+
+   \If{$op(pc1, \texttt{"ORIGIN"})$}{
+    $taint\_source \leftarrow ORIGIN(pc1)$\;
+    \If{$op(pc2, \texttt{"EQ"}) \land depends\_on(taint\_source, operand(pc2))$}{
+        $AccessControl \leftarrow True$\;
+    }\Else{
+        \Return $AccessControl$\;
+    }
+  }
+  \Return $AccessControl$\;
+\end{algorithm}
+
+
+
+
+\section{不安全随机数漏洞分析}
+在Web3智能合约中，有一类合约涉及竞猜或抽奖逻辑，通常需要用户猜测随机数或根据随机数决定奖励的发放，因此随机数生成的安全性与不可预测性对于此类应用的安全至关重要。然而，开发者常利用区块链中的变量（如block.timestamp、block.number、blockhash和difficulty）作为伪随机数的种子，而这些变量并非真正的随机源，其值受到矿工或验证者的控制，存在一定的可预测性与可操纵性。若智能合约直接使用上述变量生成随机数，则可能产生不安全随机数漏洞，攻击者可以预测或操纵随机数结果，从而破坏合约逻辑或造成资金损失。
+
+为了降低此类风险，开发者有时会采用keccak256（SHA3）哈希函数对随机数来源进行混淆，例如使用keccak256(abi.encodePacked(blockhash(block.number - 1), now))计算随机数，以期增加随机结果的不可预测性。然而，只要keccak256的输入依然依赖于上述区块变量（如blockhash、timestamp等），攻击者仍可通过预测或操控这些变量的值来间接控制随机数的输出结果。因此，仅依靠区块变量生成随机数本质上是不安全的。正确的做法是，应尽量避免在链上合约中直接生成随机数，而采用链下生成或依赖外部可验证随机源（Verifiable Random Function, VRF）等方式。当前较为主流的安全随机数生成方案包括使用 Chainlink VRF 等去中心化预言机服务，通过链下生成具有不可预测性和可验证性的随机数，并将结果回传链上，确保合约逻辑在获取随机数时具备抗操控性和可审计性。
+
+
+\subsection{不安全随机数漏洞实例}
+不安全随机数漏洞的实例如图~\ref{lst:solidity-BAD}所示，该合约在构造函数中引入了基于区块变量生成的伪随机数逻辑，存在明显的安全隐患。该合约用于构建一个竞猜机制，允许用户调用guess函数（第8–10行）尝试猜测合约部署时生成的随机数。
+
+具体而言，在合约构造函数中（第4–6行），合约使用keccak256(blockhash(block.number-1),now)作为随机数生成源，计算得到变量answer的值（第5行）。其中blockhash和now（即区块时间戳）均为区块链环境中的全局变量。问题在于该随机数生成方式依赖于链上公开且具有可预测和可操控性的区块信息变量（第5行）。攻击者或矿工可通过部署时控制调用时机或调整区块时间戳，推测甚至操控合约生成的随机值answer。例如，攻击者部署合约后立即调用guess函数（第8行），可利用本地复现环境或计算节点生成相同输入，猜中正确答案，进而非法赢得奖励。
+
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-BAD} ~~~不安全随机数漏洞实例}
+\begin{lstlisting}[language=Solidity, style=Solidity, caption={不安全随机数漏洞实例}, label={lst:solidity-BAD}]
+contract GuessTheRandomNumberChallenge {
+    uint8 answer;
+
+    constructor() public {
+        answer = uint8(keccak256(abi.encodePacked(blockhash(block.number - 1), now)));
+    }
+
+    function guess(uint8 n) public {
+        if (n == answer) {
+        }}}
+\end{lstlisting}
+
+
+\subsection{不安全随机数漏洞检测方案}
+由上一节的分析可知，智能合约在生成随机数时，如果直接或间接依赖于可预测或可操控的区块链环境变量（如BLOCKHASH、TIMESTAMP、NUMBER和DIFFICULTY等），将导致随机数结果具有可预测性，从而产生不安全随机数漏洞。
+
+算法~\ref{alg:bad-randomness-detection}展示了不安全随机数漏洞的检测方案。首先，在符号执行过程中对合约运行时字节码进行模拟执行（第2行）。随后，检测当前指令是否属于区块链全局变量相关的操作码，包括BLOCKHASH、TIMESTAMP、NUMBER或DIFFICULTY（第3行）。若为真，则将该指令的结果标记为污点源，用于后续依赖分析（第4行）。接着，算法判断后续是否存在SHA3指令，其输入是否依赖于污点源（第5行）。若依赖成立，说明该SHA3操作本质上依赖于可预测的区块变量，系统据此将漏洞标志设置为True（第6行）。若未发现SHA3直接依赖，算法进一步判断是否存在与污点源相关的算术或逻辑运算指令，如ADD、MUL、SUB、DIV、XOR、AND或OR等（第7行），如果这些运算的输入是否依赖于污点源（第7至8行）。若依赖关系成立，表明即使经过运算，随机数生成仍受可预测变量影响，因此也将漏洞标志置为True（第9行）。最后，算法返回漏洞标志的布尔值，表示当前合约是否存在不安全的随机数生成逻辑（第10行）。
+
+
+\begin{algorithm}[H]
+  \caption{不安全随机数漏洞检测算法}
+  \label{alg:bad-randomness-detection}
+  \KwIn{Runtime\_opcode: The opcode executed during contract runtime}
+  \KwOut{True if vulnerability is detected, False otherwise}
+
+  $Bad\_randomness \leftarrow False$\;
+  execute $Runtime\_opcode$ symbolically\;
+
+   \If{$op(pc1, \texttt{"BLOCKHASH"}) \lor op(pc1, \texttt{"TIMESTAMP"}) \lor op(pc1, \texttt{"NUMBER"}) \lor op(pc1, \texttt{"DIFFICULTY"})$}{
+    $taint\_source \leftarrow operand(pc1)$\;
+    \If{$op(pc2, \texttt{"SHA3"}) \land depends\_on(taint\_source, operand(pc2))$}{
+      $Bad\_randomness \leftarrow True$\;
+    }
+    \ElseIf{$(op(pc2, \texttt{"ADD"}) \lor op(pc2, \texttt{"MUL"}) \lor op(pc2, \texttt{"SUB"}) \lor op(pc2, \texttt{"DIV"}) \lor$ \\
+             $op(pc2, \texttt{"XOR"}) \lor op(pc2, \texttt{"AND"}) \lor op(pc2, \texttt{"OR"})) \land depends\_on(taint\_source, operand(pc2))$}{
+      $Bad\_randomness \leftarrow True$\;
+    }
+  }
+  \Return $Bad\_randomness$\;
+\end{algorithm}
+
+
+
+\section{整数溢出漏洞分析}
+在Web3智能合约开发中，整数运算的安全性至关重要，尤其在涉及资金管理和关键状态更新的场景下更为突出。然而，Solidity语言（特别是 0.8.0 之前的版本）默认采用无符号整数（uint256）进行计算，且未内置有效的整数溢出（Integer Overflow）或下溢（Integer Underflow）检测机制。当执行加法、减法或乘法等整数运算时，如果计算结果超出了uint256的合法取值范围（$[0, 2^{256}-1]$），便会发生溢出或下溢，进而引发数值回绕问题，攻击者便可构造特定的输入触发整数溢出漏洞，以非法操控合约逻辑、绕过权限检查或窃取合约资金。
+
+为了降低此类风险，开发者通常会引入安全的数学库或显式地进行上下界检查，例如如OpenZeppelin的SafeMath库，从而有效地防止整数溢出或下溢。此外，在Solidity 0.8.0及之后的版本中，已内置默认的溢出检查机制，这进一步减轻了开发者自行实施安全检查的负担。然而，即便使用安全库或新版本Solidity，开发者仍需对边界条件进行谨慎处理，并明确约束输入数据的范围，以全面防范整数运算所带来的潜在安全隐患，确保合约的稳健性与安全性。
+
+
+\subsection{整数溢出漏洞实例}
+整数溢出漏洞的实例如代码图~\ref{lst:solidity-integer}所示，该合约的run函数中存在典型的整数溢出问题（第6行）。该方法接收用户输入的整数input，并将其累加到状态变量count上（第7行）。
+问题出在加法逻辑缺乏边界检查（第7行）。当用户传入一个极大的input值时，与count相加的结果可能超过uint256类型的最大值上限，从而触发整数溢出，导致变量count被错误地重置为一个非常小的值甚至归零。如果合约的业务逻辑依赖count的精确值，例如用于权限判断、访问频次控制或资金计量，则攻击者可借助精心构造的输入数据绕过逻辑约束，达成未授权的行为或造成关键数据破坏。因此，此类未加边界检查的数值操作构成严重的安全隐患。
+
+
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-integer} ~~~整数溢出漏洞实例代码实例}
+\begin{lstlisting}[language=Solidity, style=Solidity, caption={整数溢出漏洞实例代码实例}, label={lst:solidity-integer}]
+pragma solidity ^0.4.19;
+
+contract IntegerOverflowAdd {
+    uint public count = 1;
+
+    function run(uint256 input) public {
+        count += input;
+    }
+}
+\end{lstlisting}
+
+
+\subsection{整数溢出漏洞检测方案}
+由上一节的分析可知，在智能合约中，整数加法运算若超出类型取值范围（如 uint256 为 $[0, 2^{256}-1]$），则会导致结果回绕，形成整数溢出。此外，整数的减法与乘法运算同样可能引发溢出或下溢，从而造成状态异常、权限绕过或资金损失等安全风险，因此我们的检测方案同时覆盖加法、减法和乘法的整数溢出风险。具体检测算法如下。
+
+算法~\ref{alg:integer-overflow-detection}展示了智能合约中整数溢出或下溢漏洞的检测流程。首先，算法对合约源码执行预处理，判断其是否包含整数加法、减法或乘法相关的运算符（第2行）。若源码中不包含加减乘的运算逻辑，则无需进一步分析，直接返回默认检测结果False（第3行）。如果包含加减乘的运算逻辑，算法则进一步对运行时字节码进行符号执行（第4行）。在符号执行过程中，一旦遇到加法、减法或乘法运算指令（第5行），算法会从栈中提取两个操作数first和second（第6行），并判断这两个操作数是否来源于外部输入、非 SHA3 结果、且不为常量（第7行）。若满足该条件，则继续执行算术运算以获取中间值 computed（第8行），并构造符号约束以检测是否存在整数溢出或下溢风险。
+
+对于加法运算（第10–12行），算法构造两个判断条件：first是否大于computed（第11行），以及computed是否小于first或second中的任意一个（第12行），以此判断是否存在整数溢出；
+
+对于减法运算（第13–15行），算法判断second是否大于first（第14行），以及相减后的结果是否仍大于first（第15行），用于识别潜在下溢；
+
+对于乘法运算（第16–18行），算法首先确保first不为零（第17行），并检查computed除以first是否仍等于second（第18行），用于判断乘法运算是否超出类型上限。
+
+此外，为增强检测的保守性，若参与计算的变量为状态变量（第19行），则算法附加判断computed是否超出上界$2^{256} - 1$或小于first（第20行）。
+
+当存在额外路径约束时（第21行），算法会遍历路径条件（第22行），并将与first和second有关的约束语句一并加入求解器中（第23–24行），以提升结果的准确性。最终，若求解器在当前路径约束下返回可满足解（第25行），说明存在整数溢出或下溢的可能，算法将检测标志设置为True（第26行）。算法在最后返回整数溢出标注（第27行）。
+
+
+
+\begin{algorithm}[H]
+  \caption{整数溢出漏洞检测算法}
+  \label{alg:integer-overflow-detection}
+  \KwIn{Runtime\_opcode: The opcode executed during contract runtime}
+  \KwOut{Integer\_overflow: True if vulnerability is detected, False otherwise}
+
+  $OverflowDetected \leftarrow False$\;
+  
+  \If{not pre\_check\_integer\_overflow(sol\_file) and not pre\_check\_integer\_underflow(sol\_file)}{
+    \Return $OverflowDetected$\;
+  }
+  
+  execute $Runtime\_opcode$ symbolically\;
+  
+   \If{$op(pc) \in \{\texttt{"ADD"}, \texttt{"SUB"}, \texttt{"MUL"}\}$}{
+    $first, second \leftarrow get\_operands\_from\_stack(pc)$\;
+    
+    \If{isSymbolic($first$) or isSymbolic($second$) or isStorageVariable($first$) or isStorageVariable($second$)}{
+      $computed \leftarrow do\_arithmetic(op(pc), first, second)$\;
+      $newsolver \leftarrow Solver()$\;
+      
+      \If{$op(pc) == \texttt{"ADD"}$}{
+        $newsolver.add( UGT(first, computed) )$\;
+        $newsolver.add( computed < first or computed < second )$\;
+      }
+      \ElseIf{$op(pc) == \texttt{"SUB"}$}{
+        $newsolver.add( UGT(second, first) )$\;
+        $newsolver.add( (first - second) > first )$\;
+      }
+      \ElseIf{$op(pc) == \texttt{"MUL"}$}{
+        $newsolver.add( first \neq 0 )$\;
+        $newsolver.add( UDiv(computed, first) \neq second )$\;
+      }
+      
+      \If{isStorageVariable($first$) or isStorageVariable($second$)}{
+        $newsolver.add( computed > MAX\_UINT256 or computed < first )$\;
+      }
+      
+      \If{check\_need\_addconstraint()}{
+        \ForEach{constraint in path.path\_condition}{
+          \If{constraints\_involve(constraint, first, second)}{
+            $newsolver.add(constraint)$\;
+          }
+        }
+      }
+      
+      \If{$newsolver.check() == sat$}{
+        $OverflowDetected \leftarrow True$\;
+      }
+    }
+  }
+  \Return $OverflowDetected$\;
+\end{algorithm}
+
+
+\section{重入攻击漏洞分析}
+在Web3智能合约中，有一类合约涉及资金转移或提现逻辑，通常需要调用外部合约或账户完成资产转移。然而，以太坊等区块链平台在处理外部调用（如使用call或send函数）时，目标合约可能执行回调函数（fallback函数）。若原合约未在外部调用前及时更新自身状态变量，则攻击者控制的恶意合约便可在回调过程中重新进入原合约，重复执行敏感操作，从而引发重入攻击。此类攻击可导致资金被非法重复提取，甚至破坏合约业务逻辑的完整性。
+
+为防范重入攻击，开发者通常遵循“检查-生效-交互”模式，即在进行外部调用前优先更新合约自身的状态变量，从而阻断重入路径。然而，即便采用该模式，若状态更新的顺序安排不当或忽略边界条件，攻击者仍可能借助特定的调用序列实施重入攻击。因此，合约开发需严格确保状态更新操作优先于外部调用，并对潜在的边界情况进行显式检查，以保障资金转移的原子性和状态更新的安全性。
+
+
+\subsection{重入漏洞实例}
+重入漏洞的实例如图~\ref{lst:solidity-reentrancy}所示，该合约的withdraw函数存在典型的可重入漏洞（第8-12行）。该合约使用balances映射记录用户余额（第2行），并提供donate函数（第4–6行）用于充值，withdraw函数（第8–15行）用于提款。
+问题出现在withdraw函数内部（第8–15行）。合约首先判断调用者的余额是否充足（第9行），若满足条件，即调用低级函数call将指定金额发送至调用者地址（第10行），但在此之前并未及时更新其在balances中的余额（第12行）。由于call是一种可转入外部合约上下文的低级调用，若调用者为合约账户，其fallback或receive函数可在收到资金后再次触发withdraw函数，实现递归调用，从而在余额尚未扣减的状态下多次提取资金，直到合约中的全部资金被提空。
+
+
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-reentrancy} ~~~重入漏洞实例}
+\begin{lstlisting}[language=Solidity, style=Solidity, caption={重入漏洞实例}, label={lst:solidity-reentrancy}] 
+contract Reentrance {
+    mapping(address => uint) public balances;
+
+    function donate(address _to) public payable {
+        balances[_to] += msg.value;
+    }
+
+    function withdraw(uint _amount) public {
+        if (balances[msg.sender] >= _amount) {
+            if (msg.sender.call.value(_amount)()) {
+                _amount;}
+            balances[msg.sender] -= _amount; }}}} \end{lstlisting}
+
+
+
+
+\subsection{重入攻击漏洞检测方案}
+算法~\ref{alg:reentrancy-detection}展示了智能合约中重入漏洞的检测流程，整体分为四个阶段，分别对应四类典型的重入模式：外部调用后延迟状态更新、状态更新的前驱存在外部调用、特定状态重置模式、以及基于调用结果控制逻辑的延迟更新。
+
+首先，算法引入预检查逻辑（第2行），若合约源码中未包含.call()、.send()或.transfer()等外部调用关键字，则直接返回False，跳过后续检测，以提升整体效率。接下来，算法对合约的运行时字节码进行符号执行（第4行），并逐一遍历合约中的所有基本块（第5行），以捕捉可能存在的重入风险。
+
+在第一阶段，算法检测在包含CALL指令的基本块中，是否存在后续的SSTORE操作（第6–18行）。对于每个包含CALL的基本块，算法记录其指令索引（第7行），并获取该指令的操作数（第8行）。随后，遍历所有可达的后继基本块（第9行），查找其中是否包含SSTORE指令（第10行）。若发现CALL在前、SSTORE在后的顺序关系（第12行），表明合约可能在外部调用完成后才更新状态。此时，将路径条件加入约束求解器（第13–14行），若求解器判定该路径为可达（第15行），则返回True（第16–17行）；否则恢复求解器状态，继续后续路径分析（第18行）。
+
+第二阶段则进行逆向路径检查。若当前基本块中包含SSTORE指令（第19行），算法将查找其前驱基本块中是否存在CALL操作（第20行）。若前驱存在外部调用，则状态更新可能延迟执行，从而形成可重入入口（第21–22行）。
+
+第三阶段用于识别具有特定状态清零模式的路径（第24–30行）。算法遍历每个包含CALL的基本块（第25行），并检查其所有前驱是否包含SSTORE（第26行）。若识别出重置模式（如PUSH10紧跟SSTORE）则返回True（第27行），即说明合约存在通过状态清零绕过限制的风险，立即标记为漏洞（第28–29行）。
+
+第四阶段则针对包含CALL指令与条件判断组合的逻辑路径展开分析（第31–37行）。若CALL所在基本块中含有这些判断逻辑（第32行），算法将检查其所有可达路径是否包含SSTORE（第33–34行）。若存在状态更新，且执行路径依赖外部调用返回值，则可能存在延迟锁定带来的重入风险，算法立即返回True（第35–36行）。最后，若未检测到以上四类重入风险，算法默认返回False（第38行）。
+
+
+\begin{algorithm}[htbp]
+  \caption{重入漏洞检测算法}
+  \label{alg:reentrancy-detection}
+  \KwIn{Runtime\_opcode: The sequence of opcodes executed during contract runtime}
+  \KwOut{has\_reentrancy: True if vulnerability is detected, False otherwise}
+  
+  $has\_reentrancy \leftarrow False$\;
+Precheck: \If{no external call code such as \texttt{.call()}, \texttt{.send()}, or \texttt{.transfer()} are found in \textit{Source\_code}}{
+  \Return $has\_reentrancy$\;
+}
+
+  symbolic\_execution($Runtime\_opcode$)\;
+
+\ForEach{block in contract}{
+    \uIf{has\_opcode(block, \texttt{"CALL"})}{
+      $call\_index \leftarrow get\_opcode\_index(block, \texttt{"CALL"})$\;
+      $tainted\_var \leftarrow get\_operand(call\_index)$\;
+      
+      \ForEach{successor in get\_reachable\_blocks(block)}{
+        \If{has\_opcode(successor, \texttt{"SSTORE"})}{
+          $store\_index \leftarrow get\_opcode\_index(successor, \texttt{"SSTORE"})$\;
+
+          \If{$call\_index < store\_index$}{
+            solver.push()\;
+            solver.add(path\_condition)\;
+            \If{solver.check() == SAT}{
+              $has\_reentrancy \leftarrow True$\;
+              \Return $has\_reentrancy$\;
+            }
+            solver.pop()\;
+          }
+        }
+      }
+    }
+
+    \ElseIf{has\_opcode(block, \texttt{"SSTORE"})}{
+      \ForEach{predecessor in get\_predecessor\_blocks(block)}{
+        \If{has\_opcode(predecessor, \texttt{"CALL"})}{
+          $has\_reentrancy \leftarrow True$\;
+          \Return $has\_reentrancy$\;
+        }
+      }
+    }
+  }
+
+
+  \ForEach{call\_block in contract}{
+    \If{has\_opcode(call\_block, \texttt{"CALL"})}{
+      \ForEach{prev\_block in get\_predecessor\_blocks(call\_block)}{
+        \If{has\_opcode(prev\_block, \texttt{"SSTORE"})}{
+          \If{detect\_reset\_pattern(prev\_block)}{
+            $has\_reentrancy \leftarrow True$\;
+            \Return $has\_reentrancy$\;
+          }
+        }
+      }
+    }
+  }
+
+  \ForEach{call\_block in contract}{
+    \If{has\_opcode(call\_block, \texttt{"CALL"})}{
+      \If{has\_opcode(call\_block, \texttt{"RETURNDATASIZE"}) \textbf{or} has\_opcode(call\_block, \texttt{"ISZERO"})}{
+        \ForEach{successor in get\_reachable\_blocks(call\_block)}{
+          \If{has\_opcode(successor, \texttt{"SSTORE"})}{
+            $has\_reentrancy \leftarrow True$\;
+            \Return $has\_reentrancy$\;
+          }
+        }
+      }
+    }
+  }
+
+  \Return $has\_reentrancy$\;
+\end{algorithm}
+
+
+
+\section{区块信息依赖漏洞分析}
+在Web3智能合约中，部分业务逻辑（如权限控制、流程分支、资金分配等）可能依赖链上环境变量，如区块高度（block.number）、区块时间戳（block.timestamp）、区块哈希（blockhash）或难度值（difficulty）。然而，这些区块信息由矿工或验证节点生成，具有一定的可预测性与操控空间，若被直接用于控制合约的关键路径或决策分支，可能引发区块信息依赖漏洞。此类漏洞通常表现为：合约依据区块变量的值决定某一条件是否成立（如判断开奖时间、确定赢家或执行某函数），而攻击者可通过预测或操控这些变量，从而影响合约的执行逻辑，获取本不应获得的利益，甚至造成资产损失。
+
+为缓解上述风险，开发者应避免在核心业务流程中单独依赖区块变量，尤其应避免将其作为唯一的条件判断依据。若确有需要使用，应结合多种不可控信息源，或引入链下预言机机制，以提高逻辑的稳健性与抗攻击能力。
+
+
+\subsection{区块信息依赖漏洞实例}
+该漏洞的实例如图~\ref{lst:solidity-BID}所示，该合约的enter函数（第5–8行）与claim函数（第10–14行）中存在区块信息依赖漏洞。合约在enter函数中记录当前区块高度（block.number，第6行）作为参与时间；随后在claim函数中，通过比较当前区块高度是否大于startBlock + 5（第11行）来判断是否允许调用者提取合约余额。
+
+问题出现在对区块信息block.number的依赖上，由于区块高度为链上全局状态，具备一定的可预测性，攻击者可以通过控制交易顺序或观察链上打包状态，精准构造满足claim条件的调用，从而规避原本期望的时间或轮次等待约束，提前领取合约资金。若此类逻辑用于权限决策或资金释放，将导致逻辑绕过或不公平结果，构成区块信息依赖漏洞。
+
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-BID} ~~~区块信息依赖漏洞实例}
+\begin{lstlisting}[language=Solidity, style=solidity, caption={区块信息依赖漏洞实例}, label={lst:solidity-BID}] 
+contract Lottery {
+    uint public startBlock;
+    address public winner;
+
+    function enter() public {
+        startBlock = block.number;
+        winner = msg.sender;
+    }
+
+    function claim() public {
+        require(block.number > startBlock + 5);
+        require(msg.sender == winner);
+        msg.sender.transfer(address(this).balance);
+    }
+
+    function() public payable {}
+}
+\end{lstlisting}
+
+
+
+\subsection{区块信息依赖漏洞检测方案}
+算法~\ref{alg:bid-detection}显示了区块信息依赖漏洞的检测方案。由上一节的分析可知，当智能合约在关键路径或核心决策过程中直接依赖区块变量时，会导致合约行为可被预测或操控，从而导致区块信息依赖漏洞。
+
+首先，在符号执行过程中执行合约的运行时字节码，以模拟合约运行阶段的执行情况（第2行）。符号执行过程中，若指令为区块信息相关操作码（第2行），则将其返回值标记为污点源（第3行）。当符号执行遇到比较指令（如LT、GT、SLT或SGT，第4行），若其操作数依赖于污点源（第5行），则说明分支逻辑直接受区块信息影响，算法将漏洞标志置为True并返回（第6–7行）。最后，算法进一步检查所有路径约束条件（第8行），若存在任一条件依赖区块信息（如区块高度或时间戳），同样将漏洞标志置为True并返回（第9–10行）。若以上情况均未满足，则返回False表示未发现区块信息依赖漏洞（第11行）。
+
+
+\begin{algorithm}[htbp]
+  \caption{区块信息依赖漏洞检测算法}
+  \label{alg:bid-detection}
+  \KwIn{Runtime\_opcode: The opcode executed during contract runtime}
+  \KwOut{BID: True if a BID vulnerability is detected, False otherwise}
+
+  $BID \leftarrow False$\;
+  
+ \If{$op(pc) \in \{\texttt{"BLOCKHASH"}, \texttt{"TIMESTAMP"}, \texttt{"NUMBER"}, \texttt{"DIFFICULTY"}\}$}{
+    $taint\_source \leftarrow operand(pc)$\;
+  }
+
+  \If{$op(pc2) \in \{\texttt{"LT"}, \texttt{"GT"}, \texttt{"SLT"}, \texttt{"SGT"}\}$}{
+    \If{depends\_on($taint\_source$, operand(pc2))}{
+      $BID \leftarrow True$\;
+      \Return $BID$\;
+    }
+  }
+
+  \If{exists constraint in all\_path\_conditions such that block\_info\_depends\_on(constraint)}{
+    $BID \leftarrow True$\;
+    \Return $BID$\;
+  }
+
+  \Return $BID$\;
+\end{algorithm}
+
+
+
+\section{拒绝服务攻击漏洞漏洞分析}
+在Web3智能合约中，拒绝服务攻击通过消耗或耗尽智能合约资源，阻碍合约对正常请求的响应。区块链平台通常对智能合约执行设定严格的资源限制，例如以太坊中的Gas机制。攻击者可利用特意构造的交易或合约调用，触发计算密集型操作或无限循环，使合约迅速耗尽Gas，从而阻塞后续交易的正常执行，降低合约的可用性。在合约开发中，如未充分考虑操作的资源消耗或忽略输入数据的有效性检查，可能导致拒绝服务攻击漏洞。例如，合约中若包含未经约束的循环、递归或高资源消耗的运算（如复杂加密计算、大型数组遍历或频繁存储访问），攻击者即可构造特定输入，触发上述资源密集型操作，快速耗尽合约Gas配额，致使正常用户无法访问合约服务。
+
+为降低该风险，开发者应谨慎评估合约逻辑的资源开销，避免使用缺乏边界检查的循环、递归或复杂计算操作。通过合理限制输入数据范围和循环迭代次数，或引入访问控制与资源消耗监控机制，可以有效防范攻击者操纵合约资源。此外，还可对关键操作实施前置检查，主动拒绝潜在的高消耗请求，确保智能合约的安全性与稳定性。
+
+
+
+\subsection{拒绝服务攻击漏洞漏洞实例}
+拒绝服务攻击漏洞的实例如图~\ref{lst:solidity-dos-array}所示，该合约中存在拒绝服务攻击漏洞。如代码所示，该合约包含一个ifillArray方法（第2–12行），用于向状态变量listAddresses数组中添加调用者地址（第5–7行）。具体而言，ifillArray函数每次调用时都会向数组中追加350个调用者地址，直至数组长度超过1500（第3行）。
+
+问题出现在数组填充的循环逻辑上（第5–7行），由于该循环在单次调用中执行固定次数（350次），伴随数组长度增加，后续调用此函数所需的Gas费用逐渐提升。当数组接近长度限制时，Gas开销可能超过以太坊区块Gas限制，导致任何调用该函数的交易无法成功执行，永久阻止数组重置（第9–11行）。因此，攻击者可以持续调用此函数增加数组长度，使合约达到无法响应状态，形成拒绝服务攻击，导致合约功能瘫痪。
+
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-dos-array} ~~~拒绝服务攻击漏洞实例}
+\begin{lstlisting}[language=Solidity, style=solidity, caption={拒绝服务攻击漏洞实例}, label={lst:solidity-dos-array}] 
+contract DosOneFunc { address[] listAddresses;
+function ifillArray() public returns (bool){
+    if(listAddresses.length < 1500) {
+
+        for(uint i=0; i<350; i++) {
+            listAddresses.push(msg.sender);
+        }
+        return true;
+    } else {
+        listAddresses = new address          
+        return false;
+    }}} 
+\end{lstlisting}
+
+
+
+\subsection{拒绝服务攻击漏洞漏洞检测方案}
+由上一节的分析可知，智能合约在循环结构中若存在大量高成本操作（如向状态变量数组频繁写入），极易导致交易因超出区块Gas限制而失败，从而形成拒绝服务攻击。因此，我们设计了一种拒绝服务攻击漏洞的检测方案，旨在精准识别循环路径中包含高成本操作的风险模式，并及时发现潜在的拒绝服务隐患。
+
+算法~\ref{alg:dos-detection}展示了拒绝服务攻击漏洞的检测流程。首先，算法对合约的运行时字节码进行符号执行，以模拟其在链上执行过程中的行为（第2行）。随后，算法调用循环检测函数，对控制流图中的路径进行分析，识别潜在的循环结构（第3行）。对于每一条检测到的循环路径，算法提取其对应的操作码序列，并依次进行指令分析（第4行）。在检测过程中，若循环路径中包含高成本的外部调用指令，如CALL，表明其在重复执行中可能导致异常或资源耗尽，算法立即将拒绝服务漏洞标志置为True并返回（第5–7行）。此外，若检测到路径中出现SSTORE指令，说明循环中可能存在对状态变量的大量写操作，极易导致Gas耗尽，从而引发拒绝服务（第8–10行）。最终，算法返回DOS标志，以判断合约是否存在该类漏洞（第12行）。
+
+
+\begin{algorithm}[htbp]
+  \caption{拒绝服务攻击漏洞检测算法}
+  \label{alg:dos-detection}
+  \KwIn{Runtime\_opcode: The sequence of opcodes executed during contract runtime}
+  \KwOut{DOS: True if vulnerability is detected, False otherwise}
+  
+  $DOS \leftarrow False$\;
+
+  symbolic\_execution($Runtime\_opcode$)\;
+
+  $loop\_paths \leftarrow find\_cycles(Runtime\_opcode)$\;
+
+  \ForEach{$path$ in $loop\_paths$}{
+    $opcodes \leftarrow get\_opcodes(path)$\;
+
+    \If{contains($opcodes$, \texttt{"CALL"})}{
+      $DOS \leftarrow True$\;
+      \Return $DOS$\;
+    }
+
+    \If{contains($opcodes$, \texttt{"SSTORE"})}{
+      $DOS \leftarrow True$\;
+      \Return $DOS$\;
+    }
+  }
+
+  \Return $DOS$\;
+\end{algorithm}
+
+
+
+
+
+\section{未检查的外部调用漏洞分析}
+在Web3智能合约中，有一类合约涉及资产转移或调用外部合约，这类应用通常需要调用外部账户或其他智能合约完成特定业务逻辑或资金流转，因此外部调用的成功性验证对程序安全至关重要。然而，开发者在实现外部调用（如使用call、send或transfer等函数进行转账或执行外部逻辑）时，若未严格检查调用执行的返回状态，可能导致未检查的外部调用漏洞。攻击者可利用外部调用的失败或异常返回，从而干扰合约执行逻辑，造成状态不一致、资金锁定甚至拒绝服务攻击。具体而言，智能合约在调用外部账户或合约时，可能由于gas不足、异常状态或目标合约执行回退等原因导致调用失败。如果合约未及时检查调用返回值，并继续执行后续逻辑，则可能出现意外的状态变化或资金流失风险。例如，攻击者可故意设计调用失败的合约，诱导目标合约执行未预期的分支或引发状态异常。
+
+为了避免此类风险，开发者应在外部调用完成后明确验证其返回状态，例如对call或send的返回值进行require或assert检查，并确保合约状态仅在调用成功的前提下更新，从而有效防止因未检查的外部调用引起的安全隐患。
+
+
+
+\subsection{未检查的外部调用漏洞实例}
+该漏洞的实例如图~\ref{lst:solidity-UEC}所示，在该合约中withdrawBalance函数中存在未检查的外部调用漏洞。具体而言，该合约在withdrawBalance函数（第3-7行）执行过程中，首先读取调用者msg.sender的账户余额并存储到临时变量amountToWithdraw中（第4行），随后立即将调用者账户余额归零（第5行），并调用msg.sender.send(amountToWithdraw)方法将余额发送给调用者（第6行）。
+
+问题出现在第6行的外部调用send函数中，即该send方法返回bool类型的值，用于标识转账是否成功，但此处合约开发者并未对send方法的返回值进行检查或异常处理（即未检查的外部调用漏洞）。攻击者可以部署一个恶意合约，并通过该合约调用withdrawBalance函数，在其fallback函数中强制执行revert，导致send始终失败。
+
+
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-UEC} ~未检查的外部调用漏洞实例}
+\begin{lstlisting}[language=Solidity, style=solidity, caption={未检查的外部调用漏洞实例}, label={lst:solidity-UEC}] 
+contract SendBack {
+    mapping (address => uint) userBalances;
+    function withdrawBalance() {  
+		uint amountToWithdraw = userBalances[msg.sender];
+		userBalances[msg.sender] = 0;
+		msg.sender.send(amountToWithdraw);
+	}} 
+\end{lstlisting}
+
+
+\subsection{未检查的外部调用漏洞检测方案}
+由上一节的分析可知，在智能合约中，如果外部调用（如CALL、DELEGATECALL或STATICCALL）执行后其返回值未被检查，合约将无法得知调用是否失败，从而导致安全隐患。攻击者可能利用恶意合约或异常情况，使外部调用失败却不触发合约端的任何错误处理，进而带来潜在资产损失和安全风险。因此，我们设计了一种未检查外部调用漏洞的检测方案，覆盖CALL、DELEGATECALL与STATICCALL指令的潜在风险。
+
+算法~\ref{alg:uec-detection}展示了智能合约未检查外部调用漏洞的具体检测流程。首先，算法对合约的源代码进行预检查，若未包含典型的外部调用模式（如 .call()、.send() 或 .call{}），则直接返回，跳过检测流程（第2–3行）。通过预检查可显著降低不必要的误报与分析开销。随后，算法对运行时字节码进行符号执行，以模拟合约在实际执行过程中的行为（第4行）。在符号执行过程中，算法识别所有外部调用指令，包括 CALL、DELEGATECALL 和 STATICCALL（第5行），并为每个调用创建一个符号化的返回值，同时构造一条记录，并将其检查状态初始化为“未检查”（第6行）。
+
+值得注意的是，若某条 CALL 指令由 Solidity 中的 transfer 语句生成，其字节码形式通常会在该指令后立即跟随一个 POP 操作，用于显式丢弃返回值；同时 transfer 在调用失败时会自动触发异常，具备内建的错误处理机制。因此，当算法检测到某条 CALL 的后继指令为 POP 时，可将其对应返回值标记为“已检查”（第7–8行）。若执行路径中出现 POP 指令，且栈顶为尚未检查的调用返回值，说明调用结果被忽略且未校验，此时将漏洞标志设为 True（第9–10行）。此外，当遇到结果判断相关逻辑指令（如 EQ 或 ISZERO，第11行），若其操作数依赖于某个调用返回值，则更新其检查状态为“已检查”（第12–13行）。在符号执行结束后，算法遍历所有仍处于“未检查”状态的调用（第14行），并借助符号求解器判断是否存在路径使得调用返回值为非零且影响执行流程（第15–19行）。若存在满足该条件的路径，则说明该调用存在被忽视的安全风险，算法将漏洞标志 UEC 设置为 True 并中断分析（第20–21行）。最终返回检测结果（第24行），以指示是否存在未检查外部调用漏洞。
+
+
+
+
+\begin{algorithm}[H]
+  \caption{未检查外部调用漏洞检测算法}
+  \label{alg:uec-detection}
+  \KwIn{Runtime\_opcode: The sequence of opcodes executed during contract runtime}
+  \KwOut{UEC: True if vulnerability is detected, False otherwise}
+  
+  $UEC \leftarrow False$\;
+
+    \tcp{Precheck: only proceed if external call code exists}
+    \If{no external call code such as \texttt{.call()}, \texttt{.send()}, or \texttt{.call\{\}} are found in \textit{Source\_code}}{
+      \Return $UEC$\;
+    }
+    
+
+  execute\_symbolically($Runtime\_opcode$)\;
+
+  \uIf{$op(PC) \in \{\texttt{CALL}, \texttt{DELEGATECALL}, \texttt{STATICCALL}\}$}{
+    $call\_result \leftarrow \text{new BitVec}("call\_result")$\;
+    $context \leftarrow \{call\_result: call\_result,\; checked: false\}$\;
+
+    \uIf{$op(PC) = \texttt{CALL} \land op(PC+1) = \texttt{POP}$}{
+    {
+        $context.checked \leftarrow true$\;
+      }
+    }
+
+    $unchecked\_calls.append(context)$\;
+  }
+
+  \ElseIf{$op(PC) = \texttt{POP} \land top\_of\_stack\_is(call\_result)$}{
+    $UEC \leftarrow True$\;
+  }
+
+  \ElseIf{$op(PC) \in \{\texttt{EQ}, \texttt{ISZERO}\}$}{
+    \uIf{$depends\_on\_call\_result(operand(PC))$}{
+      $context.checked \leftarrow true$\;
+    }
+  }
+
+  \ForEach{$ctx \in unchecked\_calls$}{
+    \uIf{$ctx.checked = false$}{
+      $solver \leftarrow \text{new Z3 Solver}$\;
+      $solver.add(all\_current\_path\_conditions)$\;
+      $solver.add(ctx.call\_result \neq 0)$\;
+      \uIf{$solver.check() = sat$}{
+        $UEC \leftarrow True$\;
+        \textbf{break}\;
+      }
+    }
+  }
+
+  \Return{$UEC$}\;
+\end{algorithm}
+
+
+
+
+
+\section{短地址攻击漏洞分析}
+在Web3智能合约中，有一类合约涉及资金转移、权限管理或资产分配逻辑，这些程序通常需要指定有效的地址来接收资产或权限。然而，当应用程序调用智能合约函数时，如果合约代码未能对输入地址参数进行长度和有效性严格验证，则可能引发短地址攻击漏洞。具体而言，以太坊合约地址长度为20字节，攻击者通过构造并提交长度小于20字节的短地址作为输入，利用以太坊虚拟机在解析地址时对缺失字节自动补零的特性，将原本用于接收资产或权限的目标地址篡改成攻击者预设的其他地址。此漏洞导致资金被意外转移至攻击者控制的地址或错误地址，进而引发资金损失、权限滥用或业务逻辑破坏等严重后果。
+
+为避免此类漏洞，开发者应对智能合约输入的地址参数进行严格长度与有效性检查，例如对外部输入地址进行require(address != address(0))以及仔细验证输入数据的长度，确保资产与权限仅发送到预期有效地址，从而有效防范短地址攻击漏洞，保障合约资产安全与逻辑完整性。
+
+
+
+\subsection{短地址攻击漏洞实例}
+短地址攻击漏洞的实例如图~\ref{lst:solidity-solidity-short-address}所示，该合约的sendCoin函数（第4–8行）中存在短地址攻击漏洞。具体而言，该函数在第4行接收外部传入的地址参数to和转账金额参数amount，随后在第5行判断调用者账户余额是否足够，并在第6–7行更新发送方与接收方的账户余额。
+
+问题出现在sendCoin函数（第4–8行）执行过程中，合约未对传入地址参数to的有效性与长度进行校验。攻击者可利用以太坊平台在解析交易输入参数时对地址长度不足自动补零的特性，构造一个小于20字节的短地址作为to参数注入。由于ABI解码未检测地址边界，导致解析时参数错位，从而篡改实际被识别的地址值。这可能使资产被错误转入攻击者控制的地址，或导致合约状态异常变更。该类漏洞将直接引发资产错转、合约行为紊乱等严重后果，最终可能造成用户资产不可逆损失与对合约系统信任的破坏。
+
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-solidity-short-address} ~短地址攻击漏洞实例}
+\begin{lstlisting}[language=Solidity, style=solidity, caption={短地址攻击漏洞实例}, label={lst:solidity-solidity-short-address}] 
+contract MyToken {
+    mapping (address => uint) balances;
+
+    function sendCoin(address to, uint amount) returns (bool sufficient) {
+        if (balances[msg.sender] < amount) return false;
+        balances[msg.sender] -= amount;
+        balances[to] += amount;
+        return true; }}
+\end{lstlisting}
+
+
+\subsection{短地址攻击漏洞检测方案}
+由上一节的分析可知，在智能合约中若未对外部传入的地址参数进行长度校验，当实际输入的字节数不足20字节时，EVM会自动以零补齐缺失部分，从而触发短地址攻击漏洞。攻击者可通过构造短地址，使合约将资产或权限错误地赋予非预期地址，进而导致资产损失或业务逻辑被破坏。针对该类问题，我们设计了一种检测短地址攻击风险的检测方案，用以识别合约在处理外部输入数据时潜在的字节截断安全隐患。
+
+算法~\ref{alg:short-address-detection}展示了短地址攻击漏洞的检测流程。首先，算法对运行时字节码执行符号模拟，以还原合约的实际执行路径（第2行）。当检测到CALLDATALOAD指令（第3行）时，算法记录其数据读取位置与长度，分别赋值给变量offset（第4行）和length（第5行）。若offset与length之和小于20字节，无论为静态计算（第6行）还是符号条件下的可行路径（第8–9行），均视为存在短地址攻击风险，算法将漏洞标志位设置为True。同理，对于CALLDATACOPY指令（第11行），算法提取其数据偏移量与复制字节数（第12–13行），并判断二者之和是否小于20字节。若该条件恒成立（第14–15行），或在符号条件下可满足（第16–18行），同样认为存在短地址攻击风险，漏洞标志位被置为True。最终，算法返回漏洞标志位（第19行），用于判断合约是否存在短地址攻击漏洞。若该标志为True，则表明合约在处理外部传入地址数据时未充分进行长度校验，可能被攻击者利用以实现地址错配、逻辑篡改或资产窃取等攻击行为。
+
+
+\begin{algorithm}[htbp]
+  \caption{短地址攻击漏洞检测算法}
+  \label{alg:short-address-detection}
+  \KwIn{Runtime\_opcode: The sequence of opcodes executed during contract runtime}
+  \KwOut{SAA: True if vulnerability is detected, False otherwise}
+
+  $SAA \leftarrow False$\;
+
+   execute\_symbolically($Runtime\_opcode$)\;
+
+  \uIf{$op(pc) = \texttt{"CALLDATALOAD"}$}{
+    $offset \leftarrow operand1(pc)$\;
+    $length \leftarrow 32$\;
+    \uIf{$offset + length < 20$}{
+      $SAA \leftarrow True$\;
+    }
+    \ElseIf{$is\_symbolic(offset) \lor is\_symbolic(length)$}{
+      \uIf{$solver\_sat\bigl(offset + length < 20\bigr)$}{
+        $SAA \leftarrow True$\;
+      }
+    }
+  }
+  \ElseIf{$op(pc) = \texttt{"CALLDATACOPY"}$}{
+    $data\_offset \leftarrow operand2(pc)$\;
+    $copy\_size \leftarrow operand3(pc)$\;
+    \uIf{$data\_offset + copy\_size < 20$}{
+      $SAA \leftarrow True$\;
+    }
+    \ElseIf{$is\_symbolic(data\_offset) \lor is\_symbolic(copy\_size)$}{
+      \uIf{$solver\_sat\bigl(data\_offset + copy\_size < 20\bigr)$}{
+        $SAA \leftarrow True$\;
+      }
+    }
+  }
+
+  \Return $SAA$\;
+\end{algorithm}
+
+
+\section{本章小结}
+本章对访问控制漏洞、不安全随机数、整数溢出、重入攻击、区块信息依赖漏洞、拒绝服务攻击、未检查的外部调用和短地址攻击这八种Web3智能合约漏洞进行了分析。具体从漏洞产生原因、防范方法和典型实例三个方面展开论述。在此基础上，本文针对每种漏洞分别提出了相应的检测方案，为下一步与符号执行技术相结合的具体实现奠定基础。
+
+
+
+
+
+
+
+
+
+
+
+
+

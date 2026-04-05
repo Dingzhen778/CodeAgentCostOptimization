@@ -1,0 +1,405 @@
+\chapter{实验}
+上一章介绍了本文所提出的Web3智能合约漏洞检测工具的设计与实现，本章将在包含143个标注了合约源码漏洞的基准数据集SmartBugs-Curated上进行实验评估，以验证本文工具的有效性，并与主流漏洞检测工具Mythril~\cite{sharma2022survey}、Oyente~\cite{luu2016making}和Slither~\cite{feist2019slither}的检测效果进行对比。
+
+
+\section{实验环境}
+本文实验在本地Windows环境下进行，我们采用了Docker的Linux容器作为运行平台并通过PowerShell结合Docker CLI的方式执行SmartBugs框架，调用其集成的Mythril、Oyente、Slither这三款主流智能合约漏洞检测工具对SmartBugs-Curated基准数据集进行分析。同时，本文工具也在相同环境下对SmartBugs-Curated基准数据集进行分析以确保评估的公平性。此外，为避免路径爆炸或Z3求解器超时等问题，每个工具在分析单个合约时均设置了10分钟的超时时间。实验环境的详细配置如表~\ref{tab:env-config} 所示。
+
+\begin{table}[ht]
+\centering
+\caption{实验环境配置}
+\label{tab:env-config}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{ll}
+\toprule
+\textbf{配置项} & \textbf{参数} \\
+\midrule
+操作系统 & Windows 10 64位，基于 x64 架构 \\
+处理器 & 11th Gen Intel(R) Core(TM) i7-11850H @ 2.50GHz \\
+内存 & 32 GB RAM \\
+Docker 版本 & 24.0.2（Docker Desktop for Windows） \\
+Python 版本 & 3.10.11 \\
+SmartBugs 工具 & Mythril v0.24.7，Slither v0.10.4，Oyente \\
+Z3 求解器版本 & 4.8.17 \\%
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\section{实验结果与分析}
+Mythril、Oyente、Slither及本文工具对SmartBugs-Curated数据集完成检测后，每个工具分别生成了各自对应的.csv文件，该文件记录了合约名称、检测结果以及合约所属的文件夹。其中，合约所属的文件夹信息反映了该合约所标注的漏洞类型，这是因为SmartBugs-Curated数据集根据漏洞类型将合约存放于不同文件夹中，例如涉及整数溢出漏洞的合约被归入arithmetic文件夹。因此，我们逐一检查每个工具生成的.csv文件中的每一个合约，根据合约所在的文件夹路径确定其漏洞类型，并与检测结果进行对比，从而评估对应工具检测结果的正确性。
+
+上述工具在SmartBugs-Curated数据集上针对本文提出的八类Web3智能合约漏洞的整体检测结果如表~\ref{tab:tool-comparison-overall}所示。其中，Mythril检测出80个真阳性，假阳性116个，漏报56个，准确率为40.82\%，召回率为58.82\%，F1分数为48.19\%；Oyente检测出43个真阳性，假阳性148个，漏报93个，准确率为22.51\%，召回率为31.62\%，F1分数为26.30\%；Slither检测出91个真阳性，假阳性92个，漏报44个，准确率为49.73\%，召回率为67.41\%，F1分数为57.23\%。本文工具检测出122个真阳性，假阳性8个，漏报14个，准确率为93.85\%，召回率为89.71\%，F1分数为91.73\%，本文工具在检测八种Web3智能合约漏洞方面的准确率、召回率及F1分数均优于Mythril、Oyente及Slither。
+
+下文将分别对本文工具及Mythril、Oyente、Slither在访问控制漏洞、不安全随机数漏洞、整数溢出漏洞、重入攻击漏洞、区块信息依赖漏洞、拒绝服务攻击漏洞、未检查的外部调用漏洞和短地址攻击漏洞这八种Web3智能合约漏洞上的具体检测表现进行对比。此外，对于本文工具产生的假阳性与漏报情况，本文重点分析假阳性案例。因为漏报经人工分析，发现主要由于符号执行过程中决定跳转目标的表达式过于复杂，Z3求解器无法求解导致CFG断流，从而产生漏报。
+
+
+\begin{table}[ht]
+\centering
+\caption{整体检测结果}
+\label{tab:tool-comparison-overall}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
+\midrule
+Mythril            & 80 & 116 & 56 & 40.82\% & 58.82\% & 48.19\% \\
+Oyente             & 43  & 148 & 93 & 22.51\% & 31.62\% & 26.30\% \\
+Slither            & 91 & 92 & 44 & 49.73\% & 67.41\% & 57.23\% \\
+本文                & 122 & 8 & 14 & 93.85\% & 89.71\% & 91.73\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+
+
+\textbf{访问控制漏洞检测。}基准数据集中标注存在访问控制漏洞的合约有18个，各工具的检测结果如表~\ref{tab:tool-comparison-AC}所示。
+
+检测结果表明，Mythril检测出8个真阳性，存在11个假阳性以及10个漏报，对应准确率为42.10\%，召回率为44.44\%，F1分数为43.24\%；
+Oyente未能检测出数据集中的任何访问控制漏洞；
+Slither检测出7个真阳性，存在17个假阳性及11个漏报，对应准确率为29.17\%，召回率为38.89\%，F1分数为33.55\%；
+本文的工具检测出15个真阳性，仅有1个假阳性以及3个漏报，对应的准确率为93.75\%，召回率为83.33\%，F1分数为88.24\%。本文工具在检测访问控制漏洞的准确率、召回率以及F1分数均高于Mythril、Oyente和Slither这些基准工具。
+
+\begin{table}[ht]
+\centering
+\caption{访问控制漏洞检测结果}
+\label{tab:tool-comparison-AC}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
+\midrule
+Mythril            & 8 & 11 & 10 & 42.10\% & 44.44\% & 43.24\% \\
+Oyente             & 0  & 0 & 18 & 0\% & 0\% & 0\% \\
+Slither            & 7 & 17 & 11 & 29.17\% & 38.89\% & 33.33\% \\
+本文                & 15 & 1 & 3 & 93.75\% & 83.33\% & 88.24\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+访问控制漏洞的假阳性案例如图~\ref{lst:solidity-FP-AC}所示。在该合约中，报告漏洞的位置为第2行，检测结果认为状态变量Owner存在未受访问控制保护的写操作。该写操作出现在4行的withdraw函数中，其中第5行在满足msg.sender==0x7a617c2B05d2A74Ff9bABC9d81E5225C1e01004b的条件下，将Owner重新赋值为该硬编码地址。从控制逻辑来看，该赋值操作仅在特定调用者身份下才会执行，具备访问控制语义。然而，本文用于检测访问控制漏洞的算法中，在遇到SSTORE指令时，会首先依据AST判断该指令所在函数是否涉及敏感操作（如修改owner）。若被识别存在敏感操作，将进一步回溯其控制流路径，并检查路径中是否包含依次出现的CALLER、EQ和ISZERO三个操作码，用以匹配require(msg.sender==...)等典型的访问控制结构，当控制路径中完整匹配该序列时视为具有效访问控制。而在该合约中，访问控制逻辑采用了if(msg.sender==...)的正向判断形式，未通过ISZERO指令构造否定条件，因此控制流中只有CALLER和EQ，而缺失了ISZERO操作码，导致被误判为缺乏访问控制，从而产生假阳性。
+
+
+访问控制漏洞的漏报案例如图~\ref{lst:solidity-MISS-AC}所示。在该合约中，所使用的Solidity版本为0.4.x，该版本要求构造函数名称必须与合约名称完全一致，否则将被视为普通的公共函数。案例中第6行的IamMissing()函数原本应作为构造函数初始化owner，但由于其名称与合约不一致，未被识别为构造函数，导致该函数可被任意地址调用赋值owner获取合约控制权，从而产生访问控制漏洞。该问题仅存在于Solidity 0.4.x版本中，而当前主流合约开发已广泛采用显式的constructor关键字定义构建函数，因此此类问题在实际场景中已较为罕见。而本文所提出的检测逻辑主要关注运行时字节码对状态变量的写操作是否缺乏访问控制、delegatecall的调用路径是否安全以及tx.origin的使用是否存在授权缺陷这些常见的访问控制漏洞。
+
+
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-FP-AC} ~~~访问控制漏洞假阳性案例}
+\begin{lstlisting}[language=Solidity, style=solidity, caption={访问控制漏洞假阳性案例}, label={lst:solidity-FP-AC}] 
+contract WhaleGiveaway2 {
+    address public Owner = msg.sender;
+
+    function withdraw() public payable {
+        if (msg.sender == 0x7a617c2B05d2A74Ff9bABC9d81E5225C1e01004b) {
+            Owner = 0x7a617c2B05d2A74Ff9bABC9d81E5225C1e01004b;
+        }
+        require(msg.sender == Owner);
+        Owner.transfer(this.balance);
+    }
+}
+\end{lstlisting}
+
+
+
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-MISS-AC} ~~~访问控制漏洞漏报案例}
+\begin{lstlisting}[language=Solidity, style=solidity, caption={访问控制漏洞漏报案例}, label={lst:solidity-MISS-AC}] 
+pragma solidity ^0.4.24;
+
+contract Missing {
+    address private owner;
+
+    function IamMissing() public {
+        owner = msg.sender;
+    }
+
+    function withdraw() public {
+        require(msg.sender == owner);
+        msg.sender.transfer(address(this).balance);
+    }
+
+    function () public payable {}
+}
+\end{lstlisting}
+
+
+
+\textbf{不安全随机数漏洞检测。}基准数据集共标注有8个合约存在不安全随机数漏洞，各工具的检测结果如表~\ref{tab:tool-comparison-BAD}所示。
+
+检测结果表明，Mythril检测出3个真阳性，存在3个假阳性以及5个漏报，对应准确率为50.08\%，召回率为37.50\%，F1分数为28.57\%；
+Oyente未能检测出数据集中的任何不安全随机数漏洞，存在8个漏报；
+Slither检测出3个真阳性，存在10个假阳性以及5个漏报，对应的准确率为23.08\%，召回率为37.50\%，F1分数为28.57\%；
+本文工具成功检测出数据集中全部8个不安全随机数漏洞，未出现漏报，仅产生1个假阳性，对应的准确率为88.89\%，召回率为100\%，F1分数为94.12\%。本文工具在检测不安全随机数漏洞的准确率、召回率和F1分数均明显高于Mythril、Oyente和Slither。
+
+
+\begin{table}[ht]
+\centering
+\caption{不安全随机数漏洞检测结果}
+\label{tab:tool-comparison-BAD}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
+\midrule
+Mythril            & 3 & 3 & 5 & 50.08\% & 37.50\% & 28.57\% \\
+Oyente             & 0  & 0 & 8 & 0\% & 0\% & 0\% \\
+Slither            & 3 & 10 & 5 & 23.08\% & 37.50\% & 28.57\% \\
+本文                & 8 & 1 & 0 & 88.89\% & 100\% & 94.12\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+不安全随机数漏洞的假阳性案例如图~\ref{lst:solidity-FP-BAD}所示。
+在该合约中，报告漏洞的位置为第4行，检测结果认为将当前区块高度block.number与常量blocksPerRound进行整除运算可能导致不安全随机数漏洞。该运算结果在第8行的函数function()中被调用，用于计算投注所属的轮次索引roundIndex，并在第10行作为索引定位对应轮次的数据结构，用于记录当前用户的投注信息。从业务逻辑来看，block.number仅用于时间段划分以及数据归类，未参与任何与中奖者计算、中奖条件判断或奖励发放相关的关键路径。然而，本文所采用的漏洞检测算法在识别不安全随机数漏洞时，将与区块信息有关的全局变量的除法运算作为潜在风险依据，但在该案例中未结合运算结果是否实际参与随机性决策进行进一步的判断，因此导致误报。
+
+
+
+\clearpage
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-FP-BAD} ~~~不安全随机数漏洞假阳性案例}
+\begin{lstlisting}[language=Solidity, style=solidity, caption={不安全随机数漏洞假阳性案例}, label={lst:solidity-FP-BAD}] 
+uint constant public blocksPerRound = 6800;
+
+function getRoundIndex() constant returns (uint){
+    return block.number / blocksPerRound;
+}
+
+function() {
+    var roundIndex = getRoundIndex();
+    ...
+    rounds[roundIndex].ticketsCount += ticketsCount;}
+\end{lstlisting}
+
+
+
+
+
+\textbf{整数溢出漏洞检测。}基准数据集中共有15个标注存在整数溢出漏洞的合约，各工具的检测结果如表~\ref{tab:tool-comparison-INT}所示。
+
+检测结果表明，Mythril检测出11个真阳性、存在12个假阳性以及4个漏报，对应的准确率为78.57\%，召回率为73.33\%，F1分数为75.80\%；
+Oyente共检测出14个真阳性，存在95个假阳性以及1个漏报，对应的准确率为12.84\%，召回率为93.33\%，F1分数为22.58\%；
+Slither没能检测出任何的整数溢出漏洞，15个合约全部漏报，检测结果仅报告了\{solc\_version\}，并没有报告漏洞信息；
+本文工具共检测出14个真阳性，没有误报仅有1个漏报，对应准确率为100\%，召回率为93.33\%，F1分数为96.55\%。本文工具的准确率、召回率以及F1分数均高于Mythril、Oyente与Slither。
+
+
+
+
+\begin{table}[ht]
+\centering
+\caption{整除溢出漏洞检测结果}
+\label{tab:tool-comparison-INT}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
+\midrule
+Mythril            & 11 & 12 & 4 & 78.57\% & 73.33\% & 75.80\% \\
+Oyente             & 14  & 95 & 1 & 12.84\% & 93.33\% & 22.58\% \\
+Slither            & 0 & 0 & 15 & 0\% & 0\% & 0\% \\
+本文                & 14 & 0 & 1 & 100\% & 93.33\% & 96.55\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+
+
+\textbf{重入攻击漏洞检测。}基准数据集存在31个标注存在重入攻击漏洞的合约，各工具的检测结果如表~\ref{tab:tool-comparison-RE}所示。
+
+检测结果表明，Mythril检测出13个真阳性，存在56个假阳性以及18个漏报，对应的准确率为18.84\%，召回率为41.94\%，F1分数为26.00\%；
+Oyente检测出28个真阳性，存在6个假阳性以及3个漏报，对应的准确率为82.35\%，召回率为90.32\%，F1分数为86.15\%；
+Slither检测出28个真阳性，存在5个假阳性以及3个漏报，对应的准确率为84.85\%，召回率为90.32\%，F1分数为87.50\%；
+本文工具共检测出28个真阳性，存在5个假阳性以及3个漏报，对应的准确率为87.50\%，召回率为90.32\%，F1分数为88.89\%。本文工具在检测重入攻击漏洞的召回率与Oyente及Slither一致且高于Mythril，同时其准确率与F1分数均优于Mythril、Oyente和Slither这些基准工具。
+
+
+\begin{table}[ht]
+\centering
+\caption{重入攻击漏洞检测结果}
+\label{tab:tool-comparison-RE}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
+\midrule
+Mythril            & 13 & 56 & 18 & 18.84\% & 41.94\% & 26.00\% \\
+Oyente             & 28  & 6 & 3 & 82.35\% & 90.32\% & 86.15\% \\
+Slither            & 28 & 5 & 3 & 84.85\% & 90.32\% & 87.50\% \\
+本文                & 28 & 4 & 3 & 87.50\% & 90.32\% & 88.89\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+% 案例：0x8fd1e427396ddb511533cf9abdbebd0a7e08da35，OWNER才能调用这个重入漏洞函数
+重入漏洞的假阳性案例如图~\ref{lst:solidity-FP-REEN}所示。在该合约中，报告漏洞的位置为第6至9行，检测结果认为第8行\_addr.call.value(\_wei)进行外部调用后紧跟第9行的状态变量Holders[\_addr]的更新操作，符合典型的重入攻击模式。然而，从业务逻辑来看，该函数受onlyOwner修饰符保护，仅合约拥有者可调用，限制了攻击者的入口。本文所采用的重入检测算法主要依据控制流中外部调用是否发生在状态变量更新之前进行识别，未考虑此类函数受访问控制逻辑约束下并不会在实际中产生重入攻击，因而导致误报。
+
+
+
+
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-FP-REEN} ~~~重入漏洞假阳性案例}
+\begin{lstlisting}[language=Solidity, style=solidity, caption={重入漏洞假阳性案例}, label={lst:solidity-FP-REEN}] 
+function WithdrawToHolder(address _addr, uint _wei) 
+    public
+    onlyOwner
+    payable
+{
+    if(Holders[msg.sender] > 0) {
+        if(Holders[_addr] >= _wei) {
+            _addr.call.value(_wei);  
+            Holders[_addr] -= _wei;  
+        }
+    }}
+\end{lstlisting}
+
+
+
+
+
+\textbf{区块信息依赖漏洞检测。}基准数据集中存在有5个标注区块信息依赖漏洞的合约，各工具的检测结果如表~\ref{tab:tool-comparison-BID}所示。
+
+检测结果表明，Mythril检测出4个真阳性、2个假阳性结果以及存在1个漏报，对应的准确率为66.67\%，召回率为60.00\%，F1分数为72.73\%；
+Oyente未能检测数据集中的区块信息依赖漏洞，5个标注存在该漏洞的合约全部漏报；
+Slither检测出5个真阳性没有漏报以及18个假阳性结果，对应的准确率为21.74\%，召回率为100.00\%，F1分数为35.71\%；
+本文工具检测出5个真阳性没有漏报，仅有1个假阳性结果，对应的准确率为83.33\%，召回率为100\%，以及F1分数为90.91\%。本文工具在检测情况信息依赖漏洞的召回率与Slither一致且高于Mythril和Oyente，同时准确率、召回率和F1分数均优于Mythril、Oyente和Slither这三个基准工具。
+
+
+\begin{table}[ht]
+\centering
+\caption{区块信息依赖漏洞检测结果}
+\label{tab:tool-comparison-BID}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
+\midrule
+Mythril            & 4 & 2 & 1 & 66.67\% & 60.00\% & 72.73\% \\
+Oyente             & 0  & 0 & 5 & 0\% & 0\% & 0\% \\
+Slither            & 5 & 18 & 0 & 21.74\% & 100.00\% & 35.71\% \\
+本文                & 5 & 1 & 0 & 83.33\% & 100\% & 90.91\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+区块信息依赖漏洞的假阳性案例如图~\ref{lst:solidity-FP-BID}所示。在该合约中，报告漏洞的位置为第3行，检测结果认为条件判断blockNumber < block.number中对区块高度的依赖导致区块信息依赖漏洞。从业务逻辑来看，该判断用于限制用户在下注区块内立即调用开奖函数，确保交易在不同区块中执行，从而防止潜在的预测行为。这类依赖仅用于实现同步性控制，不涉及奖励发放、倒计时截止或结果计算等关键逻辑，因此不会对合约的安全性或公平性造成实际影响。本文所采用的区块信息依赖检测算法通过符号执行分析区块相关变量是否涉及条件判断以及路径约束，能够有效识别多数因block.number、block.timestamp等区块信息相关变量引发依赖导致风险的情况。但在该案例中，算法未能进一步区分区块信息是否实际影响核心博弈逻辑，因而在此类将区块信息用于流程约束的场景下出现了误报。
+
+
+\clearpage
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-FP-BID} ~~~区块信息依赖漏洞假阳性案例}
+\begin{lstlisting}[language=Solidity, style=solidity, caption={区块信息依赖漏洞假阳性案例}, label={lst:solidity-FP-BID}] 
+function play() public {
+    uint256 blockNumber = timestamps[msg.sender];
+    if (blockNumber < block.number) { 
+        ...
+        uint256 winningNumber = uint256(
+            keccak256(abi.encodePacked(blockhash(blockNumber), msg.sender))
+        ) % difficulty + 1;
+        ...
+    } else {
+        revert();
+    }
+}
+\end{lstlisting}
+
+
+
+\textbf{拒绝服务攻击漏洞检测。}基准数据集共有6个合约标注存在访问控制漏洞，各工具的检测结果如表~\ref{tab:tool-comparison-DOS}所示。
+
+检测结果表明，Mythril检测出2个真阳性，存在26个假阳性以及存在4个漏报，对应准确率为7.14\%，召回率为33.33\%，F1分数为11.76\%；
+Oyente仅检测出1个真阳性，存在47个假阳性以及5个漏报，对应准确率为2.08\%，召回率为16.67\%，F1分数为3.70\%；
+Slither检测出4个真阳性，存在41个假阳性以及2个漏报，对应的准确率为8.89\%，召回率为66.67\%，F1分数为15.69\%；
+本文工具检测出5个真阳性，没有假阳性仅有1个漏报，对应的准确率为100\%，召回率为83.33\%，F1分数为90.91\%。本文工具在检测拒绝服务攻击漏洞的准确率、召回率和F1分数方面均明显高于Mythril、Oyente和Slither。
+
+
+
+\begin{table}[ht]
+\centering
+\caption{拒绝服务攻击漏洞检测结果}
+\label{tab:tool-comparison-DOS}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
+\midrule
+Mythril            & 2 & 26 & 4 & 7.14\% & 33.33\% & 11.76\% \\
+Oyente             & 1  & 47 & 5 & 2.08\% & 16.67\% & 3.70\% \\
+Slither            & 4  & 41 & 2 & 8.89\% & 66.67\% & 15.69\% \\
+本文                & 5 & 0 & 1 & 100\% & 83.33\% & 90.91\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+\textbf{未检查的外部调用漏洞检测。}基准数据集共有52个标注存在未检查的外部调用的合约，各工具的检测结果如表~\ref{tab:tool-comparison-UEC}所示。
+
+检测结果表明，Mythril检测出39个真阳性，存在6个假阳性以及存在13个漏报，对应的准确率为42.86\%，召回率为60.00\%，F1分数为50.00\%；
+Oyente未能检测出数据集中的未检查的外部调用漏洞，52个标注存在该漏洞的合约全部漏报；
+Slither检测出44个真阳性，仅有1个假阳性以及存在8个漏报，对应的准确率为97.78\%，召回率为84.62\%，F1分数为90.72\%；
+本文工具检测出46个真阳性，仅有1个假阳性以及存在6个漏报，对应的准确率为97.87\%，召回率为88.46\%，F1分数为92.93\%。本文工具在检测未检查的外部调用漏洞的准确率与Slither一致且高于Mythril和Oyente，同时召回率和F1分数均优于Mythril、Oyente和Slither这三个基准工具。
+
+\begin{table}[ht]
+\centering
+\caption{未检查的外部调用漏洞检测结果}
+\label{tab:tool-comparison-UEC}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
+\midrule
+Mythril            & 39 & 6 & 13 & 42.86\% & 60.00\% & 50.00\% \\
+Oyente             & 0  & 0 & 52 & 0\% & 0\% & 0\% \\
+Slither            & 44 & 1 & 8 & 97.78\% & 84.62\% & 90.72\% \\
+本文                & 46 & 1 & 6 & 97.87\% & 88.46\% & 92.93\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+未检查外部调用漏洞的假阳性案例如图~\ref{lst:solidity-FP-UEC}所示。在该合约中，报告漏洞的位置为第2行，检测结果认为recipient.send(amount)的调用未检查返回值从而导致未检查外部调用漏洞。但从业务逻辑来看，该外部调用的成功与否不影响主业务逻辑，也不会影响合约的状态变量，属于容错性设计的一部分。本文所采用的未检查外部调用检测算法通过符号执行模拟合约执行，并在指令级别记录外部调用操作的返回值。随后，算法判断该返回值是否用于条件判断或参与路径约束，以此识别调用结果是否被显式检查，能有效捕捉多数风险场景。但在该假阳性案例中，算法未区分调用结果是否影响状态，因而在该类无副作用调用场景中产生误报。
+
+
+
+\addcontentsline{lof}{figure}{图~\ref{lst:solidity-FP-UEC} ~~~未检查的外部调用漏洞假阳性案例}
+\begin{lstlisting}[language=Solidity, style=solidity, caption={未检查的外部调用漏洞假阳性案例}, label={lst:solidity-FP-UEC}] 
+function logDonation(address recipient, uint256 amount) public {
+    recipient.send(amount);
+}
+\end{lstlisting}
+
+
+
+\textbf{短地址攻击检测。}基准数据集存在1个标注存在短地址攻击漏洞的合约，各工具的检测结果如表~\ref{tab:tool-comparison-SHORT}所示。
+
+检测结果表明，Mythril、Oyente和Slither均未能检测出其数据集中的短地址攻击漏洞，这是因为这三个工具缺乏针对短地址攻击漏洞的检测逻辑，而本文工具能检测出数据集中的短地址攻击漏洞，并且未产生假阳性，准确率、召回率和F1分数均为100\%。
+
+
+
+\begin{table}[H]
+\centering
+\caption{短地址攻击漏洞检测结果}
+\label{tab:tool-comparison-SHORT}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
+\midrule
+Mythril            & 0 & 0 & 1 & 0\% & 0\% & 0\% \\
+Oyente             & 0  & 0 & 1 & 0\% & 0\% & 0\% \\
+Slither            & 0 & 0 & 1 & 0\% & 0\% & 0\% \\
+本文                & 1 & 0 & 0 & 100\% & 100\% & 100\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+\section{本章小结}
+本章对本文提出的Web3智能合约漏洞检测工具在基准数据集SmartBugs-Curated上进行了实验评估，覆盖访问控制漏洞、不安全随机数、整数溢出、重入攻击、区块信息依赖漏洞、拒绝服务攻击、未检查的外部调用和短地址攻击这八种Web3智能合约漏洞，并与主流工具Mythril、Oyente和Slither进行了对比。实验结果表明，结果表明，本文工具在准确率、召回率和F1分数等指标上整体表现优于三种主流工具，分别达到93.85\%，89.71\%和91.73\%。此外，通过对典型假阳性和漏报案例的分析，指出误报主要来自访问控制结构形式多样、控制流依赖未影响核心逻辑或容错性调用未检查返回值等因素；漏报则因Z3无法求解过于复杂的跳转表达式，导致CFG断流。总体而言，实验结果验证了本文工具在漏洞检测方面的准确性。
+
+
+
+
+
+%为评估多角色大模型协作验证模块在降低假阳性率方面的实际效果，本文设计了对比消融实验，比较在启用与禁用该模块两种情况漏洞检测结果的差异。
+

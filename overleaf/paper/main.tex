@@ -1,0 +1,130 @@
+\documentclass[degree=master, degree-type=professional]{sysuthesis}
+
+% ================= 宏包加载 =================
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\usepackage{amsmath}
+\usepackage{float}
+\usepackage{setspace}
+\usepackage{listings}    % ← 一定要先加载 listings
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{caption}     % ← 加载 caption 用于设置
+\tcbuselibrary{skins, breakable}
+\definecolor{grayheader}{gray}{0.85}
+
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{booktabs}
+\usepackage{array}
+
+% ================= lstlisting & 图表 高亮设置 =================
+\renewcommand{\lstlistingname}{图}  % 将 lstlisting 前缀显示为“图”
+
+\lstdefinelanguage{Solidity}{
+  keywords={contract,function,modifier,require,assert,revert,mapping,
+    uint,uint256,address,bool,string,bytes,event,enum,struct,
+    public,private,internal,external,payable,returns,import,new},
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+}
+
+\lstdefinestyle{solidity}{
+  language=Solidity,
+  backgroundcolor=\color{white},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue},
+  commentstyle=\color[RGB]{0,96,96},
+  frame=single,
+  numbers=left,
+  numbersep=5pt,
+  breaklines=true,
+}
+
+\lstdefinestyle{promptstyle}{
+  backgroundcolor=\color{gray!10},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+  frame=single
+}
+
+\lstset{
+  breaklines=true,
+  breakatwhitespace=false,
+  breakautoindent=true,
+  postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
+  float=htbp,
+  captionpos=b,
+}
+
+% ================ 禁止 lstlisting 自动加入图目录 =================
+\captionsetup[lstlisting]{list=no,labelsep=space}
+
+% ================ sysuthesis 全局配置 =================
+\input{sysusetup}
+
+% ================ 延迟重定义 编号格式为 “章‑序号” =================
+\AtBeginDocument{%
+  \makeatletter
+    % 代码块 lstlisting 编号为“章-序号”
+    \renewcommand{\thelstlisting}{\thechapter-\arabic{lstlisting}}
+    % 普通图 figure 编号为“章-序号”
+    \renewcommand{\thefigure}{\thechapter-\arabic{figure}}
+    % 表格 table 编号为“章-序号”
+    \renewcommand{\thetable}{\thechapter-\arabic{table}}
+  \makeatother
+}
+
+\begin{document}
+
+% 封面
+\makecover
+\maketitle
+
+% 声明页
+\statementpage
+
+\frontmatter
+\input{data/abstract}
+
+% 目录
+\tableofcontents
+
+% 符号对照表
+\input{data/denotation}
+
+% 插图和附表清单
+\cleardoublepage
+\listoffigures
+\listoftables
+\cleardoublepage
+
+% 正文部分
+\mainmatter
+\input{data/chap01}
+\input{data/chap02}
+\input{data/chap03}
+\input{data/chap04}
+\input{data/chap05}
+\input{data/chap06}
+\input{data/chap07}
+
+
+% 其他部分
+\backmatter
+
+% 参考文献
+\bibliography{ref/refs}
+
+% 附录
+\appendix
+\input{data/appendix}
+
+% 在学期间完成的相关学术成果
+\input{data/works}
+
+% 致谢
+\input{data/acknowledgements}
+
+\end{document}

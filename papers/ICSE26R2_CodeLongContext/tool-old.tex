@@ -1,0 +1,190 @@
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{colortbl}  %彩色表格需要加载的宏包
+\usepackage{xcolor}
+\usepackage{multirow} % 引入multirow包
+\usepackage{booktabs} % 提供\toprule等命令
+\usepackage{hyperref}
+\usepackage{algorithm}
+\usepackage{tcolorbox}
+\usepackage{tikz}
+\usepackage{threeparttable}
+
+\usepackage{enumitem} % adjust itemize enumerate margin
+\usepackage{fmtcount}
+
+
+\usepackage{latexsym}
+\usepackage{url}
+\usepackage{arydshln}
+
+\newcommand{\blackcircle}[1]{%
+\tikz[baseline=(char.base)]{
+\node[shape=circle,fill=black,text=white,font=\bfseries,inner sep=0.6pt] (char) {#1};}%
+}
+
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\usepackage{xspace}
+
+% \newcommand{\mytextsuperscript}[1]{}
+\newcommand{\mytextsuperscript}[1]{\textsuperscript{#1}}
+
+% \newcommand{\model}{{\textsc{RL\textsuperscript{2}Coder}}\xspace}
+% \newcommand{\model}{{\textsc{RLCoder}}\xspace}
+% \newcommand{\model}{{RLCoder}\xspace}
+\newcommand{\nocompression}{NoCompression\xspace}
+\newcommand{\nocontext}{OnlyDocstring\xspace}
+
+\newcommand{\rlcoder}{RLCoder\xspace}
+\newcommand{\rag}{RAG (Fixed Chunking)\xspace}
+\newcommand{\ragfunction}{RAG (Function Chunking)\xspace}
+\newcommand{\rlretriever}{RLRetriever\xspace}
+
+\newcommand{\llmlingua}{LLMLingua\xspace}
+\newcommand{\longllmlingua}{LongLLMLingua\xspace}
+\newcommand{\llmlinguatwo}{LLMLingua-2\xspace}
+\newcommand{\dietcode}{DietCode\xspace}
+\newcommand{\silmcode}{SilmCode\xspace}
+\newcommand{\autocompressor}{AutoCompressor\xspace}
+
+\newcommand{\codellama}{CodeLlama-7b-Instruct-hf\xspace}
+\newcommand{\deepseekone}{DeepSeekCoder-1.3B\xspace}
+\newcommand{\deepseekseven}{DeepSeekCoder-6.7B\xspace}
+\newcommand{\qwenzero}{Qwen2.5-Coder-0.5B-Instruct\xspace}
+\newcommand{\qwenone}{Qwen2.5-Coder-1.5B-Instruct\xspace}
+\newcommand{\qwenthree}{Qwen2.5-Coder-3B-Instruct\xspace}
+\newcommand{\qwenseven}{Qwen2.5-Coder-7B-Instruct\xspace}
+\newcommand{\seed}{Seed-Coder-8B-Instruct\xspace}
+
+\newcommand{\lccpython}{LCC-Python\xspace}
+\newcommand{\lccjava}{LCC-Java\xspace}
+\newcommand{\ccevalpython}{CCEval-Python\xspace}
+\newcommand{\repoeval}{RepoEval\xspace}
+\newcommand{\repoevalline}{RepoEval-Line\xspace}
+\newcommand{\repoevalapi}{RepoEval-API\xspace}
+\newcommand{\repoevalfunc}{RepoEval-Func\xspace}
+
+\newcommand{\RawragCLSeven}{RawRAG\textsubscript{ CodeLlama-7B}}
+\newcommand{\RepocoderCLSeven}{RepoCoder\textsubscript{ CodeLlama-7B}}
+\newcommand{\RlcoderCLSeven}{RLCoder\textsubscript{ CodeLlama-7B}}
+
+\newcommand{\RawragSCSeven}{RawRAG\textsubscript{ StarCoder-7B}}
+\newcommand{\RepocoderSCSeven}{RepoCoder\textsubscript{ StarCoder-7B}}
+\newcommand{\RlcoderSCSeven}{RLCoder\textsubscript{ StarCoder-7B}}
+
+\newcommand{\RawragSCTSeven}{RawRAG\textsubscript{ StarCoder2-7B}}
+\newcommand{\RepocoderSCTSeven}{RepoCoder\textsubscript{ StarCoder2-7B}}
+\newcommand{\RlcoderSCTSeven}{RLCoder\textsubscript{ StarCoder2-7B}}
+
+\newcommand{\RawragDSCOne}{RawRAG\textsubscript{ DeepSeekCoder-1B}}
+\newcommand{\RepocoderDSCOne}{RepoCoder\textsubscript{ DeepSeekCoder-1B}}
+\newcommand{\RlcoderDSCOne}{RLCoder\textsubscript{ DeepSeekCoder-1B}}
+
+\newcommand{\RawragDSCSeven}{RawRAG\textsubscript{ DeepSeekCoder-7B}}
+\newcommand{\RepocoderDSCSeven}{RepoCoder\textsubscript{ DeepSeekCoder-7B}}
+\newcommand{\RlcoderDSCSeven}{RLCoder\textsubscript{ DeepSeekCoder-7B}}
+
+
+\newcommand{\BaselineOneB}{NoRetrieval\textsubscript{ (1024,1B)}} %Baseline
+\newcommand{\BMOneB}{BM25\textsubscript{ (1024,1B)}}
+\newcommand{\UniXcoderOneB}{UniXcoder\textsubscript{ (1024,1B)}}
+\newcommand{\UniXcoderSFTOneB}{UniXcoder-SFT\textsubscript{ (1024,1B)}}
+\newcommand{\RLRetrieverOneB}{RLRetreiver\textsubscript{ (1024,1B)}}
+
+\newcommand{\BaselineSevenB}{NoRetrieval\textsubscript{ (2048,7B)}} %Baseline
+\newcommand{\BMSevenB}{BM25\textsubscript{ (2048,7B)}}
+\newcommand{\UniXcoderSevenB}{UniXcoder\textsubscript{ (2048,7B)}}
+\newcommand{\UniXcoderSFTSevenB}{UniXcoder-SFT\textsubscript{ (2048,7B)}}
+\newcommand{\RLRetrieverSevenB}{RLRetreiver\textsubscript{ (2048,7B)}}
+
+\newcommand{\Baseline}{NoRetrieval} %Baseline
+\newcommand{\BM}{BM25}
+\newcommand{\UniXcoder}{UniXcoder}
+\newcommand{\UniXcoderSFT}{UniXcoder-SFT}
+\newcommand{\RLRetriever}{RLRetreiver}
+
+
+\newcommand{\figmargin}{\vspace{-5pt}}
+\newcommand{\tabmargin}{\vspace{-5pt}}
+\newcommand{\secmargin}{\vspace{-5pt}}
+
+
+%%%%% BEGIN: tcolorbox setting %%%%%
+\newcommand{\boxmargin}{1mm}
+% \tcbset{colback=gray!8,%gray background
+%         colframe=black,% black frame colour
+%         width=8.7cm,% Use 5cm total width,
+%         arc=2mm, auto outer arc,
+%         boxrule = 1.0pt,
+%         left = \boxmargin, right = \boxmargin, top = \boxmargin, bottom = \boxmargin,
+%         % left skip = 1mm
+%         leftright skip=0.5mm
+% }
+\tcbuselibrary{most, skins, breakable, theorems}
+% \tcbset{colback=gray!10!white,
+%         colframe=black,
+%         coltext=black,
+%         boxsep=-1pt,
+%         arc=1mm, auto outer arc, %圆角弧度
+%         % boxrule = 1.5pt, %边框线条宽度
+%         %left = \boxmargin, right = \boxmargin, top = \boxmargin, bottom = \boxmargin,
+%         attach boxed title to top left = {yshift = -2mm, xshift = 5mm},
+% }
+\newtcolorbox{myboxa}[2][]{
+    colback=gray!10!white,
+    colframe=black, enhanced,
+    attach boxed title to top left={yshift=-2mm,xshift=5mm},
+    title=#2,#1
+}
+\newtcolorbox{myboxb}[2][]{
+    % colback=gray!10!white,
+    % colframe=black, enhanced,
+    boxsep=3pt,
+    left = \boxmargin, right = \boxmargin, top = \boxmargin, bottom = \boxmargin,
+    title={#2},#1
+}
+\newtcolorbox{myboxc}{
+    colback=gray!15!white,
+    % colframe=black, enhanced,
+    arc = 0pt, outer arc = 0pt,
+    boxsep=0pt, left = 3pt, right = 0pt, top = 0pt, bottom = 0pt, 
+    leftrule=3pt, bottomrule=0pt,toprule=0pt, rightrule=0pt,
+    left = \boxmargin, right = \boxmargin, top = \boxmargin, bottom = \boxmargin
+}
+\newtcolorbox{myboxd}{
+    colback=gray!10,%gray background
+    colframe=black,% black frame colour
+    width=\columnwidth,% Use 8cm total width,
+    arc=1mm, auto outer arc,
+    boxrule=0.5pt,
+}
+%%%%% END: tcolorbox setting %%%%%
+
+%%%%% to comment out. 
+% \pagestyle{plain} % add page number
+
+
+
+
+%%%%% BEGIN: tikz, forest for taxonomy %%%%%%%
+\usepackage{CJKutf8}
+\usepackage{tikz}
+\usepackage[edges]{forest}
+\definecolor{hidden-draw}{RGB}{20,68,106}
+\definecolor{hidden-pink}{RGB}{255,245,247}
+%%%%% END: tikz, forest for taxonomy %%%%%%%%%%
+
+%%%%% BEGIN: small annotations %%%%%%%%
+% \textcircled{1}  %带圈数字小符号
+
+\usepackage{tikz}
+\newcommand*\blackcircled[1]{\tikz[baseline=(char.base)]{
+            \node[shape=circle,draw,inner sep=2pt,fill=black,text=white] (char) {#1};}}
+
+%%%%% END: small annotations %%%%%%%%%%

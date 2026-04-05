@@ -49,3 +49,6 @@ models/
 # SWE-bench 任务缓存
 .swebench_cache/
 testbed/
+
+#overleaf登陆认证
+.olauth

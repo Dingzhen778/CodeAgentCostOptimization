@@ -1,0 +1,159 @@
+
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs} 
+\usepackage[table]{xcolor}
+\usepackage{colortbl}     
+\usepackage{multirow} 
+\usepackage{amsmath}
+\usepackage{makecell}
+\usepackage{caption}
+\captionsetup[table]{skip=5pt}
+\usepackage{tabularx, array}
+\usepackage{xspace}
+
+\usepackage[most]{tcolorbox}
+
+% \newcommand{\mytextsuperscript}[1]{}
+\newcommand{\mytextsuperscript}[1]{\textsuperscript{#1}}
+
+% \newcommand{\model}{{\textsc{RL\textsuperscript{2}Coder}}\xspace}
+% \newcommand{\model}{{\textsc{RLCoder}}\xspace}
+% \newcommand{\model}{{RLCoder}\xspace}
+\newcommand{\nocompression}{NoCompression\xspace}
+\newcommand{\nocontext}{OnlyDocstring\xspace}
+
+\newcommand{\rlcoder}{RLCoder\xspace}
+\newcommand{\rag}{RAG (Fixed Chunking)\xspace}
+\newcommand{\ragfunction}{RAG (Function Chunking)\xspace}
+\newcommand{\rlretriever}{RLRetriever\xspace}
+
+\newcommand{\llmlingua}{LLMLingua\xspace}
+\newcommand{\longllmlingua}{LongLLMLingua\xspace}
+\newcommand{\llmlinguatwo}{LLMLingua-2\xspace}
+\newcommand{\dietcode}{DietCode\xspace}
+\newcommand{\silmcode}{SilmCode\xspace}
+\newcommand{\autocompressor}{AutoCompressor\xspace}
+
+\newcommand{\codellama}{CodeLlama-7B\xspace}%CodeLlama-7b-Instruct-hf
+\newcommand{\deepseekone}{DeepSeekCoder-1.3B\xspace}
+\newcommand{\deepseekseven}{DeepSeekCoder-6.7B\xspace}
+\newcommand{\qwenzero}{Qwen2.5-Coder-0.5B\xspace} %实际:Qwen2.5-Coder-0.5B-Instruct
+\newcommand{\qwenone}{Qwen2.5-Coder-1.5B\xspace} %Qwen2.5-Coder-1.5B-Instruct
+\newcommand{\qwenthree}{Qwen2.5-Coder-3B\xspace} %Qwen2.5-Coder-3B-Instruct
+\newcommand{\qwenseven}{Qwen2.5-Coder-7B\xspace} %Qwen2.5-Coder-7B-Instruct
+\newcommand{\seed}{Seed-Coder-8B\xspace}%Seed-Coder-8B-Instruct
+
+\newcommand{\lccpython}{LCC-Python\xspace}
+\newcommand{\lccjava}{LCC-Java\xspace}
+\newcommand{\ccevalpython}{CCEval-Python\xspace}
+\newcommand{\repoeval}{RepoEval\xspace}
+\newcommand{\repoevalline}{RepoEval-Line\xspace}
+\newcommand{\repoevalapi}{RepoEval-API\xspace}
+\newcommand{\repoevalfunc}{RepoEval-Func\xspace}
+
+\newcommand{\RawragCLSeven}{RawRAG\textsubscript{ CodeLlama-7B}}
+\newcommand{\RepocoderCLSeven}{RepoCoder\textsubscript{ CodeLlama-7B}}
+\newcommand{\RlcoderCLSeven}{RLCoder\textsubscript{ CodeLlama-7B}}
+
+\newcommand{\RawragSCSeven}{RawRAG\textsubscript{ StarCoder-7B}}
+\newcommand{\RepocoderSCSeven}{RepoCoder\textsubscript{ StarCoder-7B}}
+\newcommand{\RlcoderSCSeven}{RLCoder\textsubscript{ StarCoder-7B}}
+
+\newcommand{\RawragSCTSeven}{RawRAG\textsubscript{ StarCoder2-7B}}
+\newcommand{\RepocoderSCTSeven}{RepoCoder\textsubscript{ StarCoder2-7B}}
+\newcommand{\RlcoderSCTSeven}{RLCoder\textsubscript{ StarCoder2-7B}}
+
+\newcommand{\RawragDSCOne}{RawRAG\textsubscript{ DeepSeekCoder-1B}}
+\newcommand{\RepocoderDSCOne}{RepoCoder\textsubscript{ DeepSeekCoder-1B}}
+\newcommand{\RlcoderDSCOne}{RLCoder\textsubscript{ DeepSeekCoder-1B}}
+
+\newcommand{\RawragDSCSeven}{RawRAG\textsubscript{ DeepSeekCoder-7B}}
+\newcommand{\RepocoderDSCSeven}{RepoCoder\textsubscript{ DeepSeekCoder-7B}}
+\newcommand{\RlcoderDSCSeven}{RLCoder\textsubscript{ DeepSeekCoder-7B}}
+
+
+\newcommand{\BaselineOneB}{NoRetrieval\textsubscript{ (1024,1B)}} %Baseline
+\newcommand{\BMOneB}{BM25\textsubscript{ (1024,1B)}}
+\newcommand{\UniXcoderOneB}{UniXcoder\textsubscript{ (1024,1B)}}
+\newcommand{\UniXcoderSFTOneB}{UniXcoder-SFT\textsubscript{ (1024,1B)}}
+\newcommand{\RLRetrieverOneB}{RLRetreiver\textsubscript{ (1024,1B)}}
+
+\newcommand{\BaselineSevenB}{NoRetrieval\textsubscript{ (2048,7B)}} %Baseline
+\newcommand{\BMSevenB}{BM25\textsubscript{ (2048,7B)}}
+\newcommand{\UniXcoderSevenB}{UniXcoder\textsubscript{ (2048,7B)}}
+\newcommand{\UniXcoderSFTSevenB}{UniXcoder-SFT\textsubscript{ (2048,7B)}}
+\newcommand{\RLRetrieverSevenB}{RLRetreiver\textsubscript{ (2048,7B)}}
+
+\newcommand{\Baseline}{NoRetrieval} %Baseline
+\newcommand{\BM}{BM25}
+\newcommand{\UniXcoder}{UniXcoder}
+\newcommand{\UniXcoderSFT}{UniXcoder-SFT}
+\newcommand{\RLRetriever}{RLRetreiver}
+
+\newcommand{\clsevenb}{CodeLlama-7B\xspace} %实际：CodeLlama-7b-Instruct-hf
+\newcommand{\dssixsevenb}{DeepSeek-Coder-6.7B\xspace} %实际：deepseek-coder-6.7b-instruct
+\newcommand{\qwensevenb}{Qwen2.5-Coder-7B\xspace}%实际：{Qwen2.5-Coder-7B-Instruct}
+\newcommand{\seedeightb}{Seed-Coder-8B\xspace}%实际：{Seed-Coder-8B-Instruct}
+
+
+\newcommand{\figmargin}{\vspace{-5pt}}
+\newcommand{\tabmargin}{\vspace{-5pt}}
+\newcommand{\secmargin}{\vspace{-5pt}}
+
+%%%%% BEGIN: tcolorbox setting %%%%%
+\newcommand{\boxmargin}{1mm}
+% \tcbset{colback=gray!8,%gray background
+%         colframe=black,% black frame colour
+%         width=8.7cm,% Use 5cm total width,
+%         arc=2mm, auto outer arc,
+%         boxrule = 1.0pt,
+%         left = \boxmargin, right = \boxmargin, top = \boxmargin, bottom = \boxmargin,
+%         % left skip = 1mm
+%         leftright skip=0.5mm
+% }
+\tcbuselibrary{most, skins, breakable, theorems}
+% \tcbset{colback=gray!10!white,
+%         colframe=black,
+%         coltext=black,
+%         boxsep=-1pt,
+%         arc=1mm, auto outer arc, %圆角弧度
+%         % boxrule = 1.5pt, %边框线条宽度
+%         %left = \boxmargin, right = \boxmargin, top = \boxmargin, bottom = \boxmargin,
+%         attach boxed title to top left = {yshift = -2mm, xshift = 5mm},
+% }
+\newtcolorbox{myboxa}[2][]{
+    colback=gray!10!white,
+    colframe=black, enhanced,
+    attach boxed title to top left={yshift=-2mm,xshift=5mm},
+    title=#2,#1
+}
+\newtcolorbox{myboxb}[2][]{
+    % colback=gray!10!white,
+    % colframe=black, enhanced,
+    boxsep=3pt,
+    left = \boxmargin, right = \boxmargin, top = \boxmargin, bottom = \boxmargin,
+    title={#2},#1
+}
+\newtcolorbox{myboxc}{
+    colback=gray!15!white,
+    % colframe=black, enhanced,
+    arc = 0pt, outer arc = 0pt,
+    boxsep=0pt, left = 3pt, right = 0pt, top = 0pt, bottom = 0pt, 
+    leftrule=3pt, bottomrule=0pt,toprule=0pt, rightrule=0pt,
+    left = \boxmargin, right = \boxmargin, top = \boxmargin, bottom = \boxmargin
+}
+\newtcolorbox{myboxd}{
+    colback=gray!10,%gray background
+    colframe=black,% black frame colour
+    width=\columnwidth,% Use 8cm total width,
+    arc=1mm, auto outer arc,
+    boxrule=0.5pt,
+}
+%%%%% END: tcolorbox setting %%%%%
+
+
+
+\usepackage{tikz}
+\newcommand*\blackcircled[1]{\tikz[baseline=(char.base)]{
+            \node[shape=circle,draw,inner sep=0.8pt,fill=black,text=white] (char) {#1};}}

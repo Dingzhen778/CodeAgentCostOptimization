@@ -1,0 +1,97 @@
+% !TeX root = ../thuthesis-example.tex
+
+% 中英文摘要和关键字
+%1.代码修复/swe任务
+%2.coding agent相关工作，调研充分一些包括开源闭源
+%
+\begin{abstract}\label{abstract}
+近年来，大语言模型在软件工程任务中的应用迅速发展，基于大语言
+  模型的代码智能体在缺陷定位、程序修复、测试生成和代码理解等场
+  景中展现出较强潜力。尤其是在自动程序修复任务中，代码修复智能
+  体能够结合问题描述、代码仓库环境以及多轮交互式推理过程，自动
+  完成代码搜索、问题定位、补丁生成和结果验证等步骤，逐渐成为软
+  件工程智能化研究的重要方向。然而，现有代码修复智能体在真实任
+  务中的推理成本普遍较高，尤其在面向仓库级代码修复任务时，智能
+  体往往需要进行大量代码搜索、文件阅读和多轮上下文交互，导致
+  token 消耗迅速膨胀，推理成本高、效率低，严重制约了其在实际软
+  件工程场景中的进一步应用。尽管已有研究开始关注代码智能体的性
+  能提升与任务成功率问题，但针对代码修复智能体推理成本结构、主
+  要消耗来源及其优化策略的系统性研究仍相对不足。
+
+  为此，本文围绕代码修复智能体的上下文压缩与成本优化问题展开研
+  究，以 mini-swe-agent 为执行主体，以 SWE-bench 为主要实验基
+  准，构建了一个面向自动补丁生成任务的完整实验与评测框架。本文
+  首先搭建了从真实 issue 输入、Docker 执行环境构建、补丁生成、
+  轨迹记录到 token 统计分析的端到端实验链路，实现了代码修复智
+  能体运行过程的可复现化与可观测化。在此基础上，本文对不同模型
+  在真实代码修复任务中的执行轨迹进行整理与统计，将智能体的运行
+  过程划分为搜索、阅读、编辑、验证、提交等多个阶段，并对不同阶
+  段的 token 消耗进行细粒度分析。实验结果表明，代码修复智能体
+  的主要推理成本并不集中在最终补丁编辑阶段，而主要来源于代码理
+  解阶段，尤其是文件搜索、代码阅读以及历史 observation 在多轮
+  交互中的累积。其中，read 阶段是最主要的单项开销来源，而失败
+  样本中还普遍存在后期无效循环和上下文冗余累积的问题，这说明当
+  前代码修复智能体的成本瓶颈主要体现在“如何理解代码”而非“如何
+  修改代码”。
+
+  基于上述分析，本文进一步提出了面向代码修复智能体的上下文压缩
+  与成本优化思路。不同于单纯压缩最终 prompt 或仅通过限制最大步
+  数来降低推理成本，本文强调应以代码理解阶段为优化核心，从减少
+  无关代码读取、缩减候选上下文范围以及抑制多轮交互中的历史冗余
+  信息三个角度出发，设计更符合代码修复任务特征的成本优化策略。
+  具体而言，本文提出可围绕检索缩减、历史 observation 压缩和无
+  效循环控制三个方向开展后续实现与验证：通过检索缩减缩小候选文
+  件与代码片段范围，降低搜索与阅读开销；通过历史上下文压缩减少
+  早期冗长 observation 在后续轮次中的重复消耗；通过识别无效循
+  环与长尾失败模式，降低高成本但低收益的推理过程。上述方法共同
+  构成了一个以 token 消耗结构分析为基础、以代码理解阶段优化为
+  核心的成本优化框架。
+
+  本文的研究工作主要包括以下几个方面：第一，构建了面向 SWE-
+  bench 的代码修复智能体实验平台，实现了真实 issue 驱动下的补
+  丁生成、运行轨迹记录和 token 成本统计闭环；第二，提出了面向
+  代码修复智能体的阶段化 token 消耗分析方法，识别出代码理解阶
+  段特别是 read 阶段是主要成本来源；第三，基于实证分析提出了面
+  向代码修复任务的上下文压缩与成本优化思路，为后续方法实现和实
+  验设计提供了明确方向；第四，对成本节约与修复成功率之间可能存
+  在的权衡进行了讨论，为软件工程智能体在真实应用中的高效部署提
+  供了参考。
+
+  总体而言，本文从实验链路构建、成本结构分析到优化策略设计，系
+  统研究了代码修复智能体在真实代码修复任务中的推理成本问题。本
+  文的研究表明，代码修复智能体的成本优化不应仅停留在表层
+  prompt 压缩，而应深入到代码搜索、代码阅读和历史上下文管理等
+  核心环节。该研究为后续实现更高效、更具实用价值的代码修复智能
+  体提供了实验基础和方法依据，也为大语言模型在软件工程领域中的
+  低成本应用提供了新的研究视角。
+
+
+
+
+  \sysusetup{
+    keywords = {大语言模型, Swe-Bench, 代码补全, 代码智能体，上下文压缩},
+  }
+\end{abstract}
+
+\begin{abstract*}
+In recent years, "Web3" has frequently attracted public attention, which is viewed as the next-generation Internet paradigm. Its emergence is mainly due to the widespread adoption of cryptocurrencies and the rapid growth of blockchain technology. Although many popular Web3 projects have appeared, public understanding of Web3 remains preliminary. Moreover, smart contracts, as the core backend logic of Web3, often expose security vulnerabilities that threaten user assets. However, existing research lacks comprehensive investigations into smart contract security issues within popular Web3 projects and developers' practical remediation strategies. Furthermore, existing vulnerability detection tools generally suffer from low accuracy and high false-positive rates.
+
+To address these problems, this paper studies Web3 from four perspectives: ecosystem classification, vulnerability identification, practical remediation strategies adopted by developers, and the design of vulnerability detection tools.
+
+First, we conduct an empirical study on popular Web3 projects. Using an open card-sorting method, we classify these projects into two main categories: infrastructure and applications. We further divide these categories into multiple subcategories and analyze representative projects to clarify the overall structure of the Web3 ecosystem. Additionally, combining GitHub repositories and blockchain explorer data, we reveal trends in the code development and market performance of Web3 projects.
+
+Next, we collect issue reports from open-source Web3 projects on GitHub. Using automated analysis by a large language model (LLM) combined with manual review, we identify eight common vulnerabilities in Web3 smart contracts. These include access control issues, insecure randomness, integer overflow, reentrancy attacks, block information dependency, denial-of-service attacks, unchecked external calls, and short address attacks. For each vulnerability, we analyze its cause, provide typical examples, and design corresponding detection methods. We also investigate developers' actual decisions and priorities when fixing vulnerabilities and optimizing code. Results reveal that not all vulnerabilities are equally prioritized by developers.
+
+Based on these findings, we propose and implement an automated vulnerability detection tool for Web3 smart contracts. This tool integrates symbolic execution with a multi-role LLM collaboration. It consists of five modules: a preprocessing module for parsing compiled contracts and extracting opcode sequences; a control-flow graph construction module for dividing bytecode into basic blocks; a symbolic execution module for simulating contract execution; a vulnerability detection module for identifying potential issues based on predefined vulnerability patterns; and a multi-role LLM verification module. The LLM module reduces false positives by simulating collaboration among attackers, security architects, business logic experts, and arbitrators.
+
+Finally, we conducted an experimental evaluation of the proposed tool on SmartBugs-Curated, a benchmark dataset consisting of 143 real-world smart contracts. The experimental results demonstrate that the tool can effectively detect common security vulnerabilities in Web3 smart contracts, achieving a precision of 93.85\%, a recall of 89.71\%, and an F1-score of 91.73\%. Compared with mainstream vulnerability detection tools such as Mythril, Oyente, and Slither, the proposed tool demonstrates superior performance across key evaluation metrics, including precision, recall, and F1-score, highlighting its effectiveness and practical applicability.
+
+
+
+
+
+  
+  \sysusetup{
+    keywords* = {LLM, Swe-Bench, Code Completion, Code Agent，Context Compression},
+  }
+\end{abstract*}

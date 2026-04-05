@@ -1,0 +1,1311 @@
+\section{Introduction}\label{sec:intro}
+\vspace{-2pt}
+% 参考paper：
+% An Empirical Study on Automatically Detecting AI-Generated Source Code: How Far Are We?
+% https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=11029804
+% An Empirical Study on Package-Level Deprecation in Python Ecosystem
+% https://arxiv.org/pdf/2408.10327
+% An Empirical Study on Reproducible Packaging in Open-Source Ecosystems
+% https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=11029905
+% An Extensive Empirical Study of Nondeterministic Behavior in Static Analysis Tools
+% https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=11029904
+
+% 待改写：
+% INTRO还需要改，需要更流畅，逻辑更清晰
+% 1.现有方法问题 2.gap重写 3.RQS简单论述和总结
+% RQ后增加一小段话描述
+% 数据集数据统计
+% 实验设置讲清楚怎么与处理的，怎么设置参数的、跑了哪些方法,每种方法怎么设置超参和窗口大小之类的
+% 评估指标里删掉bleu，稍微介绍一下EM、ES
+% 待写
+% Results部分
+% Disscusion
+% Conclusion
+% Abstract
+% 待画图片
+% 图overview:代码补全的一般流程（检索/压缩等）
+% 图2：体现不同模型不同方法性能的图（折线图？）
+%可以画一条折线图，研究压缩倍率的倒数和生成时间的关系，推理一下ratio与time的关系
+%可以考虑给各种方法的表现做一个二维图，横轴表示压缩效果，竖轴表示压缩效率，分析最优方法！
+% 可以画一个EM vs. Model Scale 曲线，分不同压缩方法（可见llmlingua等方法7B/3B损失远超rag/function_rag），研究参数的影响
+
+% 对于每个RQ，用一张图片简要总结
+% 表格
+% 1.dataset信息统计
+
+
+% 问题0：对齐口径，软工还是Code？
+% 问题1.补充repoqa，多一组实验，指标为SNF的BLEU相似度
+% 问题2.代码补全可以引入longcoder数据集，更多一个
+% 问题3.增加几个横向方法，不压缩作为上限，无上下文作为下限,两个RAG（unixcoder检索）：简单的RAG(固定size),BM25检索，函数分块RAG作为参考指标，硬压缩包括普适性的LLMLINGUA三家，软压缩两家，适配代码的硬压缩DietCode（Python+Java）和SlimCode（仅支持Java，用tree-sitter 重新实现了 SlimCode 的 Python 版本），分类为：无上下文，无压缩，RAG-based，文本压缩，代码压缩，软压缩。
+% 问题4.对于RAG方法，可以加一个RLCODER或者RepoCoder,RLCODER作为检索器可以直接替换
+% 问题5.增加指标：压缩率，压缩前后的token对比
+% 问题6.增加指标：FLOPS，这个指标大部分是估算的，HuggingFace的optimum-benchmark、BigDL的LLMBench俩库也都是理论估计，根据理论估计FLOPS正比于token*参数，可能就不加了
+
+
+% 3.实验
+% Experimental setting:
+% LLM: xx, xxx
+% Methods: 
+% Task: A, B
+% Hyper parameter settings, server, ..
+% Metric: 
+%4.
+
+Large Language Models (LLMs)  have been widely used to tackle software development tasks~\cite{guo2022unixcoder,roziere2023code,li2023starcoder,guo2024deepseek}, especially for code generation~\cite{nijkamp2022codegen,guo2022unixcoder}, code completion~\cite{zhang2023repocoder,wang2024rlcoder，liu2024non,Izadi2024Language,hui2024qwen25codertechnicalreport} and code summarization~\cite{haldar2024analyzing,sun2024source}. 
+% INTRO内容：任务背景，任务重要性，现有方法的缺点，我做了什么，有什么用
+%此处应该讲长上下文任务，先讲任务，任务后面举例再讲benchmark，这里只讲任务不讲数据集！
+Specialized code LLMs such as CodeLlama~\cite{roziere2023code}, DeepSeekCoder~\cite{guo2024deepseek}, and Qwen2.5-Coder~\cite{hui2024qwen25codertechnicalreport} have demonstrated remarkable capabilities across diverse programming languages, significantly enhancing developer productivity. 
+While early applications focused on relatively simple tasks (e.g., HumanEval and MBPP benchmarks), recent advances have enabled their use in more complex scenarios, including repository-level question answering~\cite{liu2024repoqaevaluatinglongcontext} and repository-level code completion~\cite{Yu2023CoderEvalAB,jimenez2023swe}, where models routinely process with long-context code. % (e.g., exceeding 10,000 tokens).
+
+%LLMs specialized for code like CodeLlama~\cite{roziere2023code}, DeepSeekCoder~\cite{guo2024deepseekcoder}, and Qwen2.5-Coder~\cite{hui2024qwen25codertechnicalreport} can solve problems over diverse programming languages and significantly enhance productivity. 
+%Initially, researchers only apply Code LLMs to relatively simple software engineering tasks, such as HumanEval and MBPP. However, in recent years, code LLMs have been widely used for more challenging tasks, including repository-level question answering~\cite{liu2024repoqaevaluatinglongcontext} and long context code completion~\cite{Yu2023CoderEvalAB,jimenez2023swe,guo2025omnigirlmultilingualmultimodalbenchmark}, code LLMs need to handle long context inputs exceeding 10,000 tokens frequently.
+
+
+%长上下文压缩的必要性，简述现有方法
+However, the growing context length in these tasks introduces significant computational challenges. The quadratic complexity of transformer attention mechanisms~\cite{10.5555/3295222.3295349} leads to rapidly increasing costs in both computation time and memory usage as context expands. This has created an urgent need for effective context compression techniques that can maintain model performance while reducing computational overhead.
+
+Several approaches have been proposed for context compression, including Retrieval-Augmented Generation (RAG)~\cite{lewis2020retrieval}, LLMLingua~\cite{jiang2023llmlingua}, and AutoCompressor~\cite{chevalier2023adapting}. However, these methods were primarily designed for natural language texts and may fail to account for the unique structural and semantic characteristics of source code. While some RAG-based code completion approaches~\cite{wang2024rlcoder,zhang2023repocoder,hostnik2025retrieval,tan2024prompt} have emerged, there remains a critical gap in understanding how existing compression methods perform across different code-related tasks and programming languages.
+
+%As the context length in code-related tasks increases rapidly, researchers and software developers recognize that long contexts significantly raise computational costs and response times because of the quadratic complexity of the transformer attention mechanism ~\cite{10.5555/3295222.3295349}. Therefore, it has become necessary to compress long contexts.
+
+%不要提人名，列举时要按照三大类，每类下面举例一两个方法，要包括所有调研过的实验方法全部引用，不要针对一个方法！
+%故事线要变化：通用压缩算法很多，但是在代码上的拓展还不够；还有几个代码压缩方法xxcode，对gap要加粗！
+% While there exist a variety of efficient methods (i.e., Retrieval-Augmented Generation (RAG)~\cite{lewis2020retrieval} LLMLingua~\cite{jiang2023llmlingua}, AutoCompressor~\cite{chevalier2023adapting}, and more) can compress input context, such methods were built for compressing natural language texts and their performance in compressing source code still remains far from being perfect. To fill this gap, Wang et al. ~\cite{wang2024rlcoder} propose RLCoder by training UniXcoder~\cite{guo2022unixcoder} to retrieve a codeblock to generate target code.
+
+
+% 任务和重要性，只提任务不提数据集，参考empirical，需要梳理一个gap出来，作为motivation：目前方法很多，缺少全面评估，需要一个，但是现在没有！
+
+This lack of comprehensive evaluation poses challenges for both researchers and practitioners. Developers need guidance on selecting appropriate compression methods for their specific use cases, while researchers require a clearer understanding of the limitations and opportunities in code context compression. To address these needs, \textit{we present the first exploratory study evaluating long-context compression methods for code-related tasks}. Our study examines the following research questions:
+
+%问题：现在的研究者无法跨领域比较压缩方法（不全面，只在本小领域比较）
+% Although an increasing number of researchers focus on the problem of long context compression in the code domain, there is a lack of awareness regarding the existing compression methods
+% throughout the developers and researchers. In addition, it is important to investigate whether these existing compression methods meet the requirements of software developers.
+% To address this gap, we conducted a mixed-method empirical study to evaluate the performance of existing long context compress methods for compressing source code.  
+% The goal is as follows: we investigate the widely-adopted long context compression methods’ ability across different programming languages and various programming tasks, such as code completion~\cite{zhang2023repocoder,ding2023crosscodeeval} and repository-level code question answering~\cite{liu2024repoqaevaluatinglongcontext}.
+
+%可以尝试在RQ后增加一句话，简述方法
+% RQ1.方法研究 RQ2.压缩率 RQ3.不同的检索器/压缩器/生成器 RQ4.不同语言的表现（Python/Java）
+%
+% 如果只做代码补全，就在标题里体现，仔细考虑要不要叫多任务
+% Therefore, we address the following research questions:
+
+\textbf{RQ1. How do existing long-context compression methods perform on code completion task?} We select four LLMs and conduct experiments using seven compression methods on three repository-level code completion datasets to evaluate the effectiveness of various long context compression approaches.
+
+\textbf{RQ2. What is the impact of compression ratio on model performance?} We set different compression ratios to analyze model performance under varying degrees of compression.
+
+% \textbf{RQ3. How do generation models with different sizes influence compression performance?} 
+\textbf{RQ3. How do model size influence compression sensitivity?} 
+We choose four LLMs with the same architecture but different parameter sizes to assess the sensitivity of model size to the compression performance.
+
+% \textbf{RQ4. How do different compression methods perform across different programming languages?} 
+\textbf{RQ4. How does programming language affect compression method performance?} 
+We conduct experiments on both the Python and Java versions of the same dataset to evaluate the sensitivity of different programming languages to long context compression.
+
+Based on the experimental results, we obtain the following findings.
+\blackcircled{1} There is a clear trade-off between compression approaches: RAG-based methods (particularly fixed-window chunking) reduce generation time by up to 67\% while maintaining accuracy (EM) nearly equivalent to no compression, while hard compression techniques like LLMLingua achieve up to 10× compression ratios but suffer significant accuracy drops (30-50\% EM reduction). This demonstrates that RAG-based approaches better preserve critical code context.
+\blackcircled{2} We observe a strong negative correlation between compression ratio and performance - every 10\% increase in compression (e.g., from 0.6 to 0.4 ratio) leads to an average 9.3\% drop in  accuracy (EM) across models. Notably, aggressive compression (>80\% reduction) can degrade performance below no-context baselines. %, suggesting current methods often discard structurally critical code elements.
+\blackcircled{3} Model size significantly impacts compression sensitivity: while 7B models show 25-35\% EM drops at medium compression, smaller models ($\leq$1.5B) maintain stable performance ( 15-25\% EM drops). This suggests smaller models' limited context utilization makes them inherently more robust to information loss from compression.
+\blackcircled{4} Java demonstrates remarkable compression resilience, with models retaining 95-100\% of original performance under moderate compression (2X), compared to Python's 80-90\%. This robustness may due  to Java's explicit type signatures and rigid syntax, which provide redundant cues that compensate for information loss during compression.
+
+% 待重写--done
+% First, models with similar numbers of parameters show little performance difference when evaluated on the same dataset and using the same method. Second, methods with lower compression factors require longer generation times and achieve higher accuracy. Furthermore, we find that models with fewer parameters are less affected by increased compression, indicating that they are relatively insensitive to compression. Finally, we observe that Java is less sensitive to compression than Python, which may be due to the higher level of redundant information present in Java code.
+
+
+% 待重写--done
+%Overall, our results indicate that most of the mainstream long context compression methods are not specifically designed for code completion tasks and do not take the characteristics of code into account. As a result, their performance is suboptimal and they fail to achieve a balance between efficiency and accuracy.
+
+
+% 为了回答RQ做了什么？发现了什么
+%xx实验，XX结果
+
+% 贡献1.RQ1，2.分析模块 3.分析性能很差的方法，分析NLP和SE的不同需求 4.提供一个完整的数据集/压缩工具仓库 后面要根据实验结果再改改,：
+%RQ1可以考虑这个
+% We conduct an extensive evaluation of five eight long context compression methods with different evaluation metrics, code processing operations, and datasets.
+Overall, these findings highlight that current compression methods, while effective for natural language tasks, are suboptimal for coding tasks as they may fail to take the characteristics of code into account. 
+Our main contributions in this work include:
+\begin{itemize} %[topsep=0pt,itemsep=0pt,partopsep=0pt,parsep=0pt,leftmargin=8pt]
+    \item We conduct the first exploratory study of existing long-context compression methods on coding task, comparing both efficiency and effectiveness. % different methods in terms of both compression ratio and effectiveness.
+    \item We study models with different parameter sizes and analyze their sensitivity to compression methods, finding that smaller models are less sensitive to compression.  
+    \item We also conduct experiments on different programming languages to examine the effectiveness of various compression methods on Python and Java, and observe that Java is less sensitive to compression.
+\end{itemize}
+
+%填充用
+% The remainder of this paper is organized as follows: in Section II, we introduce the background knowledge necessary to understand our work, including long context compression and SE tasks involving long contexts. We outline our datasets selection, methods selection, experimental setup, evaluation metrics, and experimental procedure in Section III. Next, we present the evaluation results, observations and answers to the research questions in Section IV. Then, we discuss the implication for our study in Section V. In Section VI, we provide related works of our study. Section VII shows potential threats to the validity of our approaches and findings. Finally, we conclude with a summary of the findings in Section VIII.
+
+
+
+
+
+\section{Background}
+\vspace{-2pt}
+\label{background}
+% 背景知识，加上abs写到第三页开头，不加abs写到第二页结尾
+% 1.长上下文的软工任务:补全/GIR
+% 2.方法介绍，很多种方法，简单介绍
+
+% 2.时延与消耗计算
+% TPS =总延迟时间(秒)，包括两个阶段:
+% - TTFT(Time To First Token):从输入到生成第一个token的延迟时间，主要受prompt长度和模型结构影响，也就是在 Prefilling 阶段
+% - TPOT(Time PerOutput Token):生成每个后续token所需的平均时间，也就是在 Decoding 阶段
+% - 总延迟延迟可表示为 Latency=TTFT+TPOTx输出token数量输出token数量所以 TPS 可以表示为 TPS = TTFT +TPOTx输出token数量
+% 在长上下文代码补全的场景中（如copilot补全），体感上TTFT对用户体验影响最大，急需一种方法在该场景下降低TTFT
+% （TTFT）Prefiling阶段的FLOPs=2xBatch_SizexPrompt Lengthx模型参数量
+% （TPOT）Decoding阶段的FLOPS=2 x Batch_size xCompletion Size x 模型参数量
+% 向量乘法对每个矩阵元素执行一次乘加运算(2 FLOPS)
+% 因此缩短Prompt Length可以有效降低TTFT！
+\subsection{Large Language Models for Code}
+Due to advancements in the field of Natural Language Processing (NLP), general-purpose LLMs such as GPT~\cite{gpt4.1}, Gemini~\cite{gemini2.5}, Grok~\cite{grok}, Claude~\cite{claude} Qwen~\cite{hui2024qwen25codertechnicalreport} and DeepSeek~\cite{deepseek} have seen substantial progress in their performance and widespread use~\cite{brown2020language}.
+
+To better perform on code-related tasks, a series of code specialized LLMs have been proposed. After being trained on vast and diverse datasets of source code and natural language from various domains~\cite{dai2015semi}, these models demonstrate strong code processing capabilities.
+
+These code specialized LLMs can be categorized into two types: those that are pre-trained from scratch, and those that are continue pre-trained based on general-purpose LLMs.
+
+%从零预训练的codebert,unixcoder,codegen,starcoder,deepseekcoder
+\textbf{Train from scratch}
+CodeBERT~\cite{feng2020codebert} is a bimodal pre-trained model with an encoder-decoder architecture for programming language (PL) and natural language (NL), which is capable of handling common NL-PL tasks.
+UniXcoder~\cite{guo2022unixcoder} is a unified cross-modal pre-trained model for programming language. The model utilizes mask attention matrices with prefix adapters and cross-modal contents like AST and code comment to enhance code representation.
+CodeGen~\cite{nijkamp2022codegen} adopts a decoder-only architecture, with a focus on multi-turn program synthesis and open-source availability.
+StarCoder~\cite{li2023starcoder}, on the contrary, adopts a fill-in-the-middle objective for improved bidirectional context modeling.
+DeepSeek-Coder~\cite{guo2024deepseekcoder} make the first attempt to incorporate repository-level data construction during the pre-training phase.
+%基于llm的：codex,codeT5, codellama,WizardCoder,qwencoder
+\textbf{Train from base}
+CodeX~\cite{chen2021evaluatinglargelanguagemodels} adapts GPT architecture and is pretrained on a large corpus of GitHub code using next-token prediction. 
+CodeLlama~\cite{rozière2024codellamaopenfoundation} extends LLaMA with code-specific tokenization and longer contexts. 
+Qwen2.5-Coder~\cite{hui2024qwen25codertechnicalreport} is trained based on Qwen2.5. It parses code data using ASTs and employs rejection sampling for a two-stage post-training.
+
+All these LLMs for Code significantly increase the chance that AI (i.e.,
+LLMs) writes a piece of code instead of a human developer.
+
+In this study, we specifically analyzed these code specificed LLMs to evaluate: CodeLlama (7B), DeeepSeek-Coder (6.7B) and Qwen2.5-Coder (7B),  since they are open source, perform well on many software engineering tasks, and have been widely used.
+
+\subsection{Software Engineering Tasks with Long Context}
+These models demonstrate remarkable performance in SE tasks such as code generation, code summarization, and code completion~\cite{chen2021evaluatinglargelanguagemodels, austin2021program,nijkamp2022codegen,wang2024rlcoder,zhang2023repocoder}. 
+Despite increasingly longer context windows, LLMs exhibit significant limitations in long context scenarios, especially when code completion or quetion answering requires cross-function or structural dependencies~\cite{ding2023crosscodeeval,Yu2023CoderEvalAB,guo2025omnigirlmultilingualmultimodalbenchmark}. 
+For example, even within code completion tasks, current LLMs have achieved a pass@1 accuracy of up to 96\% on the function-level code completion benchmark HumanEval~\cite{chen2021evaluatinglargelanguagemodels,evalplus-leaderboard}, while the best solved rate on the GitHub issue resolution benchmark Swebench barely reaches 60\%~\cite{jimenez2023swe,swebench-leaderboard}.
+
+To address these challenges, several long code benchmarks have been introduced, 
+such as CrossCodeEval~\cite{ding2023crosscodeeval} and CoderEval~\cite{Yu2023CoderEvalAB} in the area of repository-level code completion, RepoQA~\cite{liu2024repoqaevaluatinglongcontext} in the field of repository-level code question answering, and Swebench~\cite{jimenez2023swe} and OmniGIRL~\cite{guo2025omnigirlmultilingualmultimodalbenchmark} for GitHub issue resolution.
+
+\subsection{Long Context Compression Methods}
+%现有方法,自行分类,现在有旧的软硬压缩方法
+Compression methods for long context inputs can be categorized into RAG-based methods, hard (prompt) compression methods and soft (prompt) compression methods.
+
+Most long context compression methods are based on \textbf{RAG}~\cite{parvez2021retrievalaugmentedcodegeneration}. These methods achieve prompt compression by dynamically retrieving and injecting only the most relevant code blocks into the input prompt. 
+RAG generally consists of three stages: preprocessing, retrieval, and generation. The main differences among various RAG-based compression methods typically lie in the retrieval stage, where the retrieval logic can vary significantly between methods.
+For example, in the domain of repository-level code completion, the RepoCoder~\cite{zhang2023repocoder} method uses generated code completions to enhance the retrieval process, iterating through multiple rounds to accomplish the task. 
+Another method, RLCoder~\cite{wang2024rlcoder}, also designed for repository-level code completion, leverages perplexity to train the retriever in order to select the most effective code blocks.
+
+\textbf{Hard compression} methods directly manipulate the input by removing or rephrasing less informative content. LLMLingua~\cite{jiang2023llmlingua}, LongLLMLingua~\cite{jiang2023longllmlingua}, and Selective Context~\cite{li-etal-2023-compressing} use learned knowledge or statistical importance scores to prune uninformative tokens or sentences. 
+LLMLingua-2~\cite{pan2024llmlingua} advances this by using data distillation from GPT-4 to train a token classification model, achieving efficient and faithful compression.
+
+In contrast, \textbf{soft compression} methods~\cite{chevalier2023adapting,mu2024learning,500xcompressor} summarize input context into dense vectors or prefix embeddings. Soft compression methods typically achieve higher compression ratios than hard compression methods, but usually require training a compression model which is highly related to the generative model, making them impractical in closed-source model like GPT and Gemini. 
+
+%上面压缩方法的问题：只为自然语言设置，引出DietCode和SLimCode
+However, these methods are primarily designed for natural language, and often fail to capture the structural and semantic regularities of source code, leading to suboptimal performance in code-related tasks. This has led to a growing body of research focused on code-specific compression. ShortenDoc targets docstring compression specifically, whereas
+our method targets source code, which typically dominates the input in long context scenarios. DietCode~\cite{zhang2022diet} is a code compression framework aimed at code understanding tasks, mainly targets Python and Java programs. It leverages abstract syntax trees (AST) and reduces input code length through syntax-aware and semantic-preserving strategies, but its reliance on model-specific
+attention reduces adaptability across different architectures. SlimCode~\cite{wang2024naturalbestmodelagnosticcode} also adopts structured pruning based on AST. However, compared to DietCode, SlimCode places greater emphasis on code executability and compilability. It attempts to preserve the program structure as much as possible, ensuring that the compressed code remains verifiable by the compilers.
+long context compression in code LLMs, providing a training free and model-agnostic solution that efficiently preserves task-relevant content under tight token budgets.
+
+% ShortenDoc [54] targets docstring compression specifically, whereas
+% our method targets source code, which typically dominates the
+% input in long context scenarios. DietCode [22] combines static
+% frequency-based filtering with CodeBERT attention heuristics
+% to discard low-impact tokens, but its reliance on model-specific
+% attention reduces adaptability across different architectures.
+% SlimCode[23] applies rule-based token pruning using token
+% types and program dependency graphs, which may not generalize well across languages or tasks. These existing methods
+% mainly focus on compressing single functions. To the best
+% of our knowledge, our approach is the first to explicitly target
+% long context compression in code LLMs, providing a training free and model-agnostic solution that efficiently preserves
+% task-relevant content under tight token budgets.
+
+% \begin{itemize} %
+% [topsep=0pt,itemsep=0pt,partopsep=0pt,parsep=0pt,leftmargin=8pt]
+%     \item Hard Compression: Rule-based or model-guided irreversible reduction (e.g., filtering, summarization) that directly removes less relevant tokens.
+%     \item Soft Compression: Model-based methods that transform candidate blocks into compact vector representations, preserving semantic richness while significantly reducing sequence length.
+% \end{itemize}
+
+% \subsection{Latency and Computational Cost Analysis}
+% Tokens Per Second (TPS) is a key metric for measuring the inference efficiency of LLMs. Total latency includes two main stages:
+
+% \begin{itemize} %[topsep=0pt,itemsep=0pt,partopsep=0pt,parsep=0pt,leftmargin=8pt]
+%     \item TTFT (Time To First Token): The time from input submission to the generation of the first token, primarily influenced by prompt length and model architecture (Prefilling phase).
+%     \item TPOT (Time Per Output Token): The average time required to generate each subsequent token (Decoding phase).
+% \end{itemize}
+% Total Latency is thus expressed as:
+
+% $Latency = TTFT + TPOT \times Number of Output Tokens$
+
+% And TPS can be computed as:
+
+% $TPS = Total Output Tokens / Total Latency$
+
+% In long context code completion scenarios (e.g., Copilot-like applications), TTFT has the greatest impact on perceived latency. Therefore, reducing TTFT is critical for improving user experience.
+
+% The computational cost (in FLOPs) for each phase is:
+% \begin{itemize} %
+% [topsep=0pt,itemsep=0pt,partopsep=0pt,parsep=0pt,leftmargin=8pt]
+%     \item Prefilling (TTFT): $FLOPs = 2 \times Batch Size \times Prompt Length \times Model Parameters.$
+%     \item Decoding (TPOT): 
+%     $FLOPs = 2 \times Batch Size \times Completion Length \times Model Parameters.$
+% \end{itemize}
+
+% As each matrix multiplication involves a multiply-add operation (2 FLOPs per element), reducing prompt length is an effective way to minimize TTFT.
+
+\section{Experimental Design}
+\vspace{-2pt}
+\label{design}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figure/overview.pdf}
+\vspace{-5pt}
+\caption{Overview of our study.}
+\label{Overview}
+\end{figure}
+
+\subsection{Datasets}
+\label{datasets}
+
+% We conduct experiments on three widely used long context code-related datasets: CrossCodeEval~\cite{ding2023crosscodeeval} , RepoEval~\cite{zhang2023repocoder} and LCC~\cite{guo2023longcoder}.
+
+To evaluate the performance of long-context compression methods in the code domain, we select the repository-level code completion task for our experiments. In this task, the code context typically consists of extensive code background information, and the specific objective is to complete a function or a class, with the ground truth being the actual implementation of the function or class. To objectively assess model performance, we conduct experiments on the following three dataset, CrossCodeEval~\cite{ding2023crosscodeeval} , RepoEval~\cite{zhang2023repocoder} and LCC~\cite{guo2023longcoder}:
+
+%RepoQA~\cite{liu2024repoqaevaluatinglongcontext}.
+
+\underline{CrossCodeEval} has 9928 code completion instances in four programming languages: Python, Java, TypeScript, and C\#. The data is collected from 99 code repositories created from March 5, 2023 to June 15, 2023, each with at least 3 stars and between 10 and 50 files. We select a subset of benchmark in the Python programming language for our experiments, comprising a total of 2,665 samples.
+The quality of the generated code is evaluated by directly comparing it with the reference code using exact match (EM) and edit similarity (ES) metrics. 
+
+
+\underline{RepoEval} selects a set of Python repositories created after January 1, 2022, each with more than 100 stars, to construct three sub-datasets at different levels of granularity: line completion level, API invocation completion level, and function body completion level. 
+In total, these sub-datasets contain 3,573 samples. RepoEval provides evaluation at multiple granularities, as well as more precise assessments based on unit tests.
+
+% \underline{RepoQA} is a collection of 500 code search tasks from 50 popular repositories across 5 modern programming languages (Python, C++, Java, TypeScript, and Rust) with at least 100 GitHub stars. Researchers build an initial task, namely Searching Needle Function (SNF), which exercises LLMs to search functions given their natural-language description, i.e., LLMs cannot find the desired function if they cannot understand the description and code.
+
+\underline{LCC} targets the code
+completion task under long context of relevant functions. The LCC dataset includes three programming languages: Python, Java, and C\#. Each language has a test set of 10K samples. The sequence length in this dataset ranges from 512 to 10,000 tokens, with an average length of around 2,000 tokens.
+
+%我们对数据集进行了预处理，因为LCC数据量太大，我们认为500个token的不算长上下文任务，所以筛选出长度较大的数据集进行评估(分词后token＞5000)的
+
+We first preprocess these datasets by using regular expressions to extract the function or class signature at the end of the context as the basic instruction to guide code generation (hereafter referred to as the \textbf{``instruction"}). This part is never compressed by any method. The remaining part serves as the background long context (hereafter referred to as the ``background context" or simply \textbf{``context"}), which is subjected to various compression methods.
+
+In addition, since these datasets contain a large and variable number of samples, we apply a filtering step. The filtering rules are: the context must have no more than 50 lines, and at least 3000 tokens. After filtering, we select the first 500 samples that meet the criteria for our experiments. This ensures the selected dataset has a moderate context length—neither too long nor too short. However, for the Func-level subset of the RepoEval dataset, there are only 455 cases, so no filtering is conducted.
+
+We conduct statistical analysis on the processed datasets. It is worth to note that different models use different tokenizers, which may lead to inconsistent token counts. To maintain a unified standard, we used the DeepseekCoder tokenizer for all tokenization. Table~\ref{tab:Benchmark} shows the statistics of the benchmarks we processed. \texttt{\#Samples} stands for the number of samples in a benchmark,  \texttt{Avg. \#Lines} and \texttt{Avg. \#Tokens} stands for the average numbers of lines and tokens of the target code snippets in the benchmark, respectively. 
+% Tokens are tokenized by the tokenizer of DeepSeekCoder-1B.
+
+%备注，都使用deepseek算出来的token
+%待增加：多语言的信息        
+%待增加：repoqa的信息
+\begin{table}[t]
+    \centering
+    \setlength{\tabcolsep}{2.7pt}
+    \small
+    % \begin{threeparttable}
+    \caption{Benchmark statistics.}
+    \vspace{-5pt}
+    \label{tab:Benchmark}
+    \begin{tabular}{ccccc}
+    \toprule
+    \multirow{2}{*}{\textbf{Benchmark}} & \multirow{2}{*}{\textbf{Category}} & \multirow{2}{*}{\textbf{\# Samples}} & \multicolumn{2}{c}{\textbf{Avg. \# Tokens}} \\
+    \cmidrule(lr){4-5} 
+     &  &  & \textbf{Context} & \textbf{GroundTruth} \\
+    \midrule
+    %\multirow{2}{*}{}
+    \multirow{2}{*}{LCC} & Python  & 500 & 6466.9 & 15.44 \\
+    & Java  & 500 & 5779.7 & 11.83 \\
+    \cmidrule{1-5}
+    \multirow{2}{*}{CrossCodeEval} & Python & 500 & 830.9 & 14.39\\
+    & Java & 500 & 1206.3 & 16.44 \\
+    \cmidrule{1-5}
+    \multirow{3}{*}{RepoEval} & Python (Line) & 500 & 2101.8 & 14.93\\
+    & Python (API) & 500 & 2605.1& 35.15\\
+    & Python (Func) & 455 & 1847.6 & 115.84\\
+    %     \cmidrule{1-5}
+    % LCC & Java  & 500 & 6466.9 & \\
+    % \cmidrule{1-5}
+    % \multirow{2}{*}{RepoQA} & Python & 100 & - & - \\
+    % & Java & 100 & - & - \\
+    \bottomrule
+    \end{tabular}
+    % \begin{tablenotes}
+    % \item[*] \textbf{Lines} and \textbf{Tokens} refer to the average number of lines and tokens of tasks within the benchmark, where the tokens are tokenized by the tokenizer of DeepSeekCoder-1B.
+    % \end{tablenotes}
+% \end{threeparttable}
+\end{table}
+
+\subsection{Evaluated Approaches \& LLMs}
+\label{approachs}
+%少一句简要介绍
+% 介绍几种方法，不压缩作为上限，无上下文作为下限,两个RAG（unixcoder检索）：简单的RAG(固定size),BM25检索，函数分块RAG作为参考指标，硬压缩包括普适性的LLMLINGUA三家，软压缩两家，适配代码的硬压缩DietCode（Python+Java）和SlimCode（仅支持Java，用tree-sitter 重新实现了 SlimCode 的 Python 版本），分类为：无上下文，无压缩，RAG-based，文本压缩，代码压缩，软压缩。
+% 我们选择了多种方法在数据集上进行实验，并进行比较，这些方法包括以下类型：
+\subsubsection{Evaluated Approaches}
+We select some methods to experiment with on the chosen datasets. These methods can be categorized into various types as follows:
+\begin{itemize}[itemsep= 1 pt,topsep = 10 pt, parsep = 1 pt, left = 5 pt]
+    \item \textbf{\nocontext}: We evaluate models with only the task instruction (doc string), without any context, representing the lower bound.
+    
+    \item \textbf{\nocompression}: We evaluate models with the task instruction and full code context, without any compression, representing the upper bound of performance.
+%可以加一个基本的BM25+RAG，RLCODER或者RepoCoder,RLCODER作为检索器可以直接替换
+    \item \textbf{RAG-based Methods}: For RAG-based methods, numerous existing approaches have been proposed for both the chunking and retrieval stages. In the chunking stage, we select two methods to evaluate performance: \textbf{\rag} and \textbf{\ragfunction}. For both methods, we use the unixcoder-base ~\cite{guo2022unixcoder} for retrieval stage.
+
+    %可加Quito家族、Selective Context
+    \item \textbf{Hard Compression Methods}: In the field of natural language processing (NLP), there are numerous methods of text compression currently. We select the LLMLingua family of approaches for evaluation, including \textbf{\llmlingua}~\cite{jiang2023llmlingua}, \textbf{\longllmlingua}~\cite{jiang2023longllmlingua}, and \textbf{\llmlinguatwo}~\cite{pan2024llmlingua}.
+
+% \subsubsection{Hard Compression Methods for Code}
+% In the domain of code processing, several hard compression methods are specifically designed for source code. We select DietCode and SlimCode for our experiments. 
+% \underline{DietCode}~\cite{zhang2022diet} is a code compression framework aimed at code understanding tasks. It leverages abstract syntax trees (AST) and reduces input code length through syntax-aware and semantic-preserving strategies. DietCode mainly targets Python and Java programs. 
+% \underline{SlimCode}~\cite{wang2024naturalbestmodelagnosticcode} also adopts structured pruning based on AST. However, compared to DietCode, SlimCode places greater emphasis on code executability and compilability. It attempts to preserve the program structure as much as possible, ensuring that the compressed code remains verifiable by the compilers.
+% %可以补充ICAE,In-Context Former
+% \subsubsection{Soft Compression Methods}
+% Unlike hard compression, soft compression reduces the number of input tokens by using an encoder to compress a long context into a shorter vector. This approach often achieves a higher compression ratio. For soft compression, we select AutoCompressor~\cite{chevalier2023adapting} as our baseline method. AutoCompressor is a language model that can compress context information into a small set of summary vectors and reason over these summary vectors which are passed to the model as soft prompts.
+%可能的混合压缩算法Hybrid Context Compression (HyCo2) for：https://arxiv.org/abs/2505.15774
+%\subsubsection{Hybrid Compression Methods}
+\end{itemize}
+
+
+
+\subsubsection{Evaluated LLMs}
+We evaluate all methods on a diverse set of large language models, including both earlier released models like \codellama~\cite{rozière2024codellamaopenfoundation}, \deepseekseven~\cite{guo2024deepseekcoder}, and latest models like \qwenseven~\cite{hui2024qwen25codertechnicalreport} and \seed~\cite{zhang2025seed}. It is important to note that we use the instruct version of these models.
+
+\subsection{Experimental Setup}
+% We tailored hyperparameters for each distinct task, consistently mirroring the generation model with our compression
+% model. 
+% We use the provided implementations by each approach:  \llmlingua~\cite{jiang2023llmlingua}, \longllmlingua~\cite{jiang2023longllmlingua}, \llmlinguatwo~\cite{pan2024llmlingua}.
+% For all three of these hard compression algorithms, we use the same model, phi-2~\cite{javaheripi2023phi}, to perform compression.
+
+We provide a detailed description of the experimental setup for each method evaluated in our study. 
+
+For the \nocompression method, we concatenate the full context with the instruction and feed them directly into the generator for code generation. For \nocontext method, we only input the instruction to the generator without any additional context. For RAG-based methods, we implement two chunking strategies. The \rag method employs a sliding window approach with a window size of 80 tokens and an overlap of 40 tokens. The \ragfunction method leverages function boundaries and performs chunking at the function granularity, ensuring that complete functions are preserved as coherent units. For both RAG-based methods, we use the unixcoder-base model~\cite{guo2022unixcoder} as the embedding model.
+
+We utilize the official implementations provided by each approach in the LLMLingua family.
+For \llmlingua, we set the target token count to 500 to achieve optimal compression while preserving essential information. For \longllmlingua, we configure the sliding window chunk size to 80 tokens with an overlap of 40 tokens, consistent with our chunking methodology. For \llmlinguatwo, we treat class declaration keywords in Java and Python (such as \texttt{def}, \texttt{class}) as special tokens during the compression process to maintain syntactic integrity.
+
+We tailored hyperparameters for each distinct task, consistently mirroring the generation model with our compression model. All experiments were conducted on a system equipped with an Intel Xeon Platinum 8480C CPU and an NVIDIA H100-80G GPU.
+
+
+% In total, we experiment with seven methods:
+
+% - \nocompression: This method concatenates the full context with the instruction and feeds them into the generator for code generation.  
+% - \nocontext: This method inputs only the instruction to the generator.  
+
+% We consider these two methods as representing the upper and lower bounds of model performance, respectively.
+
+% Additionally, we select two RAG-based approaches:
+
+% - \rag: This method uses a simple sliding window over the context. We set the window size to 80 and the overlap to 40 for this method.
+% - \ragfunction: This method leverages function boundaries and performs chunking at the function granularity, considering the specifics of each programming language.
+% For both RAG-based compression methods, we consistently use the unixcoder-base model~\cite{guo2022unixcoder} as the embedding model.
+
+% Finally, we select the llmlingua family—widely used in the NLP community—for hard compression experiments, including three methods in total:
+
+% - \llmlingua: We set the target token count to 500.
+% - \longllmlingua: We set the sliding window chunk size to 80 and overlap to 40.
+% - \llmlinguatwo: We treat class declaration keywords in Java and Python as special tokens (such as 'def') during compression.
+
+% For all three of these hard compression algorithms, we use the same model, phi-2~\cite{javaheripi2023phi}, to perform compression.
+
+% The remaining methods (to be described) are other advanced compression strategies included in our experiments.
+
+% DietCode~\cite{zhang2022diet} and SlimCode~\cite{wang2024naturalbestmodelagnosticcode}.
+
+% All experiments were conducted on a system equipped with an Intel Xeon Platinum 8480C CPU and an NVIDIA H100-80G GPU.
+
+%指标：生成时间，EM, ES，压缩倍率and FLOPs?
+\subsection{Evaluation Metrics}
+The evaluation of compression methods encompasses two primary dimensions: compression efficiency and downstream generation performance with compressed context. 
+We use \textbf{compression ratio} to evaluate compression efficiency:
+\begin{equation}
+Compression Ratio = \frac{\lvert{Context_{compressed}}\rvert}{\lvert{Context_{original}}\rvert}
+\end{equation}
+where $Context_{compressed}$ represents the length of the context input to the model after compression,  
+while $Context_{original}$ represents the length of the context before compression.
+
+For the code completion task, we follow standard practice~\cite{Yu2023CoderEvalAB,ding2023crosscodeeval} and use \textbf{EM} and \textbf{ES} to evaluate the performance of the models.
+
+\textbf{EM (Exact Match)} refers to the proportion of generated code that exactly matches the reference answers. This metric is highly stringent, as it does not consider partially correct cases and requires the generated code to be identical to the reference answer. The score can only be 0 or 1. The average number of exact matches out of 100 samples is calculated as the EM.
+
+\textbf{ES (Edit Similarity)}, by contrast, measures the similarity between the generated code and the reference answer based on edit distance. This metric offers greater flexibility as it accounts for partially correct cases. However, it is less sensitive to minor differences.
+
+For all generation tasks, we can use \textbf{generation time} to evaluate the effect of compression. We simply record the start and end times of generation. It is worth noting that some methods require preprocessing, retrieval, or compression of the data; the time spent on these stages is recorded as compression time separately and does not affect the generation time.
+% \begin{equation}
+% \small
+% Compress\_Time = Compress\_End\_Time - Compress\_Start\_Time
+% \end{equation}
+
+% \begin{equation}
+% Generate\_Time = Generate\_End\_Time - Generate\_Start\_Time
+% \end{equation}
+
+
+% For the code question answering task, we follow~\cite{liu2024repoqaevaluatinglongcontext} to evaluate the retrieval accuracy of needle functions, reporting the percentage of models that retrieve a correct match above a \textbf{BLEU} similarity threshold of 0.8 between the generated function $f_o$ and the target function $\hat{f}$: 
+% \begin{equation}
+% BLEU(\hat{f}, f_o) > threshold
+% \end{equation}
+
+% \textbf{Bilingual Evaluation Understudy (BLEU)}~\cite{PapineniRWZ02} is commonly used to evaluate the quality of the generated code summaries~\cite{haque2020improved,ye2020leveraging}.
+% In short, a BLEU score is a percentage number between 0 and 100 that measures the similarity between one sentence to a set of reference sentences using constituent n-grams precision scores. BLEU typically uses BLEU-N (calculated by n-gram precisions, n is typically set to 1, 2, 3, or 4) to measure the precision. A value of 0 means that the generated sentence has no overlap with the reference while a value of 100 means perfect overlap with the reference. Mathematically, the n-gram precision $p_n$ is defined as:
+
+% \begin{equation}\label{equ:bleu-cal2}
+% p_{n} = \frac{\sum_{C \in\{\text { Candidates }\}}{\sum_{n \text { -gram }\in \mathcal{C}} } \text { Count }_{\text {clip }}(n \text { -gram })}{\sum_{C^{\prime} \in\{\text { Candidates }\}} {\sum_{n \text { -gram }\in \mathcal{C}^{\prime}}}   \text { Count }\left(n \text { -gram }^{\prime}\right)}
+% \end{equation}
+
+% \noindent BLEU combines all n-gram precision scores using geometric mean:
+% \vspace{-5pt}
+% \begin{equation}
+% BLEU = BP \cdot \exp \sum\nolimits_{n=1}^{N} \omega_{n} \log p_{n}
+% \label{bleu_eq}
+% \end{equation}
+% $\omega_{n}$ is a uniform weight $1/N$ ($N=4$). The straightforward calculation will result in high scores for short sentences or sentences with repeated high-frequency n-grams. Therefore, Brevity Penalty (BP) is used to scale the score and each n-gram in the reference is limited to be used just once. The original BLEU was designed for the corpus-level calculation~\cite{PapineniRWZ02}. 
+
+% There is an interpretation of BLEU scores by Google~\cite{googleBleuExp}, which is shown in Table~\ref{tab:interpretation_bleu}.
+
+% \begin{table}[t]
+% \centering 
+% \small
+% \vspace{-5pt}
+% \caption{Interpretation of BLEU scores~~\cite{googleBleuExp}.}
+% \begin{tabular}{ll}
+% \toprule
+% Score & Interpretation \\
+% \midrule
+% \textless 10	& {Almost useless}\\
+% 10-19	& {Hard to get the gist}\\
+% 20-29	& {The gist is clear, but has significant grammatical errors }\\
+% 30-40	& {Understandable to good translations}\\
+% 40-50	& {High quality translations}\\
+% 50-60	& {Very high quality, adequate, and fluent translations}\\
+% \textgreater 60	& {Quality often better than human}\\
+% \bottomrule
+% \end{tabular}
+% \label{tab:interpretation_bleu}
+% \end{table}
+
+
+% \begin{table}[ht]
+% \centering
+% \renewcommand\tabcolsep{2.7pt}
+% \footnotesize
+% \caption{The best BLEU scores reported in their papers.}
+% \begin{tabular}{c ccccc}
+% \toprule
+% Model & \codenn~~\cite{IyerKCZ16} 
+% & \deepcom~~\cite{HuLXLJ18}  
+% & \astattgru~~\cite{LeClairJM19}   
+% & \rencos~~\cite{zhangretrieval20}  
+% & \NeuralCodeSum~~\cite{AhmadCRC20}  \\
+%  \midrule
+% BLEU Score & 20.50 & 38.17& 19.61& 20.70& 44.14 \\
+% \bottomrule
+% \end{tabular}
+% \label{tab:sota_score}
+% \vspace{-10pt}
+% \end{table}
+% \subsection{Implementation Details}
+
+% %maybe
+% \subsection{Ablation Study}
+
+\section{Experimental Results}
+\vspace{-2pt}
+
+In this section, we report and analyze the experimental results to answer the  research questions stated in Section~\ref{sec:intro}.
+
+\begin{table*}[t]
+    \centering
+    % \setlength{\tabcolsep}{3pt}
+    \small
+    \caption{Overall performance comparison on \texttt{RepoEval}.}
+    \label{tab:repoeval_all}
+    \begin{tabular}{llccrccrcccr}
+        \toprule
+        \multirow{2}{*}{\textbf{Generator}} & \multirow{2}{*}{\textbf{Compress Method}} &
+        \multicolumn{3}{c}{\textbf{RepoEval-Line}} &
+        \multicolumn{3}{c}{\textbf{RepoEval-API}} &
+        \multicolumn{3}{c}{\textbf{RepoEval-Function}} \\
+        \cmidrule(lr){3-5} \cmidrule(lr){6-8} \cmidrule(lr){9-11}
+        & & \textbf{EM} & \textbf{Time(s)} & \textbf{Ratio} 
+          & \textbf{EM} & \textbf{Time(s)} & \textbf{Ratio} 
+          & \textbf{EM} & \textbf{Time(s)} & \textbf{Ratio} \\
+        \midrule
+        \multirow{7}{*}{\codellama}
+            & \nocompression    & 35.40 & 188.42 & 1.00X   & 30.40  & 88.34  & 1.00X & 4.84 & 58.75 & 1.00X \\
+            & \nocontext        & 14.20 & 36.54  & 37.15X  & 9.80  & 38.66  & 5.36X & 0.44 & 28.94  & 30.01X \\
+            \cmidrule{2-11}
+            & \rag              & \textbf{33.20} & 103.15 & 2.16X & \textbf{28.80} & 82.05 & 1.02X & \textbf{4.40} & 52.39  & 1.14X \\
+            & \ragfunction      & 28.20 & 61.26 & 5.13X & 28.40 & 62.21 & 1.61X & 2.42 & 37.26  & 3.34X \\
+            \cmidrule{2-11}
+            & \llmlingua        & 16.00 & \textbf{47.83} & \textbf{9.26X} & 14.40 & 49.70 & 2.48X & 0.44 & 33.70  & 3.50X \\
+            & \longllmlingua    & 27.60 & 50.88 & 2.31X & 14.00 & \textbf{49.60} & \textbf{2.48X} & 0.44 & \textbf{33.65}  & \textbf{3.51X} \\
+            & \llmlinguatwo     & 14.80 & 65.87 & 4.47X & 12.20 & 51.12 & 2.38X & 0.88 & 38.01  & 2.89X \\
+        \cmidrule{1-11}
+        \multirow{7}{*}{\deepseekseven}
+            & \nocompression    & 42.40 & 73.65  & 1.00X & 33.20 & 82.97 & 1.00X & 4.84 & 54.78  & 1.00X \\
+            & \nocontext        & 24.20 & 38.21 & 5.19X & 11.20 & 39.32 & 5.35X & 0.44 & 28.86  & 29.68X \\
+            \cmidrule{2-11}
+            & \rag              & \textbf{41.60} & 72.81 & 1.02X & \textbf{32.00} & 82.59 & 1.02X & \textbf{4.62} & 52.39  & 1.13X \\
+            & \ragfunction      & 41.20 & 57.17 & 1.62X & 30.60 & 61.54 & 1.62X & 3.30 & 37.37  & 3.34X \\
+            \cmidrule{2-11}
+            & \llmlingua        & 32.20 & \textbf{46.99} & 2.31X & 16.60 & \textbf{49.72} & \textbf{2.48X} & 0.88 & \textbf{33.72}  & \textbf{3.53X} \\
+            & \longllmlingua    & 32.60 & 51.54 & 2.31X & 16.80 & 49.75 & 2.48X & 0.88 & 33.79  & 3.53X \\
+            & \llmlinguatwo     & 28.60 & 52.44 & \textbf{2.36X} & 14.80 & 50.68 & 2.50X & 1.10 & 38.38  & 2.98X \\
+        \cmidrule{1-11}
+        \multirow{7}{*}{\qwenseven}
+            & \nocompression    & 32.80 & 57.50  & 1.00X & 30.20 & 48.35 & 1.00X & 5.05 & 36.54  & 1.00X \\
+            & \nocontext        & 18.60 & 40.86 & 5.19X & 9.60  & 33.17 & 5.39X & 0.44 & 27.53  & 28.13X \\
+            \cmidrule{2-11}
+            & \rag              & 27.60 & 55.60 & 1.02X & \textbf{25.80} & 48.60 & 1.01X & \textbf{3.30} & 35.90  & 1.14X \\
+            & \ragfunction      & \textbf{28.20} & 48.77 & 1.62X & 23.40 & 40.54 & 1.62X & 1.76 & 30.78  & 3.34X \\
+            \cmidrule{2-11}
+            & \llmlingua        & 18.20 & \textbf{44.68} & 2.29X & 13.60 & \textbf{36.24} & 2.46X & 0.66 & \textbf{29.44}  & 3.44X \\
+            & \longllmlingua    & 18.60 & 45.25 & 2.29X & 13.80 & 36.28 & 2.46X & 0.44 & 29.91  & 3.44X \\
+            & \llmlinguatwo     & 22.20 & 45.10 & \textbf{2.56X} & 13.00 & 36.41 & \textbf{2.71X}  & 0.88 & 30.58  & \textbf{3.54X} \\
+        \cmidrule{1-11}
+        \multirow{7}{*}{\seed}
+            & \nocompression    & 55.20 & 68.05  & 1.00X & 49.20 & 58.55 & 1.00X & 8.79 & 42.59  & 1.00X \\
+            & \nocontext        & 33.80 & 47.89 & 5.19X & 18.80 & 35.60 & 5.37X & 0.22 & 29.83  & 28.92X \\
+            \cmidrule{2-11}
+            & \rag              & \textbf{53.20} & 68.85 & 1.02X & \textbf{46.20} & 57.93 & 1.01X & \textbf{7.91} & 42.48  & 1.14X \\
+            & \ragfunction      & 50.80 & 58.89 & 1.61X & 42.00 & 47.31 & 1.62X & 4.40 & 34.42  & 3.33X \\
+            \cmidrule{2-11}
+            & \llmlingua        & 41.20 & 54.06 & 2.31X & 31.20 & 41.77 & 2.48X & 2.20 & 32.85  & 3.49X \\
+            & \longllmlingua    & 41.00 & 53.37 & 2.31X & 30.80 & 41.72 & 2.48X & 2.20 & \textbf{32.83}  & 3.49X \\
+            & \llmlinguatwo     & 38.60 & \textbf{53.16} & \textbf{2.55X} & 23.00 & \textbf{41.56} & \textbf{2.68X} & 2.20 & 34.31  & \textbf{3.56X} \\
+        \bottomrule
+    \end{tabular}
+\end{table*}
+
+% \begin{itemize}
+%      \item \textbf{RQ1:} How do existing long context compression methods perform on code completion task?
+
+%      \item \textbf{RQ2:} How do different compression ratios affect the performance of compression methods?
+    
+%      \item \textbf{RQ3:} How do different components affect compression performance?
+    
+%      \item \textbf{RQ4:} How do different compression methods perform across different programming languages?
+% \end{itemize}
+
+% RQ写细（本RQ为了验证什么+表格）
+
+\subsection{Overall Effectiveness (RQ1)}
+% \subsection{RQ1:How do existing long context compression methods perform on code completion tasks?} 
+\label{rq1}
+To answer RQ1, we evaluate the performance of existing long context compression approaches by running them on the testing splits of
+our datasets (c.f. Section~\ref{datasets}). As mentioned in Section~\ref{approachs},
+we select a total of seven methods for our experiments, i.e., the most basic methods using \nocontext, no \nocompression, \rag, \ragfunction,  \llmlingua~\cite{jiang2023llmlingua}, \longllmlingua~\cite{jiang2023longllmlingua}, and \llmlinguatwo~\cite{pan2024llmlingua}, as baseline approaches that we compare ours with in this study.
+%
+We evaluate these methods on \codellama~\cite{rozière2024codellamaopenfoundation}, \deepseekseven~\cite{guo2024deepseekcoder}, \qwenseven~\cite{hui2024qwen25codertechnicalreport} and \seed~\cite{zhang2025seed}. 
+
+\begin{table}[t]
+    \centering
+    \setlength{\tabcolsep}{5pt}
+    \small
+    \caption{Performance of different generators and compression methods on \texttt{CCEval-Python}.}
+    \label{tab:cceval_python}
+    \begin{tabular}{clccc}
+        \toprule
+        \textbf{Generator} & \textbf{Compress Method} & \textbf{EM} & \textbf{Time(s)} & \textbf{Ratio} \\
+        \midrule
+        \multirow{7}{*}{\rotatebox{90}{\codellama}}
+            & \nocompression    & 6.20 & 46.33 & 1.00X \\
+            & \nocontext        & 4.40 & 34.63 & 3.39X \\
+            \cmidrule{2-5}
+            & \rag              & 6.20 & 45.18 & 0.89X \\
+            & \ragfunction      & \textbf{6.20} & \textbf{40.83} & \textbf{1.32X}  \\
+            \cmidrule{2-5}
+            & \llmlingua        & 3.00 & 43.05 & 1.13X \\
+            & \longllmlingua    & 3.00 & 42.18 & 1.14X  \\
+            & \llmlinguatwo     & 5.80 & 41.05 & 1.32X \\
+        \cmidrule{1-5}
+        \multirow{7}{*}{\rotatebox{90}{\deepseekseven}}
+            & \nocompression    & 9.20 & 43.35 & 1.00X \\
+            & \nocontext        & 6.20 & 34.68 & 3.40X \\
+            \cmidrule{2-5}
+            & \rag              & \textbf{9.40} & 45.23 & 0.89X \\
+            & \ragfunction      & 7.40 & 41.16 & 1.32X \\
+            \cmidrule{2-5}
+            & \llmlingua        & 6.20 & 42.50 & 1.14X \\
+            & \longllmlingua    & 6.20 & 43.14 & 1.14X \\
+            & \llmlinguatwo     & 7.80 & \textbf{40.53} & \textbf{1.34X} \\
+        \cmidrule{1-5}
+        \multirow{7}{*}{\rotatebox{90}{\qwenseven}}
+            & \nocompression    & 2.60 & 35.05 & 1.00X \\
+            & \nocontext        & 0.80 & 31.34 & 3.40X \\
+            \cmidrule{2-5}
+            & \rag              & 2.20 & 35.33 & 0.89X \\
+            & \ragfunction      & 2.80 & \textbf{33.74} & \textbf{1.32X} \\
+            \cmidrule{2-5}
+            & \llmlingua        & 2.40 & 34.04 & 1.12X \\
+            & \longllmlingua    & 2.40 & 34.04 & 1.12X  \\
+            & \llmlinguatwo     & \textbf{5.00} & 34.20 & 1.30X \\
+        \cmidrule{1-5}
+        \multirow{7}{*}{\rotatebox{90}{\seed}}
+            & \nocompression    & 2.80 & 39.09 & 1.00X \\
+            & \nocontext        & 1.80 & 33.51 & 3.41X \\
+            \cmidrule{2-5}
+            & \rag              & 3.00 & 39.72 & 0.89X \\
+            & \ragfunction      & 2.60 & 37.52 & 1.32X \\
+            \cmidrule{2-5}
+            & \llmlingua        & 1.40 & 39.06 & 1.13X \\
+            & \longllmlingua    & 1.40 & 39.20 & 1.13X \\
+            & \llmlinguatwo     & \textbf{3.00} & \textbf{37.19} & \textbf{1.35X} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+% \begin{table}[t]
+%     \centering
+%     \setlength{\tabcolsep}{3pt}
+%     \scriptsize
+%     \caption{Experimental results on \texttt{LCC-Python}.}
+%     \label{tab:lcc_python}
+%     \begin{tabular}{llccc}
+%         \toprule
+%         \textbf{Generator} & \textbf{Compress Method} & \textbf{EM} & \textbf{Time} & \textbf{Ratio} \\
+%         \midrule
+%         \multirow{7}{*}{CodeLlama-7B}
+%             & \nocompression    & 35.40 & 200.63 & 1.00X \\
+%             & \nocontext        & 14.2  & 33.79  & 37.15X \\
+%             \cmidrule{2-5}
+%             & \rag              & \textbf{33.2}  & 96.75  & 2.16X \\
+%             & \ragfunction      & 27.89 & 55.62  & 5.13X \\
+%             \cmidrule{2-5}
+%             & \llmlingua        & 16.00 & \textbf{44.60}  & \textbf{9.26X} \\
+%             & \longllmlingua    & 16.00 & 44.62  & 9.26X \\
+%             & \llmlinguatwo     & 14.80 & 60.61  & 4.47X \\
+%         \cmidrule{1-5}
+%         \multirow{7}{*}{DeepSeekCoder-6.7B}
+%             & \nocompression    & 34.80 & 191.48 & 1.00X \\
+%             & \nocontext        & 14.00 & 33.87  & 37.27X \\
+%             \cmidrule{2-5}
+%             & \rag              & \textbf{32.00} & 96.43  & 2.16X \\
+%             & \ragfunction      & 27.40 & 57.41  & 5.15X \\
+%             \cmidrule{2-5}
+%             & \llmlingua        & 13.80 & 45.42  & 9.28X \\
+%             & \longllmlingua    & 13.80 & \textbf{44.60}  & \textbf{9.29X} \\
+%             & \llmlinguatwo     & 14.80 & 57.42  & 4.95X \\
+%         \cmidrule{1-5}
+%         \multirow{7}{*}{Qwen2.5-Coder-7B-Instruct}
+%             & \nocompression   & 29.2  & 114.14 & 1.00X \\
+%             & \nocontext      & 8.2   & 31.47  & 42.58X \\
+%             \cmidrule{2-5}
+%             & \rag            & \textbf{22.0}  & 59.07  & 2.68X \\
+%             & \ragfunction    & 19.8  & 43.61  & 5.68X \\
+%             \cmidrule{2-5}
+%             & \llmlingua      & 10.4   & \textbf{36.49}  & \textbf{11.21X} \\
+%             & \longllmlingua  & 10.4   & 36.51  & 11.21X \\
+%             & \llmlinguatwo   & 9.8.8   & 39.14  & 7.48X \\
+%         \cmidrule{1-5}
+%         \multirow{7}{*}{Seed-Coder-8B-Instruct}
+%             & \nocompression    & 39.60 & 136.85 & 1.00X \\
+%             & \nocontext        & 14.40 & 34.06  & 40.54X \\
+%             \cmidrule{2-5}
+%             & \rag              & \textbf{34.60} & 71.77  & 2.43X \\
+%             & \ragfunction      & 30.40 & 48.32  & 5.64X \\
+%             \cmidrule{2-5}
+%             & \llmlingua        & 15.80 & 40.93  & 10.41X \\
+%             & \longllmlingua    & 15.80 & \textbf{40.29}  & \textbf{10.41X} \\
+%             & \llmlinguatwo     & 13.80 & 45.56  & 6.57X \\
+%         \bottomrule
+%     \end{tabular}
+% \end{table}
+%1.模型整体表现差不多
+We use two tables to show the performance of different methods and models: Table \ref{tab:repoeval_all} corresponds to the \repoeval, and Table \ref{tab:cceval_python} to \ccevalpython.
+To objectively present the compression performance of different methods, we bold the experimental results with the highest EM, the shortest generation time, and the highest compression ratio in Table \ref{tab:repoeval_all}, Table \ref{tab:cceval_python}.
+
+% \begin{figure}[t]
+% \centering
+% \includegraphics[width=\linewidth]{figure/metrics_vs_compression_by_model.pdf}
+% \vspace{-5pt}
+% \caption{Performance of different generators and compression methods in 3 datasets.}
+% \label{perfermance_all}
+% \end{figure}
+
+By observing the experimental results, we can notice some phenomena. \textit{First}, without compression, the performance of the four models on the different datasets does not differ significantly; overall, Seed and Deepseekcoder perform slightly better. This is understandable, because although the release times of these models vary greatly, the size of each model we selected is around 7B parameters. Due to the scaling law, it is normal that models with similar parameter counts do not show major performance differences.
+
+%rag 的EM表现比较好
+\textit{Second}, in terms of code generation performance (EM), RAG-based methods often perform the best, with \rag outperforming \ragfunction. This could be because, compared to hard compression algorithms, RAG-based methods retain more context, and \rag, with its larger chunk size compared to \ragfunction, may preserve more potentially meaningful code information.
+
+%硬压缩的时间表现比较
+From the perspective of generation time, the hard compression methods—especially the \llmlingua family—perform quite well. This is because LLMLingua adopts a more fine-grained compression approach, as also evidenced by its high compression ratio. We also conduct an analysis of the relationship between the generation time and compression ratio, as shown in Figure \ref{fig:performance_compare}. It can be seen that these two metrics generally exhibit an inverse relationship; however, the trend does not perfectly match the theoretical expectation. This discrepancy may be attributed to factors such as cold start overhead and kv-cache behavior during LLM inference.
+
+
+\textit{Finally}, we found that on the \ccevalpython dataset, the compression ratio of the RAG method can be less than 1. After analysis, we found that this is because the average sequence length of this dataset is relatively short, while the RAG window we set is relatively large, and we also used overlapping windows. As a result, the total number of input tokens after compression may actually increase. This suggests that we need to adjust the RAG window size based on the length of the input data for different datasets.
+
+%这一块放一个对生成时间和压缩时间和总时间的分析，然后从query无关的角度证明压缩方法对减低等待时间是有意义的。
+
+In addition to generation time, we also record the time required for compression as well as the total time spent; the experimental results are shown in the Table \ref{tab:total_time}.
+
+We observe that different compression methods demonstrate significant differences in generation time, compression time, and total time. RAG-based methods strike a good balance between generation and compression time, resulting in a total time that is significantly lower than that of the non-compression method, while maintaining high accuracy. In contrast, the \nocontext method achieves the lowest total time but incurs substantial accuracy loss. The \llmlingua method delivers very short generation time and relatively low compression time, thereby achieving an overwhelming advantage in total time. However, the other two hard compression methods, \longllmlingua and \llmlinguatwo, have longer compression phases, which limits their overall advantage in total time.
+
+Considering both time and accuracy, we recommend prioritizing RAG-based methods in practical applications to achieve a more optimal balance between efficiency and effectiveness.
+
+\begin{table}[t]
+    \centering
+    \setlength{\tabcolsep}{2.7pt}
+    \footnotesize % \small %
+    \caption{Analysis of compression time and generation time.}
+    \label{tab:total_time}
+    \begin{tabular}{clccccc}
+        \toprule
+        \textbf{Model} & \textbf{Compress Method} & \textbf{EM} & \textbf{Gen. Time} & \textbf{Comp. Time} & \textbf{Total} & \textbf{Ratio} \\
+        \midrule
+        \multirow{7}{*}{\rotatebox{90}\codellama}
+            & \nocompression   & \textbf{35.4}  & 200.63  & 0.00   & 200.63  & 1.00X \\
+            & \nocontext      & 14.2  & 33.79   & 0.00   & 33.79   & 37.15X \\
+            \cmidrule{2-7}
+            & \rag            & 33.2  & 96.75   & 40.49  & 137.24  & 2.16X \\
+            & \ragfunction    & 27.89 & 55.62   & 82.55  & 138.17  & 5.13X \\
+            \cmidrule{2-7}
+            & \llmlingua      & 16.0  & \textbf{44.60}   & 53.90  & \textbf{98.50}   & \textbf{9.26X} \\
+            & \longllmlingua  & 16.0  & 44.62   & 224.21 & 268.83  & 9.26X \\
+            & \llmlinguatwo   & 14.8  & 60.61   & 152.68 & 213.29  & 4.47X \\
+        \cmidrule{1-7}
+        \multirow{7}{*}{\rotatebox{90}\deepseekseven}
+            & \nocompression   & \textbf{34.8}  & 191.48  & 0.00   & 191.48  & 1.00X \\
+            & \nocontext      & 14.0  & 33.87   & 0.00   & 33.87   & 37.27X \\
+            \cmidrule{2-7}
+            & \rag            & 32.0  & 96.43   & 41.08  & 137.51  & 2.16X \\
+            & \ragfunction    & 27.4  & 57.41   & 82.31  & 139.72  & 5.15X \\
+            \cmidrule{2-7}
+            & \llmlingua      & 13.8  & \textbf{45.42}   & 54.09  & \textbf{99.51}   & \textbf{9.29X} \\
+            & \longllmlingua  & 13.8  & 44.60   & 226.06 & 270.66  & 9.29X \\
+            & \llmlinguatwo   & 14.8  & 57.42   & 152.59 & 210.01  & 4.95X \\
+        \cmidrule{1-7}
+        \multirow{7}{*}{\rotatebox{90}\qwenseven}
+            & \nocompression   & \textbf{29.2}  & 114.14  & 0.00   & 114.14  & 1.00X \\
+            & \nocontext      & 8.2   & 31.47   & 0.00   & 31.47   & 42.58X \\
+            \cmidrule{2-7}
+            & \rag            & 22.0  & 59.07   & 50.94  & 110.01  & 2.68X \\
+            & \ragfunction    & 19.8  & 43.61   & 98.30  & 141.91  & 5.68X \\
+            \cmidrule{2-7}
+            & \llmlingua      & 10.4  & \textbf{36.49}   & 58.51  & \textbf{95.00}   & \textbf{11.21X} \\
+            & \longllmlingua  & 10.4  & 36.51   & 279.58 & 316.09  & 11.21X \\
+            & \llmlinguatwo   & 9.8   & 39.14   & 193.62 & 232.76  & 7.48X \\
+        \cmidrule{1-7}
+        \multirow{7}{*}{\rotatebox{90}\seed}
+            & \nocompression   & \textbf{39.6}  & 136.85  & 0.00   & 136.85  & 1.00X \\
+            & \nocontext      & 14.4  & 34.06   & 0.00   & 34.06   & 40.54X \\
+            \cmidrule{2-7}
+            & \rag            & 34.6  & 71.77   & 46.34  & 118.11  & 2.43X \\
+            & \ragfunction    & 30.4  & 48.32   & 91.60  & 139.92  & 5.64X \\
+            \cmidrule{2-7}
+            & \llmlingua      & 15.8  & \textbf{40.93}   & 56.19  & \textbf{97.12}   & \textbf{10.41X} \\
+            & \longllmlingua  & 15.8  & 40.29   & 253.64 & 293.93  & 10.41X \\
+            & \llmlinguatwo   & 13.8  & 45.56   & 173.79 & 219.35  & 6.57X \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{center}
+    \begin{myboxc} \textbf{RQ1 Summary: } %cd
+    There is a clear trade-off between different methods: RAG-based methods (particularly fixed-window chunking) reduce generation time by up to 67\% while maintaining accuracy, while hard compression methods like LLMLingua achieve up to 10× compression ratios but suffer significant accuracy drops. This demonstrates that RAG-based methods better preserve critical code context.
+    
+    %Overall, RAG-based methods have an advantage in compression accuracy, while hard compression algorithms excel in compression ratio. Each approach has its own strengths.
+    \end{myboxc} %cd
+    % \end{myboxd} %cd
+    % \end{myboxb} %ab
+\end{center}
+
+%可以画一条折线图，研究压缩倍率的倒数和生成时间的关系，推理一下ratio与time的关系
+
+%可以考虑给各种方法的表现做一个二维图，横轴表示压缩效果，竖轴表示压缩效率，分析最优方法！
+
+
+%包含total_time版本
+% \begin{table*}[t]
+% \centering
+% \begin{tabular}{llrrrr}
+% \hline
+% Model & Method & Compress Time & Gen Time & Total Time & EM \\
+% \hline
+% \multirow{7}{*}{Qwen2.5-7B} & full & 0.00 & 114.14 & 114.14 & 29.2 \\
+% & no\_context & 0.00 & 31.47 & 31.47 & 8.2 \\
+% & rag & 50.94 & 59.07 & 110.01 & 22.0 \\
+% & function\_rag & 98.30 & 43.61 & 141.91 & 19.8 \\
+% & llmlingua & 58.51 & 36.49 & 95.00 & 10.4 \\
+% & longllmlingua & 279.58 & 36.51 & 316.09 & 10.4 \\
+% & llmlingua-2 & 193.62 & 39.14 & 232.76 & 9.8 \\
+% \hline
+% \multirow{7}{*}{CodeLlama-7B} & full & 0.00 & 200.63 & 200.63 & 35.4 \\
+% & no\_context & 0.00 & 33.79 & 33.79 & 14.2 \\
+% & rag & 40.49 & 96.75 & 137.24 & 33.2 \\
+% & function\_rag & 82.55 & 55.62 & 138.17 & 27.89 \\
+% & llmlingua & 53.90 & 44.60 & 98.50 & 16.0 \\
+% & longllmlingua & 224.21 & 44.62 & 268.83 & 16.0 \\
+% & llmlingua-2 & 152.68 & 60.61 & 213.29 & 14.8 \\
+% \hline
+% \multirow{7}{*}{Seed-8B} & full & 0.00 & 136.85 & 136.85 & 39.6 \\
+% & no\_context & 0.00 & 34.06 & 34.06 & 14.4 \\
+% & rag & 46.34 & 71.77 & 118.11 & 34.6 \\
+% & function\_rag & 91.60 & 48.32 & 139.92 & 30.4 \\
+% & llmlingua & 56.19 & 40.93 & 97.12 & 15.8 \\
+% & longllmlingua & 253.64 & 40.29 & 293.93 & 15.8 \\
+% & llmlingua-2 & 173.79 & 45.56 & 219.35 & 13.8 \\
+% \hline
+% \multirow{7}{*}{Deepseek-6.7B} & full & 0.00 & 191.48 & 191.48 & 34.8 \\
+% & no\_context & 0.00 & 33.87 & 33.87 & 14.0 \\
+% & rag & 41.08 & 96.43 & 137.51 & 32.0 \\
+% & function\_rag & 82.31 & 57.41 & 139.72 & 27.4 \\
+% & llmlingua & 54.09 & 45.42 & 99.51 & 13.8 \\
+% & longllmlingua & 226.06 & 44.60 & 270.66 & 13.8 \\
+% & llmlingua-2 & 152.59 & 57.42 & 210.01 & 14.8 \\
+
+\subsection{Impact of Compression Ratio (RQ2)}
+% \subsection{RQ2:How do different compression ratios affect the performance of compression methods?}
+\label{rq2}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figure/ratio_LCC.pdf}
+\vspace{-5pt}
+\caption{Compression effectiveness for different ratios. Method: \llmlingua, dataset: \texttt{\lccpython}.}
+%\caption{We select different setting ratios for the \llmlingua and investigate the compression effectiveness under each setting ratio on \texttt{\lccpython}.}
+\label{fig:perfermance_ratio}
+\end{figure}
+
+\begin{table}[t]
+    \centering
+    \setlength{\tabcolsep}{3pt}
+    % \small
+    \caption{Performance of different setting ratio on \texttt{LCC\_python}.}
+    \label{tab:experiment_ratio_lcc}
+    \begin{tabular}{llccc}
+        \toprule
+        \textbf{Generator} & \textbf{Setting Ratio} & \textbf{EM} & \textbf{Time} & \textbf{Actual Ratio} \\
+        \midrule
+        \multirow{6}{*}{\codellama} %CodeLlama-7b-Instruct-hf
+            & 1.0 & 35.40 & 200.63 & 1.00X \\
+            & 0.8 & \textbf{16.6} & 147.71 & 1.37X \\
+            & 0.6 & 12.6 & 91.72  & 2.63X \\
+            & 0.4 & 10.6 & 66.21  & 4.47X \\
+            & 0.2 & 11.6 & \textbf{52.68} & \textbf{7.43X} \\
+            & 0.0 & 14.2  & 33.79  & 37.15X \\
+        \cmidrule{1-5}
+        \multirow{6}{*}{\deepseekseven} %deepseek-coder-6.7b-instruct
+            & 1.0 & 34.80 & 191.48 & 1.00X \\
+            & 0.8 & \textbf{25.0} & 152.77 & 1.38X \\
+            & 0.6 & 16.2 & 92.72  & 2.65X \\
+            & 0.4 & 16.2 & 66.55  & 4.50X \\
+            & 0.2 & 15.0 & \textbf{52.73} & \textbf{7.46X} \\
+            & 0.0 & 14.00 & 33.87  & 37.27X \\
+        \cmidrule{1-5}
+        \multirow{6}{*}{\qwenseven} %Qwen2.5-Coder-7B-Instruct
+            & 1.0 & 29.2  & 114.14 & 1.00X \\
+            & 0.8 & \textbf{7.6}  & 107.87 & 1.29X \\
+            & 0.6 & 5.2  & 71.69  & 2.55X \\
+            & 0.4 & 5.6  & 57.04  & 4.52X \\
+            & 0.2 & 5.8  & \textbf{47.38} & \textbf{7.81X} \\
+            & 0.0 & 8.2   & 31.47  & 42.58X \\
+        \cmidrule{1-5}
+        \multirow{6}{*}{\seed} %Seed-Coder-8B-Instruct
+            & 1.0 & 39.60 & 136.85 & 1.00X \\
+            & 0.8 & \textbf{22.0} & 129.69 & 1.34X \\
+            & 0.6 & 17.6 & 86.71  & 2.62X \\
+            & 0.4 & 15.6 & 68.04  & 4.56X \\
+            & 0.2 & 16.2 & \textbf{58.26} & \textbf{7.70X} \\
+            & 0.0 & 14.40 & 34.06  & 40.54X \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+
+During the first part of our experiments, we observe that the compression ratio significantly influences compression performance (EM). This prompts us to investigate this issue further. Among existing methods, both \llmlingua and \longllmlingua allow for the specification of the compression ratio. We conduct experiments using both approaches with various setting ratios (i.e., 0.2, 0.4, 0.6, 0.8) across all datasets. 
+The setting rate represents the ratio of the context after compression to the context before compression. Therefore, a lower setting rate indicates a higher compression ratio. In addition, considering the characteristics of the \nocompression and \nocontext methods, we use the \nocompression method to represent a setting rate of 1.0, while the \nocontext method corresponds to a setting rate of 0.0. Due to space limitations, we only present the results of the \llmlingua method on \lccpython, as shown in Table \ref{tab:experiment_ratio_lcc}. Since the setting compression rate does not fully reflect the actual compression rate, we also record the actual compression rate in the table.
+
+Consistent with Table \ref{tab:experiment_ratio_lcc} highlights the experimental results with the highest EM, the shortest generation time, and the highest compression ratio in bold. It is important to note that the actual compression ratio is negatively correlated with the specified ratio. This occurs because, in the llmlingua method, the specified compression ratio represents the proportion of tokens after compression to those before compression, which is the opposite of our definition. 
+We plot the performance of each compression method under different setting ratios as line charts, as shown in Figure \ref{fig:perfermance_ratio}. As shown in the Table \ref{tab:experiment_ratio_lcc} and Figure \ref{fig:perfermance_ratio}, we observe that as the specified ratio decreases, the actual compression ratio correspondingly increases, the generation time decreases, and the EM score also decreases. The trends of these three results are highly consistent with our expectations prior to the experiments.
+
+However, we notice a phenomenon: for the Qwen2.5 model, when the specified compression ratio is set to 0.8, its EM score becomes lower than that obtained without any context. To investigate this further, we compare the context before and after \llmlingua compression, as shown in Figure \ref{fig:performance_compare}.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figure/case_study.pdf}
+    \caption{Illustration of code context before and after compression by  \llmlingua.}
+    \label{fig:performance_compare}
+\end{figure*}
+
+%这里放一张压缩前后的context对比图片，类似omingirl里的效果，看了几个例子，其实丢失信息挺严重的，很多函数名都被拆散了
+
+From the Figure~\ref{fig:performance_compare}, we observe that the compressed context becomes highly disordered, lacking any complete package names, function signatures, or variable information. For code generation tasks, such a disorganized context may have a negative effect and can even perform worse than providing no context at all. Fundamentally, this occurs because \llmlingua is a compression method originally designed for natural language, focusing on natural language features and information entropy without considering the characteristics of code. As code is a highly structured language, it is understandable that methods effective for natural language may not be suitable for code.
+
+Future researchers who aim to design compression methods for code must take into account the unique characteristics of code, such as abstract syntax trees (AST), function signatures, class declarations, and variable definitions.
+\begin{center}
+    % \begin{myboxb}[]{RQ2 Summary} %ab
+    \begin{myboxc} \textbf{RQ2 Summary: } %cd
+    There is a strong negative correlation between compression ratio and performance. Every 10\% increase in compression (e.g., from 0.6 to 0.4 ratio) leads to an average 9.3\% drop in accuracy (EM) across models. Notably, aggressive compression (>80\% reduction) can degrade performance below no-context baselines.
+    
+    % As the compression ratio increases, the generation time decreases, but the accuracy of the generated code also declines.   
+    \end{myboxc} %cd
+    % \end{myboxd} %cd
+    % \end{myboxb} %ab
+\end{center}
+
+\subsection{Impact of Model Size (RQ3)}
+% \subsection{RQ3: How do generative models with different sizes influence compression performance?}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figure/size_LCC.pdf}
+\vspace{-5pt}
+\caption{Comparison of EM and generation time trends in \texttt{\lccpython}.}
+\label{fig:size}
+\end{figure}
+
+To investigate how models of different sizes respond to context compression, we conduct experiments on four models from the Qwen2.5-Coder family using various datasets. Table \ref{tab:experiment_size_lcc} and Figure \ref{fig:size} presents the results on the \lccpython dataset.
+Analysis of Table \ref{tab:experiment_size_lcc} yields the following key findings.
+
+First, regardless of the scenario, models with more parameters require longer generation times. This result aligns with our expectations, as many previous studies~\cite{Agarwal2023llm,Talamadupula2024aguide} have shown that when the model architecture and output length remain roughly constant, the inference time of a model tends to increase linearly with the number of parameters. 
+
+Second, across all datasets, when no context compression is applied, the EM scores of Qwen2.5-Coder steadily increase as the parameter count grows from 0.5B to 1.5B, 3B, and 7B, demonstrating a pronounced parameter scaling law~\cite{kaplan2020scaling,wu2024towards}. This indicates that larger models can better understand and reason with a rich context, allowing their capabilities to be more fully realized.
+
+Additionally, we observe that, under all compression methods, models with more parameters are more ``sensitive'' to compression, meaning that their accuracy suffers more. For example, using the highly compressive \llmlingua method, models of different sizes show little difference in EM scores on the \lccpython dataset, with smaller models even outperforming larger ones in some cases (e.g., the 1.5B model achieves a higher score than the 3B model). This suggests that the advantage of larger models is nearly eliminated under high compression ratios.
+
+In contrast, moderate compression methods such as \rag and \ragfunction have a relatively smaller impact on large models. Compared to highly compressive methods like \llmlingua, these approaches maintain a reasonable compression rate without causing severe performance degradation in large models. This suggests that large models are able to effectively extract useful information when key information and structural elements are appropriately preserved in the compressed context.
+
+Overall, these results indicate that large models can effectively capture useful information from long contexts, but high levels of compression cause significant loss of such information, which leads to a substantial decline in their performance. In contrast, small models have limited capacity to begin with and cannot capture long-range contextual information as effectively as large models; therefore, information loss due to compression has minimal impact on their performance~\cite{kaplan2020scaling}.
+
+\begin{table}[t]
+    \centering
+    \setlength{\tabcolsep}{3pt}
+    \small
+    \caption{Performance comparison of different model sizes on \texttt{LCC-Python}.}
+    \label{tab:experiment_size_lcc}
+    \begin{tabular}{llccc}
+        \toprule
+        \textbf{Generator} & \textbf{Compress Method} & \textbf{EM} & \textbf{Time} & \textbf{Ratio} \\
+        \midrule
+        \multirow{7}{*}{\qwenzero}
+            & \nocompression   & 23.2  & 44.10  & 1.00X \\
+            & \nocontext      & 5.4   & 21.32  & 42.58X \\
+            \cmidrule{2-5}
+            & \rag            & \textbf{19.6}  & 27.57  & 2.68X \\
+            & \ragfunction    & 16.8  & 23.59  & 5.68X \\
+            \cmidrule{2-5}
+            & \llmlingua      & 3.2   & \textbf{21.72}  & \textbf{10.93X} \\
+            & \longllmlingua  & 4.6   & 23.06  & 8.29X \\
+            & \llmlinguatwo   & 5.8   & 25.11  & 7.48X \\
+        \cmidrule{1-5}
+        \multirow{7}{*}{\qwenone}
+            & \nocompression   & 27.2  & 59.12  & 1.00X \\
+            & \nocontext      & 7.8   & 23.73  & 42.58X \\
+            \cmidrule{2-5}
+            & \rag            & \textbf{21.2}  & 34.53  & 2.68X \\
+            & \ragfunction    & 18.8  & 28.28  & 5.68X \\
+            \cmidrule{2-5}
+            & \llmlingua      & 5.6   & \textbf{25.59}  & \textbf{10.93X} \\
+            & \longllmlingua  & 8.0   & 29.59  & 8.29X \\
+            & \llmlinguatwo   & 7.8   & 28.88  & 7.48X \\
+        \cmidrule{1-5}
+        \multirow{7}{*}{\qwenthree}
+            & \nocompression   & 28.2  & 83.37  & 1.00X \\
+            & \nocontext      & 7.2   & 29.90  & 42.58X \\
+            \cmidrule{2-5}
+            & \rag            & \textbf{22.8}  & 46.87  & 2.68X \\
+            & \ragfunction    & 21.0  & 36.53  & 5.68X \\
+            \cmidrule{2-5}
+            & \llmlingua      & 1.6   & \textbf{33.37}  & \textbf{10.93X} \\
+            & \longllmlingua  & 3.0   & 35.37  & 8.29X \\
+            & \llmlinguatwo   & 7.2   & 36.76  & 7.48X \\
+        \cmidrule{1-5} 
+        \multirow{7}{*}{\qwenseven}
+            & \nocompression   & 29.2  & 114.14 & 1.00X \\
+            & \nocontext      & 8.2   & 31.47  & 42.58X \\
+            \cmidrule{2-5}
+            & \rag            & \textbf{22.0}  & 59.07  & 2.68X \\
+            & \ragfunction    & 19.8  & \textbf{43.61}  & 5.68X \\
+            \cmidrule{2-5}
+            & \llmlingua      & 5.4   & 44.09  & \textbf{10.93X} \\
+            & \longllmlingua  & 5.0   & 47.23  & 8.29X \\
+            & \llmlinguatwo   & 9.8   & 39.14  & 7.48X \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+% 可以画一个EM vs. Model Scale 曲线，分不同压缩方法（可见llmlingua等方法7B/3B损失远超rag/function_rag），研究参数的影响
+\begin{center}
+    \begin{myboxc} \textbf{RQ3 Summary: } %cd
+     % Model size significantly impacts compression sensitivity: while 7B models show 25-35\% EM drops at medium compression, smaller models ($\leq$1.5B) maintain stable performance ( 15-25\% EM drops). This suggests smaller models' limited context utilization makes them inherently more robust to information loss from compression.
+     
+    As model size increases, the ability to utilize long context also becomes stronger; however, larger models are more sensitive to high-ratio long context compression. % In contrast, smaller models show less sensitivity to such compression.
+    \end{myboxc} %cd
+    % \end{myboxd} %cd
+    % \end{myboxb} %ab
+\end{center}
+
+\subsection{Programming Language Variance (RQ4)}
+% \subsection{RQ4: How do different compression methods perform across different programming languages?}
+
+To evaluate the effect of different programming languages on various long context compression methods, we conduct experiments on the \lccjava dataset, which, like \lccpython, is part of the LCC collection. We rewrite the code to reflect the characteristics of Java, while keeping all other experimental settings identical to those in \ref{rq1}. The experimental results are shown in Table \ref{tab:lcc_results}.
+
+The experimental results reveal that most models generally achieve higher performance on \lccjava compared to \lccpython.
+With no compression or under moderate compression methods such as \rag or \ragfunction, the results on Java are significantly better than on Python. However, under high compression ratios, Java’s advantage becomes less pronounced. An exception to this trend is the \qwenseven model, which achieves better results on Python than on Java. This might be due to its training data or training methodology.
+
+Additionally, we also find that the generation time for Java is generally higher than for Python, which is consistent with our understanding of Java and our analysis of the dataset. This suggests that Java code is typically longer or more complex to generate, but this complexity results in higher accuracy.
+
+Finally, as the compression ratio increases, we observe that the EM scores of models on \lccjava decrease more slowly compared to \lccpython. This may be due to Java code is relatively verbose, with higher redundancy and more consistent structure, making it easier for current large models to process even after compression. This suggests that Java may have greater compression potential. The adaptability of different compression algorithms to code styles and types is an interesting direction for future research.
+
+% \begin{table}[t]
+%     \centering
+%     \setlength{\tabcolsep}{3pt}
+%     \scriptsize
+%     \caption{Results of different size generator in \texttt{LCC-Java}.}
+%     \label{tab:lcc_java}
+%     \begin{tabular}{llccc}
+%         \toprule
+%         \textbf{Generator} & \textbf{Compress Method} & \textbf{EM} & \textbf{Time} & \textbf{Ratio} \\
+%         \midrule
+%         \multirow{7}{*}{CodeLlama-7b-Instruct-hf}
+%             & \nocompression   & 41.8  & 182.11  & 1.00X \\
+%             & \nocontext      & 16.0  & 36.76   & 35.79X \\
+%             \cmidrule{2-5}
+%             & \rag            & 38.4  & 99.78   & 2.06X \\
+%             & \ragfunction    & \textbf{41.8}  & 179.67  & 1.01X \\
+%             \cmidrule{2-5}
+%             & \llmlingua      & 14.2  & \textbf{48.92}   & \textbf{8.43X} \\
+%             & \longllmlingua  & 14.6  & 53.79   & 6.51X \\
+%             & \llmlinguatwo   & 17.0  & 63.13   & 4.45X \\
+%         \cmidrule{1-5}
+%         \multirow{7}{*}{deepseek-coder-6.7b-instruct}
+%             & \nocompression   & 40.4  & 185.73  & 1.00X \\
+%             & \nocontext      & 15.6  & 36.85   & 37.48X \\
+%             \cmidrule{2-5}
+%             & \rag            & 36.8  & 99.21   & 2.11X \\
+%             & \ragfunction    & \textbf{40.2}  & 184.19  & 1.01X \\
+%             \cmidrule{2-5}
+%             & \llmlingua      & 19.4  & \textbf{48.39}   & \textbf{8.77X} \\
+%             & \longllmlingua  & 24.0  & 53.13   & 6.75X \\
+%             & \llmlinguatwo   & 15.0  & 62.20   & 4.69X \\
+%         \cmidrule{1-5}
+%         \multirow{7}{*}{Qwen2.5-Coder-7B-Instruct}
+%             & \nocompression   & 21.2  & 126.38  & 1.00X \\
+%             & \nocontext      & 9.0   & 39.72   & 43.79X \\
+%             \cmidrule{2-5}
+%             & \rag            & 18.2  & 70.92   & 2.59X \\
+%             & \ragfunction    & \textbf{21.0}  & 128.06 & 1.01X \\
+%             \cmidrule{2-5}
+%             & \llmlingua      & 4.4   & \textbf{44.67}   & \textbf{10.84X} \\
+%             & \longllmlingua  & 4.8   & 46.92   & 8.01X \\
+%             & \llmlinguatwo   & 9.0   & 48.54   & 8.65X \\
+%         \cmidrule{1-5}
+%         \multirow{7}{*}{Seed-Coder-8B-Instruct}
+%             & \nocompression   & 42.4  & 150.21  & 1.00X \\
+%             & \nocontext      & 13.2  & 46.96   & 39.89X \\
+%             \cmidrule{2-5}
+%             & \rag            & 36.6  & 86.30   & 2.34X \\
+%             & \ragfunction    & \textbf{42.0}  & 149.22  & 1.01X \\
+%             \cmidrule{2-5}
+%             & \llmlingua      & 20.4  & \textbf{53.01}   & \textbf{9.69X} \\
+%             & \longllmlingua  & 23.4  & 56.90   & 7.31X \\
+%             & \llmlinguatwo   & 14.0  & 57.71   & 6.80X \\
+%         \bottomrule
+%     \end{tabular}
+% \end{table}
+
+% 单栏
+\begin{table}[t]
+    \centering
+    \setlength{\tabcolsep}{3pt}
+    \footnotesize
+    \caption{Performance of comparision of compression methods in different languages.     Dataset: \texttt{LCC}.}
+    \label{tab:lcc_results}
+    \begin{tabular}{llcccccc}
+        \toprule
+        \multirow{2}{*}{\textbf{Model}} & \multirow{2}{*}{\textbf{Compress Method}} &
+        \multicolumn{3}{c}{\textbf{\lccpython}} &
+        \multicolumn{3}{c}{\textbf{\lccjava}} \\
+        % \cmidrule{2-8}
+        && \textbf{EM} & \textbf{Time} & \textbf{Ratio} & \textbf{EM} & \textbf{Time} & \textbf{Ratio} \\
+        \midrule
+        \multirow{7}{*}{\rotatebox{90}\codellama}
+            & \nocompression    & 35.40 & 200.63 & 1.00X & 41.8 & 182.11 & 1.00X \\
+            & \nocontext        & 14.2  & 33.79  & 37.15X & 16.0 & 36.76 & 35.79X \\
+            \cmidrule{2-8}
+            & \rag              & \textbf{33.2}  & 96.75  & 2.16X & 38.4 & 99.78 & 2.06X \\
+            & \ragfunction      & 27.89 & 55.62  & 5.13X & \textbf{41.8} & 179.67 & 1.01X \\
+            \cmidrule{2-8}
+            & \llmlingua        & 16.00 & \textbf{44.60}  & \textbf{9.26X} & 14.2 & \textbf{48.92} & \textbf{8.43X} \\
+            & \longllmlingua    & 16.00 & 44.62  & 9.26X & 14.6 & 53.79 & 6.51X \\
+            & \llmlinguatwo     & 14.80 & 60.61  & 4.47X & 17.0 & 63.13 & 4.45X \\
+        \midrule
+        \multirow{7}{*}{\rotatebox{90}\deepseekseven}
+            & \nocompression    & 34.80 & 191.48 & 1.00X & 40.4 & 185.73 & 1.00X \\
+            & \nocontext        & 14.00 & 33.87  & 37.27X & 15.6 & 36.85 & 37.48X \\
+            \cmidrule{2-8}
+            & \rag              & \textbf{32.00} & 96.43  & 2.16X & 36.8 & 99.21 & 2.11X \\
+            & \ragfunction      & 27.40 & 57.41  & 5.15X & \textbf{40.2} & 184.19 & 1.01X \\
+            \cmidrule{2-8}
+            & \llmlingua        & 13.80 & 45.42  & 9.28X & 19.4 & \textbf{48.39} & \textbf{8.77X} \\
+            & \longllmlingua    & 13.80 & \textbf{44.60}  & \textbf{9.29X} & 24.0 & 53.13 & 6.75X \\
+            & \llmlinguatwo     & 14.80 & 57.42  & 4.95X & 15.0 & 62.20 & 4.69X \\
+        \midrule
+        \multirow{7}{*}{\rotatebox{90}\qwenseven}
+            & \nocompression   & 29.2  & 114.14 & 1.00X & 21.2 & 126.38 & 1.00X \\
+            & \nocontext      & 8.2   & 31.47  & 42.58X & 9.0 & 39.72 & 43.79X \\
+            \cmidrule{2-8}
+            & \rag            & \textbf{22.0}  & 59.07  & 2.68X & 18.2 & 70.92 & 2.59X \\
+            & \ragfunction    & 19.8  & 43.61  & 5.68X & \textbf{21.0} & 128.06 & 1.01X \\
+            \cmidrule{2-8}
+            & \llmlingua      & 10.4   & \textbf{36.49}  & \textbf{11.21X} & 4.4 & \textbf{44.67} & \textbf{10.84X} \\
+            & \longllmlingua  & 10.4   & 36.51  & 11.21X & 4.8 & 46.92 & 8.01X \\
+            & \llmlinguatwo   & 9.8   & 39.14  & 7.48X & 9.0 & 48.54 & 8.65X \\
+        \midrule
+        \multirow{7}{*}{\rotatebox{90}\seed}
+            & \nocompression    & 39.60 & 136.85 & 1.00X & 42.4 & 150.21 & 1.00X \\
+            & \nocontext        & 14.40 & 34.06  & 40.54X & 13.2 & 46.96 & 39.89X \\
+            \cmidrule{2-8}
+            & \rag              & \textbf{34.60} & 71.77  & 2.43X & 36.6 & 86.30 & 2.34X \\
+            & \ragfunction      & 30.40 & 48.32  & 5.64X & \textbf{42.0} & 149.22 & 1.01X \\
+            \cmidrule{2-8}
+            & \llmlingua        & 15.80 & 40.93  & 10.41X & 20.4 & \textbf{53.01} & \textbf{9.69X} \\
+            & \longllmlingua    & 15.80 & \textbf{40.29}  & \textbf{10.41X} & 23.4 & 56.90 & 7.31X \\
+            & \llmlinguatwo     & 13.80 & 45.56  & 6.57X & 14.0 & 57.71 & 6.80X \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+% %双栏
+% \begin{table*}[t]
+%     \centering
+%     % \setlength{\tabcolsep}{3pt}
+%     % \small
+%     \caption{Performance of different models and compression methods on \texttt{LCC} dataset.}
+%     \label{tab:lcc_results}
+%     \begin{tabular}{llcccccc}
+%         \toprule
+%         \multirow{2}{*}{\textbf{Generator}} & \multirow{2}{*}{\textbf{Compress Method}} &
+%         \multicolumn{3}{c}{\textbf{\lccpython}} &
+%         \multicolumn{3}{c}{\textbf{\lccjava}} \\
+%         % \cmidrule{2-8}
+%         && \textbf{EM} & \textbf{Time} & \textbf{Ratio} & \textbf{EM} & \textbf{Time} & \textbf{Ratio} \\
+%         \midrule
+%         \multirow{7}{*}{\codellama}
+%             & \nocompression    & 35.40 & 200.63 & 1.00X & 41.8 & 182.11 & 1.00X \\
+%             & \nocontext        & 14.2  & 33.79  & 37.15X & 16.0 & 36.76 & 35.79X \\
+%             \cmidrule{2-8}
+%             & \rag              & \textbf{33.2}  & 96.75  & 2.16X & 38.4 & 99.78 & 2.06X \\
+%             & \ragfunction      & 27.89 & 55.62  & 5.13X & \textbf{41.8} & 179.67 & 1.01X \\
+%             \cmidrule{2-8}
+%             & \llmlingua        & 16.00 & \textbf{44.60}  & \textbf{9.26X} & 14.2 & \textbf{48.92} & \textbf{8.43X} \\
+%             & \longllmlingua    & 16.00 & 44.62  & 9.26X & 14.6 & 53.79 & 6.51X \\
+%             & \llmlinguatwo     & 14.80 & 60.61  & 4.47X & 17.0 & 63.13 & 4.45X \\
+%         \midrule
+%         \multirow{7}{*}{\deepseekseven}
+%             & \nocompression    & 34.80 & 191.48 & 1.00X & 40.4 & 185.73 & 1.00X \\
+%             & \nocontext        & 14.00 & 33.87  & 37.27X & 15.6 & 36.85 & 37.48X \\
+%             \cmidrule{2-8}
+%             & \rag              & \textbf{32.00} & 96.43  & 2.16X & 36.8 & 99.21 & 2.11X \\
+%             & \ragfunction      & 27.40 & 57.41  & 5.15X & \textbf{40.2} & 184.19 & 1.01X \\
+%             \cmidrule{2-8}
+%             & \llmlingua        & 13.80 & 45.42  & 9.28X & 19.4 & \textbf{48.39} & \textbf{8.77X} \\
+%             & \longllmlingua    & 13.80 & \textbf{44.60}  & \textbf{9.29X} & 24.0 & 53.13 & 6.75X \\
+%             & \llmlinguatwo     & 14.80 & 57.42  & 4.95X & 15.0 & 62.20 & 4.69X \\
+%         \midrule
+%         \multirow{7}{*}{\qwenseven}
+%             & \nocompression   & 29.2  & 114.14 & 1.00X & 21.2 & 126.38 & 1.00X \\
+%             & \nocontext      & 8.2   & 31.47  & 42.58X & 9.0 & 39.72 & 43.79X \\
+%             \cmidrule{2-8}
+%             & \rag            & \textbf{22.0}  & 59.07  & 2.68X & 18.2 & 70.92 & 2.59X \\
+%             & \ragfunction    & 19.8  & 43.61  & 5.68X & \textbf{21.0} & 128.06 & 1.01X \\
+%             \cmidrule{2-8}
+%             & \llmlingua      & 10.4   & \textbf{36.49}  & \textbf{11.21X} & 4.4 & \textbf{44.67} & \textbf{10.84X} \\
+%             & \longllmlingua  & 10.4   & 36.51  & 11.21X & 4.8 & 46.92 & 8.01X \\
+%             & \llmlinguatwo   & 9.8   & 39.14  & 7.48X & 9.0 & 48.54 & 8.65X \\
+%         \midrule
+%         \multirow{7}{*}{\seed}
+%             & \nocompression    & 39.60 & 136.85 & 1.00X & 42.4 & 150.21 & 1.00X \\
+%             & \nocontext        & 14.40 & 34.06  & 40.54X & 13.2 & 46.96 & 39.89X \\
+%             \cmidrule{2-8}
+%             & \rag              & \textbf{34.60} & 71.77  & 2.43X & 36.6 & 86.30 & 2.34X \\
+%             & \ragfunction      & 30.40 & 48.32  & 5.64X & \textbf{42.0} & 149.22 & 1.01X \\
+%             \cmidrule{2-8}
+%             & \llmlingua        & 15.80 & 40.93  & 10.41X & 20.4 & \textbf{53.01} & \textbf{9.69X} \\
+%             & \longllmlingua    & 15.80 & \textbf{40.29}  & \textbf{10.41X} & 23.4 & 56.90 & 7.31X \\
+%             & \llmlinguatwo     & 13.80 & 45.56  & 6.57X & 14.0 & 57.71 & 6.80X \\
+%         \bottomrule
+%     \end{tabular}
+% \end{table*}
+
+
+\begin{center}
+    \begin{myboxc} \textbf{RQ4 Summary: } %cd
+    Compared to Python, Java demonstrates remarkable compression resilience, with models retaining most original performance under moderate compression (2X). This robustness may due to Java's explicit type signatures and rigid syntax, which provide redundant cues that compensate for information loss during compression.
+    
+    % Most large models generally achieve higher code completion accuracy on Java than on Python for the LCC task, with this advantage being even more pronounced under moderate context compression. This suggests that the stronger structural consistency in Java makes it easier for large models to understand and perform robust inference. 
+    \end{myboxc} %cd
+    % \end{myboxd} %cd
+    % \end{myboxb} %ab
+\end{center}
+
+\section{Discussion}
+% \section{Discussion \& IMPLICATIONS}
+\vspace{-2pt}
+In this section, we discuss the implications derived from the findings of our research questions and the threats to validity.
+
+\subsection{Implications}
+In the field of code, this trend is reflected in developers providing increasingly longer contexts to large models. Beyond function or class generation, some developers have already started exploring the use of LLMs for complete software generation tasks that can span several hours~\cite{manus,metagpt}.
+
+However, excessively long contexts may introduce various issues, including, but not limited to, exceeding the LLM’s context window and causing truncation, substantially increasing generation time and negatively impacting user experience, and consuming too many tokens, thus leading to high costs. Therefore, it is necessary to compress long contexts.
+
+We select seven representative compression methods and conduct experiments on eight models across three repository-level code completion datasets to analyze the performance of these compression algorithms on software engineering tasks. Based on our study, we obtain the following main findings:
+
+First, models with similar numbers of parameters show little difference in performance on the same dataset and using the same method. This phenomenon aligns with the scaling law: if there are no substantial differences in data quality and training methodology, model capability is highly correlated with the number of parameters. Of course, different models may have their respective strengths and weaknesses with various methods, but this does not affect the overall conclusion.
+
+Second, methods with lower compression factors result in longer generation times and correspondingly higher accuracy. This observation meets our expectations and is consistent with information theory. Shannon measures the average information content in a signal using entropy~\cite{shannon1948mathematical}. The theoretical limit of compression is entropy—it is impossible to recover the original data losslessly at a coding rate below the source entropy unless additional data structures are used, whereas all the methods we select are lossy. Thus, this phenomenon naturally occurs.
+
+Additionally, we observe that models with fewer parameters are less affected by increasing the compression factor and, therefore, are relatively insensitive to compression. Upon examining the code generated by models of different sizes, we find that large models can more accurately capture useful information from long contexts in the absence of compression, while small models cannot. Since smaller models inherently struggle to extract effective information from lengthy contexts, compressing the context impacts them less.
+
+Finally, we find that Java is less sensitive to compression than Python, which may be due to Java’s higher degree of redundancy. This finding is also supported by Shannon's information theory, which suggests that redundancy is critical for a system's resistance to noise and information loss. High redundancy enables the discarding of more non-essential information during compression without losing core content, resulting in less accuracy degradation~\cite{shannon1951prediction}. This is directly related to the code's structure and the redundancy inherent in the language itself.
+
+\subsection{Threats to Validity}
+\vspace{-2pt}
+There are several potential threats to validity.
+First, whether in experiments based on compression ratio or model size, we focus only on seven of the most widely used compression methods, which are mainly designed for natural language. As a result, our observations may not be generalizable to a broader range of methods, such as compression algorithms specifically designed for code. Nevertheless, the methods we selected are all influential and have high citation and star counts.
+
+Additionally, the experimental parameters chosen for each method are not necessarily optimal, and therefore may not represent the best possible performance for all methods. To mitigate this threat, we conducted several rounds of pilot experiments and selected the current parameters based on those results.
+
+Finally, the number of models we included is still limited and does not cover all code LLMs, such as earlier models like CodeBERT~\cite{feng2020codebert}. However, when selecting models, we took into account model size and release date. If we were to include a broader range of models, it would be unfair to models released several years ago with significantly fewer parameters than 7B. Therefore, we chose to evaluate only current mainstream models in our experiments.
+
+\section{Related Works}
+\vspace{-2pt}
+
+The challenge of handling long context inputs in large language models has sparked extensive research in compression techniques, which can be broadly classified into three categories: RAG-based approaches, hard compression strategies, and soft compression methodologies.
+
+\subsection{RAG-based Compression Approaches}
+\vspace{-2pt}
+
+RAG-based methods address context length limitations by selectively retrieving and incorporating only the most pertinent information into the input prompt~\cite{parvez2021retrievalaugmentedcodegeneration}. These approaches follow a three-stage pipeline: preprocessing, retrieval, and generation, with the primary innovation occurring in the retrieval mechanism. In repository-level code completion, RepoCoder~\cite{zhang2023repocoder} employs an iterative approach where generated completions inform subsequent retrieval rounds, creating a feedback loop that refines the selection process. Similarly, RLCoder~\cite{wang2024rlcoder} introduces a perplexity-based training strategy for the retriever, optimizing the selection of code blocks that maximize completion effectiveness. While these methods demonstrate strong performance in their respective domains, they require careful tuning of retrieval strategies and may struggle with novel or poorly-indexed content.
+
+% \vspace{-2pt}
+\subsection{Hard Compression Techniques}
+Hard compression approaches directly modify the input by eliminating or reformulating less critical content. Early work in this area includes Selective Context~\cite{li-etal-2023-compressing}, LLMLingua~\cite{jiang2023llmlingua} and LongLLMLingua~\cite{jiang2023longllmlingua}. Selective Context~\cite{li-etal-2023-compressing}  focuses on contextually relevant segments. LLMLingua~\cite{jiang2023llmlingua} and LongLLMLingua~\cite{jiang2023longllmlingua} utilize learned knowledge and statistical importance measures to prune uninformative tokens and sentences. A notable advancement comes from LLMLingua-2~\cite{pan2024llmlingua}, which leverages data distillation from GPT-4 to train a specialized token classification model, achieving both efficiency and fidelity in compression. These methods offer the advantage of being model-agnostic and requiring no additional training, but may suffer from information loss in aggressive compression scenarios.
+
+% \vspace{-2pt}
+\subsection{Soft Compression Methodologies}
+% \vspace{-2pt}
+Soft compression techniques~\cite{chevalier2023adapting,mu2024learning,500xcompressor} take a fundamentally different approach by encoding input context into dense vector representations or prefix embeddings. These methods typically achieve superior compression ratios compared to hard compression alternatives, as they can capture semantic relationships more effectively. However, their practical applicability is limited by the requirement for training compression models that are tightly coupled with specific generative architectures, making them unsuitable for closed-source models such as GPT and Gemini.
+
+% \vspace{-3pt}
+\subsection{Code-Specific Compression}
+% \vspace{-3pt}
+
+While general-purpose compression methods struggle with code's unique properties, specialized approaches have emerged. DietCode~\cite{zhang2022diet} pioneered syntax-aware compression via AST analysis but suffers from architecture dependence. SlimCode~\cite{wang2024naturalbestmodelagnosticcode} improves upon this by preserving executability through structured AST pruning, while ShortenDoc~\cite{yang2024less} targets docstring compression. However, these methods remain limited in handling diverse languages and tasks efficiently, underscoring the need for more adaptable solutions that maintain accuracy under strict token budgets.
+
+ % Recognizing that general-purpose compression methods often fail to capture the unique properties of code, researchers have developed specialized approaches for code compression. DietCode~\cite{zhang2022diet} represents an early effort, employing AST analysis to perform syntax-aware and semantic-preserving compression for code. However, its reliance on model-specific attention mechanisms limits its adaptability across different architectures. SlimCode~\cite{wang2024naturalbestmodelagnosticcode} advances this line of work by prioritizing code executability and compilability, using structured pruning based on AST analysis while maintaining program structure integrity. ShortenDoc~\cite{yang2024less} focuses on docstring compression, addressing a subset of the code compression challenge. Despite these advances, existing methods often lack the flexibility to handle diverse PLs and task requirements while maintaining both efficiency and accuracy. This  motivates the need for more robust solutions that can preserve task-relevant content under stringent token constraints.
+
+
+% \vspace{-4pt}
+\section{Conclusion}
+% \vspace{4pt}
+
+In this paper, we present the first exploratory study of long-context compression methods for source code, evaluating seven approaches across different large language models. We have conducted extensive experiments and our finding reveals a fundamental trade-off: while higher compression ratios improve efficiency, they consistently degrade code generation quality. This stems from current methods' inability to properly handle code-specific structures and semantics. Our work establishes critical baselines for code context compression and highlights the need for specialized approaches. We identify some future directions for further exploration: (1) developing code-aware compression techniques that preserve syntactic and semantic features, and (2) creating adaptive methods that balance compression ratios with task requirements. These advances will enable more efficient LLM deployment in real-world development environments.
+
+
+% In this paper, we present the first extensive empirical evaluation of long context compression methods for the code completion task. We study seven mainstream tools and eight representative code LLMs, analyzing the performance of existing compression methods across different models, compression ratios, and programming languages. Our findings show that, overall, higher compression ratios result in poorer code generation quality, which is consistent with our expectations. 
+% Additionally, the compression algorithms we selected do not perform particularly well in the code completion domain—possibly because these methods are not well tailored to the characteristics of code. 
+% Our paper reveals the current state of mainstream compression algorithms in code completion tasks, and suggests directions for future improvements, which will help enhance developers' understanding of compression methods. In the future, we plan to broaden our evaluation to include more compression methods (such as those specifically designed for code or soft compression algorithms). We also intend to design new compression algorithms to further assist developers using LLMs for code completion, helping them improve efficiency and reduce costs.
+
+
+%we propose \model, a novel reinforcement learning framework for repository-level code completion. We enable the retriever to iteratively learn by obtaining feedback from the evaluator. Besides, unlike using fixed window candidates or candidates parsing from dependency, we introduce a simple yet effective Split-Aggregate candidate construction method based on human programming habits. Moreover, we propose the stop signal to avoid using useless cross-file context. %, thus leveraging more in-file context. 
+% % This approach is particularly effective when the in-file context is not sufficient. 
+% Experimental results indicate that \model achieves state-of-the-art performance on repository-level code completion and demonstrates good generalizability and applicability to further enhancing existing methods.

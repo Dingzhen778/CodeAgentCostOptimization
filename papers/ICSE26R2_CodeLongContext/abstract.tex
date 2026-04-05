@@ -1,0 +1,50 @@
+\begin{abstract}
+% Due to the large size of code repositories, it becomes challenging for the retriever to capture useful information within a limited context. Previous methods can be divided into two types: lexical and learning-based methods. However, lexical methods cannot learn and are unable to capture semantic information. learning-based methods struggle with the lack of labels and have poor generalizability.In this paper, we propose \model, a novel reinforcement learning framework for repository-level code completion, which enables the retriever to learn  without labeled data. Specifically, we use the retrieved candidates as context for the generator and evaluate the perplexity (PPL) to generate the target code. Considering that hallucinations in repository-level code generation often result from the use of incorrect identifiers or APIs, we assign higher weights to these specific tokens. The weighted PPL is then used as reward to provide feedback to the retriever. Besides, we introduce a simple yet effective Split-Aggregate candidate construction method based on human programming habits. We conducted extensive experiments on three benchmarks. Experimental results show that RLCoder outperforms the state-of-the-art framework RepoCoder, while the key component of RLCoder which is named RLRetriever realizes a 47.16\% improvement over UniXcoder. Furthermore, we prove that RLRetriever performs remarkable generalizability and RLCoder can further improve the previous methods.
+
+% contributions: (1) RL framework (2) stop signal (3) weighted PPL (4) Natural split.
+
+% Repository-level code completion aims to generate code given unfinished code with the context of a given repository. Existing methods rely on a retrieval-augmented-generation strategy, where the quality of the retrieved contents is crucial. However, existing retrieval mechanisms have the following problems: lexical-based methods such as BM25 cannot capture code semantics, while model-based methods are capable of understanding code semantics but are hampered by the lack of labeled data for training, suffering from performance and generality issues. 
+% In this paper, we propose \model, a novel reinforcement learning framework for repository-level code completion, enabling the retriever to learn without labeled data. 
+% Specifically, we design an evaluation mechanism to estimate the usefulness of the retrieved candidates for code completion and use this as feedback to update the retriever. 
+% Besides, considering that hallucinations in repository-level code completion often result from the use of incorrect identifiers or APIs, we design a weighting mechanism in the evaluation to attend more to these specific tokens. Moreover, we introduce a simple yet effective split-and-aggregate candidate construction method to improve previous sliding window approach. 
+% Extensive experimental results show that \model consistently outperforms the state-of-the-art method on diverse benchmarks including CrossCodeEval, RepoEval, and a new benchmark. Our retriever in \model realizes a 47.16\% improvement over previous method with UniXcoder as the retriever. Finally, \model shows remarkable applicability to improve previous methods such as RepoCoder further.
+
+% Extensive experimental results demonstrate that \model consistently outperforms state-of-the-art methods on various benchmarks, including CrossCodeEval, RepoEval, and a new benchmark, achieving 23.88\% improvement over previous methods and our retriever in \model achieves a 47.16\% improvement over previous methods with UniXcoder as the retriever. 
+
+% Considering that not all situations require information beyond code files, we also introduce a stop signal mechanism, which can allow the retriever to autonomously decide whether to retrieve additional information.
+
+
+% Recent research has studied the importance and
+% identified causes of nondeterminism in software. Static analysis
+% tools exhibit many risk factors for nondeterministic behavior,
+% but no work has analyzed the occurrence of such behavior in
+% these tools. To bridge this gap, we perform an extensive empirical
+% study aiming to understand past and ongoing nondeterminism in
+% 12 popular, open-source static analysis tools that target 5 types
+% of projects. We first conduct a qualitative study to understand
+% the extent to which nondeterministic behavior has been found
+% and addressed within the tools under study, and find results in 7
+% tool repositories. After classifying the issues and commits by root
+% cause, we find that the majority of nondeterminisms are caused by
+% concurrency issues, incorrect analysis logic, or assumed orderings
+% of unordered data structures, which have shared patterns. We also
+% perform a quantitative analysis, where we use two strategies and
+% diverse input programs and configurations to detect yet-unknown
+% nondeterministic behaviors. We discover such behavior in 8 out of
+% the 12 tools, including 3 which had no results from the qualitative
+% analysis. We find that nondeterminism often appears in multiple
+% configurations on a variety of input programs. We communicated
+% all identified nondeterminism to the developers, and received
+% confirmation of five tools. Finally, we detail a case study of fixing
+% FlowDroid’s nondeterministic behavior.
+
+% Repository-level code completion aims to generate code for unfinished code snippets within the context of a specified repository. Existing approaches mainly rely on retrieval-augmented generation strategies due to limitations in input sequence length. However, traditional lexical-based retrieval methods like BM25 struggle to capture code semantics, while model-based retrieval methods face challenges due to the lack of labeled data for training.
+% Therefore, we propose RLCoder, a novel reinforcement learning framework, which can enable the retriever to learn to retrieve useful content for code completion without the need for labeled data.
+% Specifically, we iteratively evaluate the usefulness of retrieved content based on the perplexity of the target code when provided with the retrieved content as additional context, and provide feedback to update the retriever parameters.  This iterative process enables the retriever to learn from its successes and failures, gradually improving its ability to retrieve relevant and high-quality content.
+% Considering that not all situations require information beyond code files and not all retrieved context is helpful for generation, we also introduce a stop signal mechanism, allowing the retriever to decide when to retrieve and which candidates to retain autonomously.
+% Extensive experimental results demonstrate that RLCoder consistently outperforms state-of-the-art methods on CrossCodeEval and RepoEval, achieving 12.2\% EM improvement over previous methods. 
+% Moreover, experiments show that our framework can generalize across different programming languages and further improve previous methods like RepoCoder.
+Large language models (LLMs) have been widely adopted by researchers and software developers for code completion tasks. However, as users provide increasingly longer input contexts, the time and computational cost for LLMs to generate code rise rapidly. Therefore, compressing the code context provided by users becomes necessary. 
+Despite this, no work has analyzed the performance of existing long context compression methods on code completion tasks. To bridge this gap, we conduct a extensive empirical study using seven different compression methods across eight LLMs. 
+Experimental results show that current compression methods generally fail to balance efficiency and accuracy: as the compression ratio increases, code generation accuracy decreases. Furthermore, we examine the impact of these methods across different programming languages and model sizes, finding that smaller models are relatively insensitive to compression, and that Java code is less affected by compression than other languages. Our work aims to deepen the understanding of long-context compression methods and promote the development of related approaches in the code domain. We anonymoulsy provide the replication package containing all code and data used in this study at \url{https://anonymous.4open.science/r/LongCodeCompression/}. 
+\end{abstract}
