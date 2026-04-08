@@ -19,6 +19,18 @@
 - `SYSU_documents/thesis_outline_pre_method.md`
   Use when drafting or revising the thesis front half before methods and experiments.
 
+- `SYSU_documents/reference_candidates_chap01_chap02.md`
+  Use when repairing missing citations or building a candidate bibliography set for the rewritten `chap01` and `chap02`.
+
+- `SYSU_documents/thesis_outline_with_prior_work.md`
+  Use when deciding how previously published or submitted papers should be absorbed into the thesis storyline.
+
+- `SYSU_documents/deepresearch_plan_chap03.md`
+  Use when preparing or delegating literature collection for the related-work chapter.
+
+- `SYSU_documents/chap03-deep-research-report.md`
+  Use as the current collected evidence base for expanding `chap03` into a full related-work chapter.
+
 ## Formal thesis files
 
 - `overleaf/paper/data/abstract.tex`
@@ -33,7 +45,7 @@
   Relevant for prior work and research foundation on code-context compression.
 
 - `papers/OmniGIRL.pdf`
-  Only consult if explicitly needed; not part of the current main thesis direction unless confirmed.
+  Relevant as GitHub issue resolution benchmark background and task-setting context, but usually not the core experimental basis of the thesis.
 
 ## Runtime experiment input that should not be repurposed
 

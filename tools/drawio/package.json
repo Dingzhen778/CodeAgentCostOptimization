@@ -1,0 +1,8 @@
+{
+  "name": "drawio-tools",
+  "version": "1.0.0",
+  "description": "draw.io rendering tools for Claude Code",
+  "dependencies": {
+    "puppeteer-core": "^22.0.0"
+  }
+}

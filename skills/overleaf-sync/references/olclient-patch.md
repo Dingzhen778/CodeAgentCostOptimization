@@ -123,7 +123,209 @@ def login_handler(path):
     ...
 ```
 
-## 5. socketIO_client/transports.py: fix SSLError
+## 5. Replace `upload_file` (use Socket.IO OT for text files)
+
+The original `upload_file` used `POST /project/{id}/doc` (REST) to create/update text docs.
+**This creates file-tree entries but never initialises the docstore — the file appears in Overleaf
+but is always empty.**  The correct approach is:
+
+1. Delete existing doc via `DELETE /project/{id}/doc/{doc_id}` (REST — still needed to remove the file-tree entry).
+2. Create an **empty** shell via `POST /project/{id}/doc` (REST) — this gives us a doc ID.
+3. Connect via Socket.IO v1 WebSocket, `joinDoc` the new (empty) doc, then `applyOtUpdate` with the content.
+4. **Stay connected ≥ 35 s** after the OT ack so the real-time server flushes to the persistent docstore.
+
+See `references/ot-upload.py` for a standalone script using this flow.
+
+Critical protocol details discovered through debugging:
+
+| Detail | Wrong | Correct |
+|--------|-------|---------|
+| Message format | `5:N::` | `5:N+::` — the `+` requests a data-bearing ack |
+| `applyOtUpdate` delete component | `{'d': N}` (count) | `{'d': "<exact text>", 'p': 0}` (actual string) |
+| `applyOtUpdate` insert component | `{'i': text}` | `{'i': text, 'p': 0}` |
+| Connection lifetime | Close immediately after ack | Stay ≥ 35 s, then send `leaveDoc` before closing |
+
+```python
+def _find_doc_in_folder(self, project_infos, file_path):
+    parts = file_path.split(PATH_SEP)
+    folder = project_infos['rootFolder'][0]
+    for part in parts[:-1]:
+        folder = next((f for f in folder.get('folders', [])
+                       if f['name'].lower() == part.lower()), None)
+        if folder is None:
+            return None
+    base = parts[-1]
+    return next((d for d in folder.get('docs', [])
+                 if d['name'].lower() == base.lower()), None)
+
+
+TEXT_EXTENSIONS = {
+    '.tex', '.bib', '.cls', '.sty', '.bst', '.lua', '.md',
+    '.txt', '.cfg', '.def', '.dtx', '.ins', '.latexmkrc',
+    '.gitignore', '.yaml', '.yml', '.json', '.js', ''
+}
+
+FLUSH_WAIT = 38  # seconds to hold WebSocket open after OT ack
+
+
+def _ot_write_doc(self, project_id, doc_id, content: str):
+    """
+    Write `content` to an Overleaf doc via Socket.IO OT.
+
+    Stays connected FLUSH_WAIT seconds after the OT ack so the real-time
+    server flushes the in-memory state to the persistent docstore.
+    """
+    import ssl as _ssl
+    import websocket as _ws
+
+    cookie_str = "GCLB={}; overleaf_session2={}".format(
+        self._cookie["GCLB"], self._cookie["overleaf_session2"]
+    )
+    t = int(time.time())
+    r = reqs.get(
+        "{}/socket.io/1/?t={}&projectId={}".format(BASE_URL, t, project_id),
+        headers={"Cookie": cookie_str}, timeout=10
+    )
+    sid = r.text.split(":")[0]
+
+    ws = _ws.create_connection(
+        "{}/socket.io/1/websocket/{}?t={}&projectId={}".format(
+            BASE_URL.replace("https://", "wss://"), sid, t, project_id),
+        header=["Cookie: {}".format(cookie_str)],
+        sslopt={"cert_reqs": _ssl.CERT_NONE},
+        timeout=15
+    )
+    ws.settimeout(5)
+
+    step = "init"
+    ot_done = False
+    ot_time = None
+
+    try:
+        for _ in range(2000):
+            if ot_done and time.time() - ot_time > FLUSH_WAIT:
+                ws.send("5:99+::" + json.dumps({"name": "leaveDoc", "args": [doc_id]}))
+                time.sleep(3)
+                break
+            try:
+                msg = ws.recv()
+            except _ws.WebSocketTimeoutException:
+                ws.send("2::")
+                continue
+            except Exception:
+                break
+
+            if msg == "2::":
+                ws.send("2::")
+                continue
+
+            if msg == "1::" and step == "init":
+                step = "jp"
+                ws.send("5:1+::" + json.dumps(
+                    {"name": "joinProject", "args": [{"project_id": project_id}]}))
+
+            elif ("rootFolder" in msg or "joinProjectResponse" in msg) and step == "jp":
+                step = "jd"
+                ws.send("5:2+::" + json.dumps(
+                    {"name": "joinDoc", "args": [doc_id, {"encodeRanges": True}]}))
+
+            elif msg.startswith("6:::2+") and step == "jd":
+                data = json.loads(msg[6:])
+                if data[0]:
+                    raise RuntimeError("joinDoc error: {}".format(data[0]))
+                cur = "\n".join(data[1])
+                version = data[2]
+                ops = []
+                if cur:
+                    ops.append({"d": cur, "p": 0})
+                ops.append({"i": content, "p": 0})
+                ws.send("5:3+::" + json.dumps({
+                    "name": "applyOtUpdate",
+                    "args": [doc_id, {"op": ops, "v": version,
+                                      "meta": {"source": "claude-code"}}]
+                }))
+                ot_time = time.time()
+                step = "ot"
+
+            elif msg.startswith("6:::3") and step == "ot":
+                ot_done = True
+                ot_time = time.time()
+                step = "staying"
+
+            elif "otUpdateError" in msg:
+                raise RuntimeError("OT error: {}".format(msg[:300]))
+    finally:
+        try:
+            ws.close()
+        except Exception:
+            pass
+
+    if not ot_done:
+        raise RuntimeError("OT update not confirmed")
+
+
+def upload_file(self, project_id, project_infos, file_name, file_size, file):
+    folder_id = project_infos['rootFolder'][0]['_id']
+
+    # Resolve nested folder path
+    if PATH_SEP in file_name:
+        local_folders = file_name.split(PATH_SEP)[:-1]
+        current_overleaf_folder = project_infos['rootFolder'][0]['folders']
+        for local_folder in local_folders:
+            exists_on_remote = False
+            for remote_folder in current_overleaf_folder:
+                if local_folder.lower() == remote_folder['name'].lower():
+                    exists_on_remote = True
+                    folder_id = remote_folder['_id']
+                    current_overleaf_folder = remote_folder['folders']
+                    break
+            if not exists_on_remote:
+                new_folder = self.create_folder(project_id, folder_id, local_folder)
+                current_overleaf_folder.append(new_folder)
+                folder_id = new_folder['_id']
+                current_overleaf_folder = new_folder['folders']
+
+    base_name = file_name.split(PATH_SEP)[-1]
+    _, ext = os.path.splitext(base_name)
+
+    if ext.lower() in TEXT_EXTENSIONS:
+        # ── Text file: delete + REST-create shell + OT write ─────────────────
+        existing_doc = self._find_doc_in_folder(project_infos, file_name)
+        if existing_doc:
+            headers = {"X-Csrf-Token": self._csrf}
+            reqs.delete(
+                DELETE_URL.format(project_id, existing_doc['_id']),
+                cookies=self._cookie, headers=headers, json={})
+
+        content = file.read().decode('utf-8', errors='replace')
+
+        # Create empty shell (gives us a doc_id; docstore starts empty)
+        doc_url = "{}/project/{}/doc".format(BASE_URL, project_id)
+        r = reqs.post(doc_url, cookies=self._cookie,
+                      headers={"X-Csrf-Token": self._csrf},
+                      json={"name": base_name, "parent_folder_id": folder_id, "lines": []})
+        if not r.ok:
+            return False
+        doc_id = r.json().get("_id")
+        if not doc_id:
+            return False
+
+        # Write content via OT (stays connected to flush docstore)
+        self._ot_write_doc(project_id, doc_id, content)
+        return True
+    else:
+        # ── Binary file: multipart upload ────────────────────────────────────
+        params = {
+            "folder_id": folder_id, "_csrf": self._csrf,
+            "qquuid": str(uuid.uuid4()), "qqfilename": base_name,
+            "qqtotalfilesize": file_size,
+        }
+        r = reqs.post(UPLOAD_URL.format(project_id), cookies=self._cookie,
+                      params=params, files={"qqfile": (base_name, file)})
+        return r.status_code == 200 and json.loads(r.content).get("success", False)
+```
+
+## 6. socketIO_client/transports.py: fix SSLError
 
 In `/home/azureuser/anaconda3/lib/python3.11/site-packages/socketIO_client/transports.py`:
 

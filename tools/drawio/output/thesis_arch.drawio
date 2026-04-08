@@ -1,0 +1,190 @@
+<mxfile host="Claude-Code">
+  <diagram id="3cf8ce63-3fef-47eb-98d9-39342ef3b83c" name="论文整体研究框架">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="代码修复智能体推理成本分析与优化" style="rounded=1;fillColor=#1e3a5f;strokeColor=#1e3a5f;fontColor=#ffffff;fontStyle=1;fontSize=16;" parent="1" vertex="1">
+          <mxGeometry x="300" y="20" width="940" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="研究场景与实验基础" style="rounded=0;fillColor=#e8edf2;strokeColor=#aaa;fontStyle=1;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="300" y="100" width="940" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="SWE-bench&#10;2294 个真实 GitHub Issue&#10;12 个 Python 仓库" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="310" y="145" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="mini-swe-agent&#10;执行框架&#10;工具调用 + 多轮交互" style="rounded=1;fillColor=#f5f9ff;strokeColor=#6c8ebf;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="590" y="145" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="LLM 后端&#10;(Claude / GPT-4 等)&#10;按 token 计费" style="rounded=1;fillColor=#647687;strokeColor=#314354;fontColor=#ffffff;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="870" y="145" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;" edge="1" source="4" target="5" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;" edge="1" source="5" target="6" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="9" value="代码修复智能体执行链（多轮交互）" style="rounded=0;fillColor=#e8edf2;strokeColor=#aaa;fontStyle=1;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="300" y="250" width="940" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="10" value="Issue&#10;理解" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="310" y="292" width="110" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="11" value="代码&#10;搜索" style="rounded=1;fillColor=#f5f9ff;strokeColor=#6c8ebf;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="450" y="292" width="110" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="12" value="文件&#10;阅读" style="rounded=1;fillColor=#f5f9ff;strokeColor=#6c8ebf;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="590" y="292" width="110" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="13" value="补丁&#10;生成" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="730" y="292" width="110" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="14" value="测试&#10;验证" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="870" y="292" width="110" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="15" value="提交/&#10;重试" style="rounded=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1010" y="292" width="110" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;" edge="1" source="10" target="11" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;" edge="1" source="11" target="12" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;" edge="1" source="12" target="13" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;" edge="1" source="13" target="14" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;" edge="1" source="14" target="15" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="21" value="重试" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=1;entryX=0.5;entryY=1;strokeColor=#b85450;" edge="1" source="15" target="11" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="22" value="← 每轮 token 累积：输入历史 + 工具输出 + 模型输出 →" style="rounded=1;fillColor=#fff9e6;strokeColor=#d6b656;fontSize=10;fontStyle=2;" parent="1" vertex="1">
+          <mxGeometry x="310" y="368" width="820" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="23" value="本文三大研究模块" style="rounded=0;fillColor=#e8edf2;strokeColor=#aaa;fontStyle=1;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="300" y="425" width="940" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="24" value="① 阶段化成本分析框架" style="rounded=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="310" y="465" width="270" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="25" value="② 上下文压缩与成本优化" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="610" y="465" width="270" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="26" value="③ 成本—能力权衡评估" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="910" y="465" width="270" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="27" value="轨迹阶段划分" style="rounded=1;fillColor=#f5f9ff;strokeColor=#6c8ebf;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="315" y="520" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="28" value="阶段 token 归因" style="rounded=1;fillColor=#f5f9ff;strokeColor=#6c8ebf;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="455" y="520" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="29" value="成本分布可视化" style="rounded=1;fillColor=#f5f9ff;strokeColor=#6c8ebf;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="315" y="575" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="30" value="高成本模式识别" style="rounded=1;fillColor=#f5f9ff;strokeColor=#6c8ebf;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="455" y="575" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="31" value="检索范围缩减" style="rounded=1;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="615" y="520" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="32" value="Obs 历史压缩" style="rounded=1;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="755" y="520" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="33" value="无效循环控制" style="rounded=1;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="615" y="575" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="34" value="AST 级代码裁剪" style="rounded=1;fillColor=#e8f5e9;strokeColor=#82b366;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="755" y="575" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="35" value="Token 消耗" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="915" y="520" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="36" value="修复成功率" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1055" y="520" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="37" value="响应延迟" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="915" y="575" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="38" value="单位成功成本" style="rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1055" y="575" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="39" value="实验配置" style="rounded=0;fillColor=#e8edf2;strokeColor=#aaa;fontStyle=1;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="300" y="645" width="940" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="40" value="基线系统&#10;mini-swe-agent&#10;(无优化)" style="rounded=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="310" y="688" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="41" value="方案 A&#10;检索范围&#10;缩减" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="520" y="688" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="42" value="方案 B&#10;Obs 历史&#10;压缩" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="680" y="688" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="43" value="方案 C&#10;循环控制&#10;+ 预算截断" style="rounded=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="840" y="688" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="44" value="方案 D&#10;组合优化&#10;(A+B+C)" style="rounded=1;fillColor=#647687;strokeColor=#314354;fontColor=#ffffff;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="1000" y="688" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="45" value="预期研究结论" style="rounded=0;fillColor=#e8edf2;strokeColor=#aaa;fontStyle=1;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="300" y="795" width="940" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="46" value="代码定位阶段是&#10;最大成本来源" style="rounded=1;fillColor=#f5f9ff;strokeColor=#6c8ebf;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="310" y="838" width="190" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="47" value="Obs 历史冗余随&#10;轮次超线性增长" style="rounded=1;fillColor=#f5f9ff;strokeColor=#6c8ebf;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="520" y="838" width="190" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="48" value="组合优化可降低&#10;X% token 消耗" style="rounded=1;fillColor=#f5f9ff;strokeColor=#6c8ebf;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="730" y="838" width="190" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="49" value="成本—能力最优&#10;权衡点存在" style="rounded=1;fillColor=#f5f9ff;strokeColor=#6c8ebf;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="940" y="838" width="190" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="50" value="" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#6c8ebf;" edge="1" source="5" target="10" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="51" value="" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#aaa;dashed=1;" edge="1" source="12" target="24" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="52" value="" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#aaa;dashed=1;" edge="1" source="12" target="25" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="53" value="" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#aaa;dashed=1;" edge="1" source="12" target="26" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="54" value="" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#82b366;dashed=1;" edge="1" source="25" target="41" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="55" value="" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#82b366;dashed=1;" edge="1" source="25" target="42" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="56" value="" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#82b366;dashed=1;" edge="1" source="25" target="43" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="57" value="" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#82b366;dashed=1;" edge="1" source="25" target="44" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="58" value="" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#aaa;dashed=1;" edge="1" source="40" target="46" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="59" value="" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#aaa;dashed=1;" edge="1" source="40" target="47" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="60" value="" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#aaa;dashed=1;" edge="1" source="40" target="48" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="61" value="" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#aaa;dashed=1;" edge="1" source="40" target="49" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

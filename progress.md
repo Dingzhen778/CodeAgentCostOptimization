@@ -1,111 +1,113 @@
 # Progress
 
-## 当前实验进度
+## 当前状态
 
-更新时间：`2026-04-05`
+更新时间：`2026-04-08`
 
-当前主线实验分两部分：
+完整 `500` 条 `SWE-bench Verified` 主实验已经完成，当前仓库处于“结果整理与论文写作”阶段，而不是继续跑主实验阶段。
 
-- `_19`：`19` 条 `SWE-bench Verified` 子集，已全部完成
-- `_100`：新的 `100` 条 `SWE-bench Verified` 随机子集，正在运行
+统一汇总目录：
 
-两部分没有重叠，因此合并后是 `119` 条唯一 `instance`。最终总统计会按 `_19 + _100` 合并，避免遗漏和串日志。
+- [experiments/subset_methods_verified500_steps40_combined](/home/azureuser/jrh/CodeAgentCostOptimization/experiments/subset_methods_verified500_steps40_combined)
 
-### `_19` 已完成结果
+根目录总报告：
 
-实验目录：
+- [experiment_report.md](/home/azureuser/jrh/CodeAgentCostOptimization/experiment_report.md)
 
-- [subset_methods_resolved19_steps40_live](/home/azureuser/jrh/CodeAgentCostOptimization/experiments/subset_methods_resolved19_steps40_live)
+## 实验设置
 
-最终结果：
+- 数据集：`SWE-bench Verified`
+- 总实例数：`500`
+- Agent：`mini-swe-agent`
+- 模型：`MiniMaxAI/MiniMax-M2.5`
+- 环境：官方 `SWE-bench Verified` Docker
+- 最大步数：`40`
+- 方法数：`7`
+- 统一输出：
+  - `trajectory.json`
+  - `result.json`
+  - `patch.diff`
+- 统一 token 统计：
+  - `input_tokens`
+  - `output_tokens`
+  - `total_tokens`
+  - `calls`
 
-| 方法 | resolve | 总数 | resolve rate | avg tokens |
-|---|---:|---:|---:|---:|
-| `baseline_raw` | 7 | 19 | 36.84% | 360,289 |
-| `rag_topk` | 10 | 19 | 52.63% | 335,868 |
-| `rag_function` | 7 | 19 | 36.84% | 347,186 |
-| `llmlingua_original` | 10 | 19 | 52.63% | 350,372 |
-| `skill_abstraction` | 9 | 19 | 47.37% | 315,220 |
-| `skill_memory_md` | 7 | 19 | 36.84% | 357,786 |
-| `hybrid_llmlingua` | 10 | 19 | 52.63% | 347,513 |
+实验按三批完成并最终合并：
 
-阶段结论：
+- `_19`: `experiments/subset_methods_resolved19_steps40_live/`
+- `_100`: `experiments/subset_methods_new100_steps40_live/`
+- `_381`: `experiments/subset_methods_remaining381_steps40_live/`
 
-- `rag_topk`：19 条子集上的最佳综合方案
-- `skill_abstraction`：最低 token 方案
-- `rag_function`、`skill_memory_md`：当前版本不占优
+## 完整 500 条结果
 
-### `_100` 运行中结果
+| 方法 | resolve | resolve rate | avg input | avg output | avg total |
+|---|---:|---:|---:|---:|---:|
+| `baseline_raw` | 170/500 | 34.00% | 346,838.44 | 7,790.50 | 354,628.94 |
+| `rag_topk` | 189/500 | 37.80% | 347,205.98 | 7,649.44 | 354,855.42 |
+| `rag_function` | 166/500 | 33.20% | 344,955.77 | 7,532.24 | 352,488.01 |
+| `llmlingua_original` | 165/500 | 33.00% | 327,190.93 | 7,087.09 | 334,278.02 |
+| `skill_abstraction` | 182/500 | 36.40% | 337,272.82 | 7,583.08 | 344,855.90 |
+| `skill_memory_md` | 186/500 | 37.20% | 339,856.91 | 7,212.55 | 347,069.46 |
+| `hybrid_llmlingua` | 181/500 | 36.20% | 337,886.73 | 7,413.84 | 345,300.57 |
 
-实验目录：
+## 当前结论
 
-- [subset_methods_new100_steps40_live](/home/azureuser/jrh/CodeAgentCostOptimization/experiments/subset_methods_new100_steps40_live)
+1. `rag_topk` 是完整 `500` 条上的最高 resolve 方法  
+   `37.80%`，说明文件级检索缩减最能提高成功率。
 
-当前完成数：
+2. `llmlingua_original` 是最低 token 方法  
+   平均总 token `334,278.02`，比 baseline 降低约 `5.74%`，但 resolve 低于 baseline。
 
-| 方法 | completed | resolved |
-|---|---:|---:|
-| `baseline_raw` | 18 | 10 |
-| `rag_topk` | 16 | 8 |
-| `rag_function` | 14 | 6 |
-| `llmlingua_original` | 17 | 10 |
-| `skill_abstraction` | 17 | 9 |
-| `skill_memory_md` | 13 | 4 |
-| `hybrid_llmlingua` | 18 | 11 |
+3. `skill_memory_md` 是最好的折中方案之一  
+   resolve `37.20%`，同时 token 比 baseline 低约 `2.13%`。
 
-当前总完成结果数：`113`
+4. `skill_abstraction` 是稳健的低风险改进  
+   resolve 提升 `+2.4` 个百分点，token 降低约 `2.76%`。
 
-`_100` 当前 token 累计：
+5. `rag_function` 当前版本不值得优先继续  
+   成功率下降，token 收益也不明显。
 
-| 方法 | seen instances | total tokens |
-|---|---:|---:|
-| `baseline_raw` | 19 | 5,704,599 |
-| `rag_topk` | 17 | 5,754,164 |
-| `rag_function` | 15 | 5,584,983 |
-| `llmlingua_original` | 18 | 6,035,828 |
-| `skill_abstraction` | 18 | 5,870,247 |
-| `skill_memory_md` | 14 | 5,278,706 |
-| `hybrid_llmlingua` | 19 | 6,727,856 |
+## Patch 完整性
 
-当前阶段判断：
+本轮对 `result.json / trajectory.json / patch.diff` 做了额外清洗。
 
-- `_100` 上，`hybrid_llmlingua` 和 `llmlingua_original` 的 resolve 走势目前最好
-- `baseline_raw` 依然非常稳，而且成本不高
-- `rag_topk` 在新 `100` 条上的优势没有在 `19` 条里那么明显
-- `skill_memory_md` 仍然最弱
+结果：
 
-这说明：
+- `success_count == patch_nonempty_count == success_with_nonempty_patch_count`
 
-- 小样本与大样本上的方法排序可能会变化
-- 后续最终结论必须以 `119` 条总结果为准，不能只看 `19` 条
+因此：
 
-## 当前方法说明
+- 当前 `resolve rate` 可以直接视为“非空 patch 产出率”
+- 最终 500 条结果里没有“成功但空 patch”的条目
 
-| 方法 | 省 token 逻辑 |
-|---|---|
-| `baseline_raw` | 不压缩，作为对照 |
-| `rag_topk` | 先检索 top-k 候选文件，减少广泛搜索和整仓阅读 |
-| `rag_function` | 在文件级检索后再裁到函数级，进一步缩短输入代码片段 |
-| `llmlingua_original` | 用 LLMLingua 风格重排序候选文件，保留高价值跨文件上下文 |
-| `skill_abstraction` | 注入结构化 workflow scaffold，减少空转步骤 |
-| `skill_memory_md` | 从 `skills.md` 注入可迁移启发式经验 |
-| `hybrid_llmlingua` | LLMLingua 排序 + 函数裁剪 + token budget 的组合版 |
+## 分阶段 token 结论
 
-## 文档整理策略
+阶段分析文件：
 
-根目录现在只保留：
+- [token_phase_methods_clean.json](/home/azureuser/jrh/CodeAgentCostOptimization/experiments/subset_methods_verified500_steps40_combined/token_phase_methods_clean.json)
+
+核心结论：
+
+1. 所有方法的 token 主体仍然在 `understand` 阶段，普遍在 `50%+`
+2. 成功样本的 `submit` 占比显著更高
+3. 失败样本更多消耗在 `read/search/other`
+4. `skill_abstraction` 和 `skill_memory_md` 的优势主要是帮助 agent 更早进入 `validate/submit`
+5. `llmlingua_original` 的优势主要是压缩输入 token，而不是提升成功率
+
+## 当前建议
+
+如果按研究方向继续推进：
+
+- 想强调 **最高成功率**：优先写 `rag_topk`
+- 想强调 **最低成本**：优先写 `llmlingua_original`
+- 想强调 **成本-性能折中**：优先写 `skill_memory_md` 或 `skill_abstraction`
+
+## 文档分工
 
 - [README.md](/home/azureuser/jrh/CodeAgentCostOptimization/README.md)
+  项目概览与目录入口
 - [progress.md](/home/azureuser/jrh/CodeAgentCostOptimization/progress.md)
-
-另外保留：
-
-- [skills.md](/home/azureuser/jrh/CodeAgentCostOptimization/skills.md)
-
-原因：
-
-- `skills.md` 不是说明文档，而是 `skill_memory_md` 正在使用的运行时输入
-- 当前实验还没跑完，删除它会影响正在运行的进程
-
-历史说明文档、临时分析文档和过时计划文档已从根目录移除或迁入实验目录。
-
+  当前最终状态与结果摘要
+- [experiment_report.md](/home/azureuser/jrh/CodeAgentCostOptimization/experiment_report.md)
+  完整实验分析报告
