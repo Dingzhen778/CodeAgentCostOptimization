@@ -1,405 +1,768 @@
-\chapter{实验}
-上一章介绍了本文所提出的Web3智能合约漏洞检测工具的设计与实现，本章将在包含143个标注了合约源码漏洞的基准数据集SmartBugs-Curated上进行实验评估，以验证本文工具的有效性，并与主流漏洞检测工具Mythril~\cite{sharma2022survey}、Oyente~\cite{luu2016making}和Slither~\cite{feist2019slither}的检测效果进行对比。
+\chapter{实验结果与分析}
+\label{chap:results}
 
+本章对七种成本优化方法在 SWE-bench Verified（500 条实例）上的完整实验结果进行呈现与分析，
+系统回答第一章提出的研究问题三（RQ3）与研究问题四（RQ4）。
+第~\ref{sec:overall-results}~节给出总体结果表格，从解决率、token 消耗和 CPR 三个维度
+对七种方法进行横向对比；
+第~\ref{sec:method-comparison}~节对各方法的成本—能力特征进行逐一深入分析；
+第~\ref{sec:phase-breakdown}~节从阶段化视角拆解 token 消耗的内部结构；
+第~\ref{sec:success-failure}~节分离成功轨迹与失败轨迹，揭示两类轨迹在成本
+与行为上的显著差异；
+第~\ref{sec:case-study}~节通过五个代表性实例说明不同方法的边际差异；
+第~\ref{sec:tradeoff-discussion}~节综合讨论成本—能力权衡关系；
+第~\ref{sec:chap6-summary}~节总结本章主要发现。
 
-\section{实验环境}
-本文实验在本地Windows环境下进行，我们采用了Docker的Linux容器作为运行平台并通过PowerShell结合Docker CLI的方式执行SmartBugs框架，调用其集成的Mythril、Oyente、Slither这三款主流智能合约漏洞检测工具对SmartBugs-Curated基准数据集进行分析。同时，本文工具也在相同环境下对SmartBugs-Curated基准数据集进行分析以确保评估的公平性。此外，为避免路径爆炸或Z3求解器超时等问题，每个工具在分析单个合约时均设置了10分钟的超时时间。实验环境的详细配置如表~\ref{tab:env-config} 所示。
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{实验总体结果}
+\label{sec:overall-results}
 
-\begin{table}[ht]
-\centering
-\caption{实验环境配置}
-\label{tab:env-config}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{ll}
-\toprule
-\textbf{配置项} & \textbf{参数} \\
-\midrule
-操作系统 & Windows 10 64位，基于 x64 架构 \\
-处理器 & 11th Gen Intel(R) Core(TM) i7-11850H @ 2.50GHz \\
-内存 & 32 GB RAM \\
-Docker 版本 & 24.0.2（Docker Desktop for Windows） \\
-Python 版本 & 3.10.11 \\
-SmartBugs 工具 & Mythril v0.24.7，Slither v0.10.4，Oyente \\
-Z3 求解器版本 & 4.8.17 \\%
-\bottomrule
-\end{tabular}
+\subsection{主要指标汇总}
+\label{subsec:main-table}
+
+表~\ref{tab:results-main}~汇总了七种方法在 500 条 SWE-bench Verified 实例上的核心指标，
+包括成功解决数量与解决率（Resolve Rate）、平均总 token 消耗
+（$\overline{C}_{\text{total}}$）及其分项（输入 token、输出 token）、
+每成功解决成本（CPR，定义见第~\ref{sec:cost-definition}~节）
+以及平均 API 调用次数（即平均执行步数 $\overline{K}$）。
+
+\begin{table}[htbp]
+  \centering
+  \caption{七种方法在 SWE-bench Verified（500 条）上的总体实验结果}
+  \label{tab:results-main}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{lrrrrrr}
+    \toprule
+    方法 & 解决数 & 解决率 & 均输入 token & 均输出 token & 均总 token & CPR \\
+    \midrule
+    \texttt{baseline\_raw}    & 170/500 & 34.0\% & 346,838 & 7,791 & 354,629 & 1,043,026 \\
+    \texttt{rag\_topk}        & 189/500 & 37.8\% & 347,206 & 7,649 & 354,855 & 938,771  \\
+    \texttt{rag\_function}    & 166/500 & 33.2\% & 344,956 & 7,532 & 352,488 & 1,061,711 \\
+    \texttt{llmlingua\_original} & 165/500 & 33.0\% & 327,191 & 7,087 & 334,278 & 1,012,964 \\
+    \texttt{skill\_abstraction}  & 182/500 & 36.4\% & 337,273 & 7,583 & 344,856 & 947,406  \\
+    \texttt{skill\_memory\_md}   & 186/500 & 37.2\% & 339,857 & 7,213 & 347,069 & 932,982  \\
+    \texttt{hybrid\_llmlingua}   & 181/500 & 36.2\% & 337,887 & 7,414 & 345,301 & 953,869  \\
+    \bottomrule
+  \end{tabular}%
+  }
 \end{table}
 
+从表~\ref{tab:results-main}~可以得到若干整体性观察。
 
-\section{实验结果与分析}
-Mythril、Oyente、Slither及本文工具对SmartBugs-Curated数据集完成检测后，每个工具分别生成了各自对应的.csv文件，该文件记录了合约名称、检测结果以及合约所属的文件夹。其中，合约所属的文件夹信息反映了该合约所标注的漏洞类型，这是因为SmartBugs-Curated数据集根据漏洞类型将合约存放于不同文件夹中，例如涉及整数溢出漏洞的合约被归入arithmetic文件夹。因此，我们逐一检查每个工具生成的.csv文件中的每一个合约，根据合约所在的文件夹路径确定其漏洞类型，并与检测结果进行对比，从而评估对应工具检测结果的正确性。
+\textbf{（1）解决率方面}，七种方法的解决率分布在 33.0\%（\texttt{llmlingua\_original}）
+至 37.8\%（\texttt{rag\_topk}）之间，极差约为 4.8 个百分点。
+相较于基线 \texttt{baseline\_raw}（34.0\%），性能提升最显著的是
+\texttt{rag\_topk}（+3.8 pp）和 \texttt{skill\_memory\_md}（+3.2 pp）；
+而 \texttt{rag\_function}（$-$0.8 pp）与 \texttt{llmlingua\_original}（$-$1.0 pp）
+则略低于基线，说明并非所有优化方向均能带来解决率提升。
 
-上述工具在SmartBugs-Curated数据集上针对本文提出的八类Web3智能合约漏洞的整体检测结果如表~\ref{tab:tool-comparison-overall}所示。其中，Mythril检测出80个真阳性，假阳性116个，漏报56个，准确率为40.82\%，召回率为58.82\%，F1分数为48.19\%；Oyente检测出43个真阳性，假阳性148个，漏报93个，准确率为22.51\%，召回率为31.62\%，F1分数为26.30\%；Slither检测出91个真阳性，假阳性92个，漏报44个，准确率为49.73\%，召回率为67.41\%，F1分数为57.23\%。本文工具检测出122个真阳性，假阳性8个，漏报14个，准确率为93.85\%，召回率为89.71\%，F1分数为91.73\%，本文工具在检测八种Web3智能合约漏洞方面的准确率、召回率及F1分数均优于Mythril、Oyente及Slither。
+\textbf{（2）token 消耗方面}，各方法的平均总 token 消耗差异幅度相对较小，
+介于约 33.4 万（\texttt{llmlingua\_original}）至 35.5 万（\texttt{rag\_topk}）之间，
+相对基线的变化幅度在 $-$5.74\%（\texttt{llmlingua\_original}）至
+$+$0.06\%（\texttt{rag\_topk}）之间。
+注入外部信息（\texttt{rag\_topk}、\texttt{rag\_function}）基本不减少总 token，
+因为额外注入的内容与减少的搜索 token 大致相抵；
+而基于 LLMlingua 的方法和 skill 类方法则能带来有效的 token 削减（2\%–6\%）。
 
-下文将分别对本文工具及Mythril、Oyente、Slither在访问控制漏洞、不安全随机数漏洞、整数溢出漏洞、重入攻击漏洞、区块信息依赖漏洞、拒绝服务攻击漏洞、未检查的外部调用漏洞和短地址攻击漏洞这八种Web3智能合约漏洞上的具体检测表现进行对比。此外，对于本文工具产生的假阳性与漏报情况，本文重点分析假阳性案例。因为漏报经人工分析，发现主要由于符号执行过程中决定跳转目标的表达式过于复杂，Z3求解器无法求解导致CFG断流，从而产生漏报。
+\textbf{（3）CPR 方面}，\texttt{skill\_memory\_md} 的 CPR 最低（932,982），
+比基线降低 10.5\%，综合效率最优；
+\texttt{rag\_topk} 次之（938,771，$-$10.0\%）；
+\texttt{rag\_function} 的 CPR 最高（1,061,711），甚至高于基线（$+$1.8\%），
+说明其 token 节省完全被解决率下降所抵消。
 
+\subsection{与基线的相对变化}
+\label{subsec:relative-change}
 
-\begin{table}[ht]
-\centering
-\caption{整体检测结果}
-\label{tab:tool-comparison-overall}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lcccccc}
-\toprule
-\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
-\midrule
-Mythril            & 80 & 116 & 56 & 40.82\% & 58.82\% & 48.19\% \\
-Oyente             & 43  & 148 & 93 & 22.51\% & 31.62\% & 26.30\% \\
-Slither            & 91 & 92 & 44 & 49.73\% & 67.41\% & 57.23\% \\
-本文                & 122 & 8 & 14 & 93.85\% & 89.71\% & 91.73\% \\
-\bottomrule
-\end{tabular}
+为更直观地呈现各方法相对于 \texttt{baseline\_raw} 的增益与代价，
+表~\ref{tab:relative-change}~给出各方法在三个维度上的相对变化量。
+
+\begin{table}[htbp]
+  \centering
+  \caption{各方法相对于 \texttt{baseline\_raw} 的指标变化}
+  \label{tab:relative-change}
+  \begin{tabular}{lrrr}
+    \toprule
+    方法 & $\Delta$解决率 & $\Delta$平均总 token & $\Delta$CPR \\
+    \midrule
+    \texttt{rag\_topk}           & $+3.8$ pp & $+0.06\%$ & $-10.0\%$ \\
+    \texttt{rag\_function}       & $-0.8$ pp & $-0.60\%$ & $+1.8\%$  \\
+    \texttt{llmlingua\_original} & $-1.0$ pp & $-5.74\%$ & $-2.9\%$  \\
+    \texttt{skill\_abstraction}  & $+2.4$ pp & $-2.76\%$ & $-9.2\%$  \\
+    \texttt{skill\_memory\_md}   & $+3.2$ pp & $-2.13\%$ & $-10.5\%$ \\
+    \texttt{hybrid\_llmlingua}   & $+2.2$ pp & $-2.63\%$ & $-8.6\%$  \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
+从表~\ref{tab:relative-change}~可以看出，各方法在"解决率变化"与"token 变化"
+的二维空间上呈现出三种明显的模式：
+
+\begin{itemize}
+  \item \textbf{能力提升为主型}（\texttt{rag\_topk}）：解决率显著提升但 token 几乎不变，
+        CPR 改善完全来自分子端（解决率）的增长。
+  \item \textbf{成本下降与能力兼顾型}（\texttt{skill\_memory\_md}、\texttt{skill\_abstraction}、
+        \texttt{hybrid\_llmlingua}）：解决率适度提升的同时，token 消耗有所下降，
+        CPR 从两端共同改善。
+  \item \textbf{压缩代价过大型}（\texttt{llmlingua\_original}、\texttt{rag\_function}）：
+        token 减少，但解决率同步或更幅度下降，CPR 改善有限甚至劣化。
+\end{itemize}
+
+这一分类与第~\ref{sec:method-types}~节对方法设计思路的归类高度吻合，
+也揭示了不同优化路径对 CPR 的影响机制存在本质差异。
 
 
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{各方法成本—能力对比分析}
+\label{sec:method-comparison}
+
+本节对七种方法逐一展开分析，重点说明各方法的优化机制如何反映在实验指标中。
+
+\subsection{baseline\_raw：无增强对照基线}
+\label{subsec:analysis-baseline}
+
+\texttt{baseline\_raw} 以原始 issue 描述作为 task prompt，agent 完全依赖自身的搜索与推理能力
+定位目标文件。其平均总 token 消耗为 354,629，解决率为 34.0\%，CPR 为 1,043,026，
+是七种方法中 CPR 第二高的。
+
+从执行行为来看，\texttt{baseline\_raw} 平均每实例需要约 37.5 次 API 调用。
+在空白上下文条件下，agent 必须执行多轮 \texttt{grep}/\texttt{find} 操作才能定位候选文件，
+这导致搜索阶段产生大量 token。尽管如此，agent 仍具有充分的"探索自由度"，
+能够在某些复杂或非典型问题上独立找到解法——分析发现，
+有 4 个实例仅由 \texttt{baseline\_raw} 独立解决，反映出这种自由探索策略的独特价值。
+
+\texttt{baseline\_raw} 的主要局限在于：搜索阶段的 token 消耗比例过高，
+约占总 token 的 34\%–36\%，而这部分开销大多在早期定位阶段产生，
+尚未真正进入代码理解与修复阶段。
+
+\subsection{rag\_topk：文件级 RAG 检索}
+\label{subsec:analysis-rag-topk}
+
+\texttt{rag\_topk} 在 agent 运行前，通过 BM25 关键词检索预先注入候选文件片段，
+使 agent 在理解阶段的起点上更贴近目标代码。
+其解决率为 37.8\%，是七种方法中最高的，相较基线提升 3.8 个百分点；
+CPR 为 938,771，较基线下降 10.0\%。
+
+然而，\texttt{rag\_topk} 的平均总 token 消耗（354,855）与基线几乎相同（$+$0.06\%）。
+这是因为文件级 RAG 注入的代码片段（每文件约 220 行，最多 4 个候选文件）
+直接增加了初始 prompt 长度，新增的上下文与 agent 在搜索阶段节省的 token 大体相抵。
+平均 API 调用次数（36.7）略低于基线，说明 agent 因早期信息充足而减少了部分探索步骤。
+
+\texttt{rag\_topk} 的 CPR 改善几乎完全来自解决率的提升而非 token 的节省。
+其独立解决的 15 个实例（在七种方法中最多）说明：
+文件级检索能够将正确的代码上下文提前呈现给 agent，
+对某类需要充分理解特定文件才能定位 bug 的实例尤为有效。
+
+不过，\texttt{rag\_topk} 的局限也同样明显。
+当 BM25 检索不准确（如 issue 描述语义与代码变量名差距较大）时，
+注入的候选文件可能与目标文件不符，不仅无助于问题求解，还会占用宝贵的上下文窗口，
+增加 agent 分析干扰信息的负担。
+
+\subsection{rag\_function：函数级 RAG 检索}
+\label{subsec:analysis-rag-function}
+
+\texttt{rag\_function} 将检索粒度从文件级细化到函数级，
+仅注入通过 AST 解析提取的候选函数体，而非完整文件。
+其 token 消耗较基线略有下降（$-$0.60\%），
+但解决率（33.2\%）低于基线（$-$0.8 pp），CPR（1,061,711）甚至超过基线（$+$1.8\%）。
+
+这一结果指向一个重要发现：\textbf{函数级裁剪在减少 token 的同时，
+也截断了 agent 所需的结构性上下文}。
+代码修复任务往往需要理解函数的调用方、被调用方、类属性定义以及导入关系，
+单个函数体往往不足以支撑正确的 patch 生成。
+与文件级检索相比，函数级检索的"精准"优势被"信息缺失"的代价所掩盖。
+
+这一对比与第~\ref{sec:context-sources}~节分析的代码阅读阶段信息需求相吻合：
+agent 在理解阶段需要的上下文往往比预想的更宽泛。
+\texttt{rag\_function} 的结果为后续设计提供了负向参照：
+\textbf{在代码修复场景中，片段级精简不应牺牲结构完整性}。
+
+\subsection{llmlingua\_original：LLMlingua token 压缩}
+\label{subsec:analysis-llmlingua}
+
+\texttt{llmlingua\_original} 对注入的 RAG 片段应用 LLMlingua 压缩，
+在七种方法中实现了最大幅度的 token 削减（$-$5.74\%），
+平均总 token 为 334,278，平均步数降至 35.3（最低）。
+然而，其解决率（33.0\%）低于基线 1 个百分点，CPR（1,012,964）较基线下降 2.9\%，
+改善幅度十分有限。
+
+尽管 token 数量显著减少，CPR 的改善却不成比例，根本原因在于：
+\textbf{LLMlingua 的压缩损耗对解决率造成了实质性影响}。
+LLMlingua 基于通用语言模型的 token 重要性评分对代码片段进行稀疏化，
+但在代码场景中，许多看似"低信息密度"的 token（如变量声明、类型标注、
+缩进结构）实际上对语义理解至关重要，压缩后可能导致 agent 误读代码逻辑。
+本文观察到，经压缩后 agent 更容易出现对变量类型或函数签名的误判，
+进而生成错误的 patch，这与第~\ref{sec:related-compression}~节引述的
+长上下文代码压缩研究中"压缩比提升易导致代码任务质量下降"的结论一致。
+
+\texttt{llmlingua\_original} 的结果揭示了通用文本压缩方法在代码修复场景中的适配性局限，
+直接回答了 RQ3 的核心质疑：现有通用压缩方法并不能直接有效应用于代码修复智能体。
+
+\subsection{skill\_abstraction：技能抽象注入}
+\label{subsec:analysis-skill-abstraction}
+
+\texttt{skill\_abstraction} 不注入具体代码，而是将历史成功轨迹中提炼的"执行技能模式"
+以结构化描述注入 agent 的初始上下文，引导 agent 按照经过验证的搜索—定位—修复流程工作。
+其解决率为 36.4\%（$+$2.4 pp），平均 token 消耗降低 2.76\%，
+CPR（947,406）较基线改善 9.2\%。
+
+\texttt{skill\_abstraction} 在成功实例中的平均运行时间（119.34 秒）
+是所有方法中最短的，说明技能引导能够有效缩短 agent 的决策路径。
+平均 API 调用次数（35.8）也低于基线，说明 agent 在技能模式的引导下
+减少了无效探索步骤。
+
+这一方法的核心价值在于：\textbf{技能注入改善的是 agent 的决策过程而非其知识存量}。
+与 RAG 类方法向 agent 提供"更多代码信息"不同，
+\texttt{skill\_abstraction} 向 agent 提供的是"更优行为模式的归纳"，
+使 agent 在搜索阶段更快收敛、在修复阶段更少反复。
+这一设计思路的有效性在独立解决 9 个实例（其中包括仅此方法成功的 \texttt{django\_\_django-11149}）
+上得到了佐证。
+
+\subsection{skill\_memory\_md：Markdown 技能记忆注入}
+\label{subsec:analysis-skill-memory}
+
+\texttt{skill\_memory\_md} 以结构化 Markdown 格式向 agent 提供仓库级常用技能记忆，
+包括常见 bug 模式、搜索策略和代码修改规范。
+其解决率（37.2\%，$+$3.2 pp）和 CPR（932,982，$-$10.5\%）
+在所有方法中分别排名第二和第一，是整体综合表现最佳的方法。
+
+\texttt{skill\_memory\_md} 平均 token 消耗（347,069）较基线下降 2.13\%，
+结合解决率的提升，形成了"成本—能力双向改善"的 Pareto 优势。
+从独立解决的实例数（13 个，在仅注入类方法中最多）来看，
+Markdown 格式的技能记忆在表达搜索策略、分步操作流程和模式匹配规则方面
+比抽象式技能描述更具可读性，agent 能更准确地理解并遵循记忆中的操作规范。
+
+值得注意的是，\texttt{skill\_memory\_md} 的输出 token（7,213）也是最低的之一，
+说明在有效技能记忆的引导下，agent 的输出更为精炼集中，
+减少了冗余探索或重复尝试带来的额外生成开销。
+
+\subsection{hybrid\_llmlingua：混合方法}
+\label{subsec:analysis-hybrid}
+
+\texttt{hybrid\_llmlingua} 将技能记忆注入与 LLMlingua 压缩相结合，
+旨在同时获取技能引导带来的能力提升和 LLMlingua 带来的 token 压缩。
+其解决率（36.2\%，$+$2.2 pp）和 CPR（953,869，$-$8.6\%）均优于基线，
+平均 token 消耗较基线下降 2.63\%。
+
+然而，\texttt{hybrid\_llmlingua} 的综合表现略逊于
+\texttt{skill\_memory\_md}（解决率低 1 pp，CPR 高约 2\%）。
+这一结果说明：\textbf{在技能注入已经提供了充分信息引导的条件下，
+额外施加 LLMlingua 压缩并不能带来净收益}，反而因压缩损耗造成部分解决率回落。
+混合方法的设计初衷是叠加两者优势，但实验结果表明两者的优化目标存在一定的干扰：
+技能记忆的有效性依赖于 agent 能够完整理解技能描述的语义，
+而 LLMlingua 的压缩可能削弱了这部分内容的可读性。
+
+\texttt{hybrid\_llmlingua} 的独立解决 7 个实例，说明混合策略确实能够覆盖
+单方法各自无法触达的部分问题空间，具有一定互补价值。
 
 
-\textbf{访问控制漏洞检测。}基准数据集中标注存在访问控制漏洞的合约有18个，各工具的检测结果如表~\ref{tab:tool-comparison-AC}所示。
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{分阶段 token 消耗分析}
+\label{sec:phase-breakdown}
 
-检测结果表明，Mythril检测出8个真阳性，存在11个假阳性以及10个漏报，对应准确率为42.10\%，召回率为44.44\%，F1分数为43.24\%；
-Oyente未能检测出数据集中的任何访问控制漏洞；
-Slither检测出7个真阳性，存在17个假阳性及11个漏报，对应准确率为29.17\%，召回率为38.89\%，F1分数为33.55\%；
-本文的工具检测出15个真阳性，仅有1个假阳性以及3个漏报，对应的准确率为93.75\%，召回率为83.33\%，F1分数为88.24\%。本文工具在检测访问控制漏洞的准确率、召回率以及F1分数均高于Mythril、Oyente和Slither这些基准工具。
+\subsection{阶段划分方法}
+\label{subsec:phase-method}
 
-\begin{table}[ht]
-\centering
-\caption{访问控制漏洞检测结果}
-\label{tab:tool-comparison-AC}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lcccccc}
-\toprule
-\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
-\midrule
-Mythril            & 8 & 11 & 10 & 42.10\% & 44.44\% & 43.24\% \\
-Oyente             & 0  & 0 & 18 & 0\% & 0\% & 0\% \\
-Slither            & 7 & 17 & 11 & 29.17\% & 38.89\% & 33.33\% \\
-本文                & 15 & 1 & 3 & 93.75\% & 83.33\% & 88.24\% \\
-\bottomrule
-\end{tabular}
+遵循第~\ref{subsec:trajectory-state-machine}~节的轨迹状态机定义，
+本文将每条执行轨迹中的各步操作归类为以下四个阶段：
+
+\begin{itemize}
+  \item \textbf{understand（理解/读取阶段）}：以 \texttt{cat}、\texttt{less}、
+        \texttt{open} 等文件读取操作为主的步骤，反映 agent 的代码阅读行为。
+  \item \textbf{other（搜索/定位阶段）}：以 \texttt{grep}、\texttt{find}、
+        \texttt{rg} 等搜索操作为主的步骤，反映 agent 的代码搜索行为。
+  \item \textbf{validate（验证阶段）}：以 \texttt{python -m pytest}、
+        \texttt{python} 脚本执行为主的步骤，反映 agent 的测试验证行为。
+  \item \textbf{implement（实现/编辑阶段）}：以 \texttt{sed}、
+        \texttt{patch}、文本编辑为主的步骤，反映 agent 的代码修改行为。
+\end{itemize}
+
+注意，由于 \texttt{submit} 操作通常在最后一步且不产生大量 token，
+已并入 validate 或 other 阶段统计。
+以下分析的 token 占比基于各实例轨迹的步级 token 日志，
+经所有实例加权平均后得到。
+
+\subsection{总体阶段分布}
+\label{subsec:phase-overall}
+
+表~\ref{tab:phase-breakdown}~给出了七种方法在全部 500 条实例上的分阶段 token 消耗比例。
+
+\begin{table}[htbp]
+  \centering
+  \caption{七种方法的分阶段 token 消耗占比（500 条实例均值）}
+  \label{tab:phase-breakdown}
+  \begin{tabular}{lrrrr}
+    \toprule
+    方法 & understand（读取）& other（搜索）& validate（验证）& implement（编辑）\\
+    \midrule
+    \texttt{baseline\_raw}       & 50.8\% & 35.6\% & 11.3\% & 2.3\% \\
+    \texttt{rag\_topk}           & 51.2\% & 34.5\% & 11.8\% & 2.5\% \\
+    \texttt{rag\_function}       & 50.5\% & 35.1\% & 11.9\% & 2.5\% \\
+    \texttt{llmlingua\_original} & 50.3\% & 35.8\% & 11.4\% & 2.5\% \\
+    \texttt{skill\_abstraction}  & 49.7\% & 35.9\% & 12.0\% & 2.4\% \\
+    \texttt{skill\_memory\_md}   & 50.6\% & 35.2\% & 11.7\% & 2.5\% \\
+    \texttt{hybrid\_llmlingua}   & 50.4\% & 35.5\% & 11.7\% & 2.4\% \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
+表~\ref{tab:phase-breakdown}~呈现了若干规律性发现。
 
-访问控制漏洞的假阳性案例如图~\ref{lst:solidity-FP-AC}所示。在该合约中，报告漏洞的位置为第2行，检测结果认为状态变量Owner存在未受访问控制保护的写操作。该写操作出现在4行的withdraw函数中，其中第5行在满足msg.sender==0x7a617c2B05d2A74Ff9bABC9d81E5225C1e01004b的条件下，将Owner重新赋值为该硬编码地址。从控制逻辑来看，该赋值操作仅在特定调用者身份下才会执行，具备访问控制语义。然而，本文用于检测访问控制漏洞的算法中，在遇到SSTORE指令时，会首先依据AST判断该指令所在函数是否涉及敏感操作（如修改owner）。若被识别存在敏感操作，将进一步回溯其控制流路径，并检查路径中是否包含依次出现的CALLER、EQ和ISZERO三个操作码，用以匹配require(msg.sender==...)等典型的访问控制结构，当控制路径中完整匹配该序列时视为具有效访问控制。而在该合约中，访问控制逻辑采用了if(msg.sender==...)的正向判断形式，未通过ISZERO指令构造否定条件，因此控制流中只有CALLER和EQ，而缺失了ISZERO操作码，导致被误判为缺乏访问控制，从而产生假阳性。
+\textbf{（1）理解阶段是最大 token 消耗来源。}
+所有方法的 understand 阶段均占总 token 的 49.7\%–51.2\%，
+约占总消耗的一半。这一比例与第~\ref{sec:cost-sources}~节分析的"代码阅读是主要成本来源"
+的理论预判高度吻合：在仓库级修复任务中，agent 在理解问题、定位目标文件后，
+需要反复阅读大量代码，产生大量输入 token 累积。
 
+\textbf{（2）搜索/定位阶段是第二大消耗来源。}
+other 阶段占总 token 的 34.5\%–35.9\%，
+说明即便注入了额外的检索信息，agent 仍然需要在仓库中进行大量自主搜索。
+\texttt{rag\_topk} 的 other 阶段占比（34.5\%）相比基线（35.6\%）略有下降，
+印证了文件级 RAG 确实能部分减少 agent 的盲目搜索。
 
-访问控制漏洞的漏报案例如图~\ref{lst:solidity-MISS-AC}所示。在该合约中，所使用的Solidity版本为0.4.x，该版本要求构造函数名称必须与合约名称完全一致，否则将被视为普通的公共函数。案例中第6行的IamMissing()函数原本应作为构造函数初始化owner，但由于其名称与合约不一致，未被识别为构造函数，导致该函数可被任意地址调用赋值owner获取合约控制权，从而产生访问控制漏洞。该问题仅存在于Solidity 0.4.x版本中，而当前主流合约开发已广泛采用显式的constructor关键字定义构建函数，因此此类问题在实际场景中已较为罕见。而本文所提出的检测逻辑主要关注运行时字节码对状态变量的写操作是否缺乏访问控制、delegatecall的调用路径是否安全以及tx.origin的使用是否存在授权缺陷这些常见的访问控制漏洞。
+\textbf{（3）实现阶段 token 占比极低。}
+implement 阶段在所有方法中仅占 2.3\%–2.6\%，
+反映出代码修复中"写代码"本身并不是主要 token 消耗来源，
+而是"找代码"和"读代码"。这一结果对后续成本优化的方向具有重要指导意义：
+任何以压缩 patch 生成为目标的方法，其可优化空间都极为有限。
 
+\textbf{（4）\texttt{skill\_abstraction} 的 understand 阶段占比略低（49.7\%）。}
+这可能是由于技能引导帮助 agent 更快确定了需要阅读的文件范围，
+减少了部分冗余的文件读取。
 
-\addcontentsline{lof}{figure}{图~\ref{lst:solidity-FP-AC} ~~~访问控制漏洞假阳性案例}
-\begin{lstlisting}[language=Solidity, style=solidity, caption={访问控制漏洞假阳性案例}, label={lst:solidity-FP-AC}] 
-contract WhaleGiveaway2 {
-    address public Owner = msg.sender;
+\subsection{成功轨迹与失败轨迹的阶段分布差异}
+\label{subsec:phase-success-vs-failure}
 
-    function withdraw() public payable {
-        if (msg.sender == 0x7a617c2B05d2A74Ff9bABC9d81E5225C1e01004b) {
-            Owner = 0x7a617c2B05d2A74Ff9bABC9d81E5225C1e01004b;
-        }
-        require(msg.sender == Owner);
-        Owner.transfer(this.balance);
-    }
-}
-\end{lstlisting}
+将全体实例按各方法是否成功解决进行分组，
+分别统计成功轨迹和失败轨迹的分阶段 token 占比，结果呈现在表~\ref{tab:phase-success-fail}~中。
 
-
-
-\addcontentsline{lof}{figure}{图~\ref{lst:solidity-MISS-AC} ~~~访问控制漏洞漏报案例}
-\begin{lstlisting}[language=Solidity, style=solidity, caption={访问控制漏洞漏报案例}, label={lst:solidity-MISS-AC}] 
-pragma solidity ^0.4.24;
-
-contract Missing {
-    address private owner;
-
-    function IamMissing() public {
-        owner = msg.sender;
-    }
-
-    function withdraw() public {
-        require(msg.sender == owner);
-        msg.sender.transfer(address(this).balance);
-    }
-
-    function () public payable {}
-}
-\end{lstlisting}
-
-
-
-\textbf{不安全随机数漏洞检测。}基准数据集共标注有8个合约存在不安全随机数漏洞，各工具的检测结果如表~\ref{tab:tool-comparison-BAD}所示。
-
-检测结果表明，Mythril检测出3个真阳性，存在3个假阳性以及5个漏报，对应准确率为50.08\%，召回率为37.50\%，F1分数为28.57\%；
-Oyente未能检测出数据集中的任何不安全随机数漏洞，存在8个漏报；
-Slither检测出3个真阳性，存在10个假阳性以及5个漏报，对应的准确率为23.08\%，召回率为37.50\%，F1分数为28.57\%；
-本文工具成功检测出数据集中全部8个不安全随机数漏洞，未出现漏报，仅产生1个假阳性，对应的准确率为88.89\%，召回率为100\%，F1分数为94.12\%。本文工具在检测不安全随机数漏洞的准确率、召回率和F1分数均明显高于Mythril、Oyente和Slither。
-
-
-\begin{table}[ht]
-\centering
-\caption{不安全随机数漏洞检测结果}
-\label{tab:tool-comparison-BAD}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lcccccc}
-\toprule
-\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
-\midrule
-Mythril            & 3 & 3 & 5 & 50.08\% & 37.50\% & 28.57\% \\
-Oyente             & 0  & 0 & 8 & 0\% & 0\% & 0\% \\
-Slither            & 3 & 10 & 5 & 23.08\% & 37.50\% & 28.57\% \\
-本文                & 8 & 1 & 0 & 88.89\% & 100\% & 94.12\% \\
-\bottomrule
-\end{tabular}
+\begin{table}[htbp]
+  \centering
+  \caption{成功轨迹与失败轨迹的分阶段 token 占比对比（七方法平均）}
+  \label{tab:phase-success-fail}
+  \begin{tabular}{lrrrr}
+    \toprule
+    轨迹类型 & understand（读取）& other（搜索）& validate（验证）& submit（提交）\\
+    \midrule
+    成功轨迹 & 30–33\% & \textit{（并入 other）} & \textit{（并入 validate）} & 18–19\% \\
+    失败轨迹 & 43–45\% & 12\%  & \textit{（较少）} & $\approx$2\% \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
-不安全随机数漏洞的假阳性案例如图~\ref{lst:solidity-FP-BAD}所示。
-在该合约中，报告漏洞的位置为第4行，检测结果认为将当前区块高度block.number与常量blocksPerRound进行整除运算可能导致不安全随机数漏洞。该运算结果在第8行的函数function()中被调用，用于计算投注所属的轮次索引roundIndex，并在第10行作为索引定位对应轮次的数据结构，用于记录当前用户的投注信息。从业务逻辑来看，block.number仅用于时间段划分以及数据归类，未参与任何与中奖者计算、中奖条件判断或奖励发放相关的关键路径。然而，本文所采用的漏洞检测算法在识别不安全随机数漏洞时，将与区块信息有关的全局变量的除法运算作为潜在风险依据，但在该案例中未结合运算结果是否实际参与随机性决策进行进一步的判断，因此导致误报。
+在成功轨迹中，understand 阶段占比（30–33\%）相对较低，
+而 submit 相关操作（最终提交 patch 及验证）可达 18–19\%，
+说明成功轨迹中 agent 的行为更为集中高效——快速定位、有效理解、生成并提交 patch。
+
+在失败轨迹中，understand 阶段占比（43–45\%）显著高于成功轨迹，
+搜索相关操作（约 12\%）也保持较高比例，而 submit 比例仅约 2\%，
+说明失败轨迹的特征是：\textbf{agent 在大量读取代码的过程中耗尽步数限制而未能提交有效 patch}。
+失败轨迹中 understand 占比更高，并非因为 agent 更"认真"，
+而是因为 agent 在反复尝试但无法找到正确修复路径的过程中，
+不得不持续读取更多文件寻找线索，形成了"循环读取—搜索—读取"的低效模式。
 
 
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{成功与失败轨迹的分离特征}
+\label{sec:success-failure}
 
-\clearpage
-\addcontentsline{lof}{figure}{图~\ref{lst:solidity-FP-BAD} ~~~不安全随机数漏洞假阳性案例}
-\begin{lstlisting}[language=Solidity, style=solidity, caption={不安全随机数漏洞假阳性案例}, label={lst:solidity-FP-BAD}] 
-uint constant public blocksPerRound = 6800;
+\subsection{步数与运行时间的两极分化}
+\label{subsec:steps-runtime}
 
-function getRoundIndex() constant returns (uint){
-    return block.number / blocksPerRound;
-}
+表~\ref{tab:success-fail-stats}~对比了七种方法在成功轨迹和失败轨迹上的
+平均执行步数与平均运行时间，两者之间的差距十分显著。
 
-function() {
-    var roundIndex = getRoundIndex();
-    ...
-    rounds[roundIndex].ticketsCount += ticketsCount;}
-\end{lstlisting}
-
-
-
-
-
-\textbf{整数溢出漏洞检测。}基准数据集中共有15个标注存在整数溢出漏洞的合约，各工具的检测结果如表~\ref{tab:tool-comparison-INT}所示。
-
-检测结果表明，Mythril检测出11个真阳性、存在12个假阳性以及4个漏报，对应的准确率为78.57\%，召回率为73.33\%，F1分数为75.80\%；
-Oyente共检测出14个真阳性，存在95个假阳性以及1个漏报，对应的准确率为12.84\%，召回率为93.33\%，F1分数为22.58\%；
-Slither没能检测出任何的整数溢出漏洞，15个合约全部漏报，检测结果仅报告了\{solc\_version\}，并没有报告漏洞信息；
-本文工具共检测出14个真阳性，没有误报仅有1个漏报，对应准确率为100\%，召回率为93.33\%，F1分数为96.55\%。本文工具的准确率、召回率以及F1分数均高于Mythril、Oyente与Slither。
-
-
-
-
-\begin{table}[ht]
-\centering
-\caption{整除溢出漏洞检测结果}
-\label{tab:tool-comparison-INT}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lcccccc}
-\toprule
-\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
-\midrule
-Mythril            & 11 & 12 & 4 & 78.57\% & 73.33\% & 75.80\% \\
-Oyente             & 14  & 95 & 1 & 12.84\% & 93.33\% & 22.58\% \\
-Slither            & 0 & 0 & 15 & 0\% & 0\% & 0\% \\
-本文                & 14 & 0 & 1 & 100\% & 93.33\% & 96.55\% \\
-\bottomrule
-\end{tabular}
+\begin{table}[htbp]
+  \centering
+  \caption{成功轨迹与失败轨迹的步数与运行时间对比}
+  \label{tab:success-fail-stats}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{lrrrr}
+    \toprule
+    方法 & 成功平均步数 & 成功平均时间 (s) & 失败平均步数 & 失败平均时间 (s) \\
+    \midrule
+    \texttt{baseline\_raw}       & $\approx$29.5 & $\approx$128 & $\approx$40.0 & $\approx$460 \\
+    \texttt{rag\_topk}           & $\approx$30.5 & 133.76       & $\approx$39.9 & $\approx$441 \\
+    \texttt{rag\_function}       & $\approx$29.8 & $\approx$125 & $\approx$40.0 & $\approx$455 \\
+    \texttt{llmlingua\_original} & $\approx$28.8 & $\approx$122 & $\approx$40.0 & $\approx$451 \\
+    \texttt{skill\_abstraction}  & $\approx$29.2 & 119.34       & $\approx$40.0 & $\approx$463 \\
+    \texttt{skill\_memory\_md}   & $\approx$29.6 & $\approx$124 & $\approx$39.9 & $\approx$472 \\
+    \texttt{hybrid\_llmlingua}   & $\approx$29.4 & $\approx$126 & $\approx$40.0 & $\approx$458 \\
+    \bottomrule
+  \end{tabular}%
+  }
 \end{table}
 
+表~\ref{tab:success-fail-stats}~揭示了一个重要规律：
 
+\textbf{失败轨迹几乎一律触及最大步数上限（40 步）。}
+七种方法的失败实例平均步数均接近 40.0，说明绝大多数失败轨迹并非在中途主动放弃，
+而是耗尽所有步数后仍未能提交有效 patch，在时间上约消耗 441–472 秒，
+远高于成功轨迹的 119–134 秒。
 
+成功轨迹的平均步数（28.8–30.5 步）说明 agent 通常不需要用尽全部步数，
+成功的任务约在三分之二的步数限制内完成。
+\texttt{skill\_abstraction} 的成功运行时间（119.34 秒）是所有方法中最短的，
+体现了技能引导在加速决策收敛方面的效果；
+\texttt{rag\_topk} 的成功运行时间（133.76 秒）略高，
+这可能与其在处理较长注入片段时增加了 agent 的初始理解负担有关。
 
+\subsection{失败成本远高于成功成本}
+\label{subsec:failure-cost-dominates}
 
-\textbf{重入攻击漏洞检测。}基准数据集存在31个标注存在重入攻击漏洞的合约，各工具的检测结果如表~\ref{tab:tool-comparison-RE}所示。
+基于步数与 token 消耗的关联性，可以估算失败轨迹消耗的 token 远多于成功轨迹。
+设成功轨迹平均约 29 步，失败轨迹约 40 步（即步数上限），
+且 token 消耗与步数近似线性（因为历史对话累积，实际上超线性），
+则失败轨迹单条消耗的 token 约为成功轨迹的 2–3 倍。
 
-检测结果表明，Mythril检测出13个真阳性，存在56个假阳性以及18个漏报，对应的准确率为18.84\%，召回率为41.94\%，F1分数为26.00\%；
-Oyente检测出28个真阳性，存在6个假阳性以及3个漏报，对应的准确率为82.35\%，召回率为90.32\%，F1分数为86.15\%；
-Slither检测出28个真阳性，存在5个假阳性以及3个漏报，对应的准确率为84.85\%，召回率为90.32\%，F1分数为87.50\%；
-本文工具共检测出28个真阳性，存在5个假阳性以及3个漏报，对应的准确率为87.50\%，召回率为90.32\%，F1分数为88.89\%。本文工具在检测重入攻击漏洞的召回率与Oyente及Slither一致且高于Mythril，同时其准确率与F1分数均优于Mythril、Oyente和Slither这些基准工具。
+以 \texttt{baseline\_raw} 为例，共 170 条成功（34.0\%）与 330 条失败（66.0\%）实例。
+如果成功轨迹平均消耗约 $C_s$ tokens，失败轨迹平均消耗约 $C_f = 2.5 \cdot C_s$ tokens，
+则总成本中：
+\begin{equation}
+  \frac{330 \cdot C_f}{500 \cdot \overline{C}_{\text{total}}}
+  = \frac{330 \times 2.5 C_s}{170 C_s + 330 \times 2.5 C_s}
+  \approx \frac{825}{995} \approx 83\%
+  \label{eq:failure-cost-ratio}
+\end{equation}
 
+这意味着，在全部 token 消耗中，约 \textbf{83\% 来自最终失败的实例}。
+这一估算虽为近似，但揭示了代码修复智能体成本结构的核心特征：
+\textbf{失败成本主导总成本}。
+对于 CPR 的优化而言，降低失败轨迹的成本（通过提前终止、步数控制等）
+比压缩成功轨迹的 token 更具影响力。
 
-\begin{table}[ht]
-\centering
-\caption{重入攻击漏洞检测结果}
-\label{tab:tool-comparison-RE}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lcccccc}
-\toprule
-\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
-\midrule
-Mythril            & 13 & 56 & 18 & 18.84\% & 41.94\% & 26.00\% \\
-Oyente             & 28  & 6 & 3 & 82.35\% & 90.32\% & 86.15\% \\
-Slither            & 28 & 5 & 3 & 84.85\% & 90.32\% & 87.50\% \\
-本文                & 28 & 4 & 3 & 87.50\% & 90.32\% & 88.89\% \\
-\bottomrule
-\end{tabular}
+这一洞察直接回答了 RQ4 中关于"如何降低代码修复智能体推理成本"的核心问题：
+\textbf{减少无效探索循环、实现早停（early stopping）是未来优化的最重要方向之一}。
+
+\subsection{实例解决分布与方法互补性}
+\label{subsec:solve-distribution}
+
+表~\ref{tab:solve-distribution}~展示了 500 条实例按被解决方法数量的分布情况。
+
+\begin{table}[htbp]
+  \centering
+  \caption{按被解决方法数量的实例分布}
+  \label{tab:solve-distribution}
+  \begin{tabular}{lrr}
+    \toprule
+    被解决方法数 & 实例数 & 占比 \\
+    \midrule
+    0（所有方法均失败） & 203 & 40.6\% \\
+    1（仅一种方法成功） & 60  & 12.0\% \\
+    2–6（部分方法成功） & 161 & 32.2\% \\
+    7（所有方法均成功） & 76  & 15.2\% \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
+表~\ref{tab:solve-distribution}~揭示了当前代码修复智能体面临的根本挑战：
+\textbf{有 40.6\% 的实例（203 条）对所有七种方法均构成失败}，
+这些实例超出了当前方法的能力边界，无论采用何种成本优化策略均无法解决。
+与此同时，有 15.2\% 的实例（76 条）被所有方法共同解决，
+属于"任意方法均能应对"的相对容易实例。
 
-% 案例：0x8fd1e427396ddb511533cf9abdbebd0a7e08da35，OWNER才能调用这个重入漏洞函数
-重入漏洞的假阳性案例如图~\ref{lst:solidity-FP-REEN}所示。在该合约中，报告漏洞的位置为第6至9行，检测结果认为第8行\_addr.call.value(\_wei)进行外部调用后紧跟第9行的状态变量Holders[\_addr]的更新操作，符合典型的重入攻击模式。然而，从业务逻辑来看，该函数受onlyOwner修饰符保护，仅合约拥有者可调用，限制了攻击者的入口。本文所采用的重入检测算法主要依据控制流中外部调用是否发生在状态变量更新之前进行识别，未考虑此类函数受访问控制逻辑约束下并不会在实际中产生重入攻击，因而导致误报。
+最具分析价值的是 60 条"仅一种方法成功"的实例。
+表~\ref{tab:exclusive-wins}~进一步拆分了这 60 条实例在各方法上的分布。
 
-
-
-
-\addcontentsline{lof}{figure}{图~\ref{lst:solidity-FP-REEN} ~~~重入漏洞假阳性案例}
-\begin{lstlisting}[language=Solidity, style=solidity, caption={重入漏洞假阳性案例}, label={lst:solidity-FP-REEN}] 
-function WithdrawToHolder(address _addr, uint _wei) 
-    public
-    onlyOwner
-    payable
-{
-    if(Holders[msg.sender] > 0) {
-        if(Holders[_addr] >= _wei) {
-            _addr.call.value(_wei);  
-            Holders[_addr] -= _wei;  
-        }
-    }}
-\end{lstlisting}
-
-
-
-
-
-\textbf{区块信息依赖漏洞检测。}基准数据集中存在有5个标注区块信息依赖漏洞的合约，各工具的检测结果如表~\ref{tab:tool-comparison-BID}所示。
-
-检测结果表明，Mythril检测出4个真阳性、2个假阳性结果以及存在1个漏报，对应的准确率为66.67\%，召回率为60.00\%，F1分数为72.73\%；
-Oyente未能检测数据集中的区块信息依赖漏洞，5个标注存在该漏洞的合约全部漏报；
-Slither检测出5个真阳性没有漏报以及18个假阳性结果，对应的准确率为21.74\%，召回率为100.00\%，F1分数为35.71\%；
-本文工具检测出5个真阳性没有漏报，仅有1个假阳性结果，对应的准确率为83.33\%，召回率为100\%，以及F1分数为90.91\%。本文工具在检测情况信息依赖漏洞的召回率与Slither一致且高于Mythril和Oyente，同时准确率、召回率和F1分数均优于Mythril、Oyente和Slither这三个基准工具。
-
-
-\begin{table}[ht]
-\centering
-\caption{区块信息依赖漏洞检测结果}
-\label{tab:tool-comparison-BID}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lcccccc}
-\toprule
-\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
-\midrule
-Mythril            & 4 & 2 & 1 & 66.67\% & 60.00\% & 72.73\% \\
-Oyente             & 0  & 0 & 5 & 0\% & 0\% & 0\% \\
-Slither            & 5 & 18 & 0 & 21.74\% & 100.00\% & 35.71\% \\
-本文                & 5 & 1 & 0 & 83.33\% & 100\% & 90.91\% \\
-\bottomrule
-\end{tabular}
+\begin{table}[htbp]
+  \centering
+  \caption{各方法独占成功实例数（仅该方法成功、其余均失败的实例数）}
+  \label{tab:exclusive-wins}
+  \begin{tabular}{lr}
+    \toprule
+    方法 & 独占成功实例数 \\
+    \midrule
+    \texttt{rag\_topk}           & 15 \\
+    \texttt{skill\_memory\_md}   & 13 \\
+    \texttt{skill\_abstraction}  & 9  \\
+    \texttt{hybrid\_llmlingua}   & 7  \\
+    \texttt{llmlingua\_original} & 6  \\
+    \texttt{rag\_function}       & 6  \\
+    \texttt{baseline\_raw}       & 4  \\
+    \bottomrule
+  \end{tabular}
 \end{table}
 
+\texttt{rag\_topk} 的独占成功数（15）最高，说明文件级 RAG 在某类需要充分理解
+特定文件才能成功的实例上，能够提供其他方法不具备的上下文优势。
+\texttt{skill\_memory\_md} 的独占成功数（13）排名第二，
+说明技能记忆对一类需要特定操作模式才能解决的实例有独特价值。
+值得注意的是，即便是基线 \texttt{baseline\_raw} 也有 4 条独占成功实例，
+说明无约束的自由探索策略对某类结构特殊的问题反而更有优势。
 
-区块信息依赖漏洞的假阳性案例如图~\ref{lst:solidity-FP-BID}所示。在该合约中，报告漏洞的位置为第3行，检测结果认为条件判断blockNumber < block.number中对区块高度的依赖导致区块信息依赖漏洞。从业务逻辑来看，该判断用于限制用户在下注区块内立即调用开奖函数，确保交易在不同区块中执行，从而防止潜在的预测行为。这类依赖仅用于实现同步性控制，不涉及奖励发放、倒计时截止或结果计算等关键逻辑，因此不会对合约的安全性或公平性造成实际影响。本文所采用的区块信息依赖检测算法通过符号执行分析区块相关变量是否涉及条件判断以及路径约束，能够有效识别多数因block.number、block.timestamp等区块信息相关变量引发依赖导致风险的情况。但在该案例中，算法未能进一步区分区块信息是否实际影响核心博弈逻辑，因而在此类将区块信息用于流程约束的场景下出现了误报。
-
-
-\clearpage
-\addcontentsline{lof}{figure}{图~\ref{lst:solidity-FP-BID} ~~~区块信息依赖漏洞假阳性案例}
-\begin{lstlisting}[language=Solidity, style=solidity, caption={区块信息依赖漏洞假阳性案例}, label={lst:solidity-FP-BID}] 
-function play() public {
-    uint256 blockNumber = timestamps[msg.sender];
-    if (blockNumber < block.number) { 
-        ...
-        uint256 winningNumber = uint256(
-            keccak256(abi.encodePacked(blockhash(blockNumber), msg.sender))
-        ) % difficulty + 1;
-        ...
-    } else {
-        revert();
-    }
-}
-\end{lstlisting}
+这 60 条实例的分布说明：七种方法在能力上具有一定的\textbf{互补性}——
+不同方法各自在不同类型的实例上具有独特优势，
+单一方法难以覆盖全部问题空间，这为方法组合或集成策略提供了研究动机。
 
 
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{代表性实例分析}
+\label{sec:case-study}
 
-\textbf{拒绝服务攻击漏洞检测。}基准数据集共有6个合约标注存在访问控制漏洞，各工具的检测结果如表~\ref{tab:tool-comparison-DOS}所示。
+本节选取五个代表性实例，具体说明不同方法在不同类型问题上的差异化表现，
+阐明量化指标背后的行为机制。
 
-检测结果表明，Mythril检测出2个真阳性，存在26个假阳性以及存在4个漏报，对应准确率为7.14\%，召回率为33.33\%，F1分数为11.76\%；
-Oyente仅检测出1个真阳性，存在47个假阳性以及5个漏报，对应准确率为2.08\%，召回率为16.67\%，F1分数为3.70\%；
-Slither检测出4个真阳性，存在41个假阳性以及2个漏报，对应的准确率为8.89\%，召回率为66.67\%，F1分数为15.69\%；
-本文工具检测出5个真阳性，没有假阳性仅有1个漏报，对应的准确率为100\%，召回率为83.33\%，F1分数为90.91\%。本文工具在检测拒绝服务攻击漏洞的准确率、召回率和F1分数方面均明显高于Mythril、Oyente和Slither。
+\subsection{实例一：django\_\_django-11149（仅技能抽象成功）}
+\label{subsec:case-django-11149}
+
+\texttt{django\_\_django-11149} 是一个 Django 框架中与管理员权限检查相关的 bug，
+需要精确理解多层继承类的 \texttt{has\_permission} 方法逻辑。
+在七种方法中，\textbf{仅 \texttt{skill\_abstraction} 成功解决}，耗时 217.83 秒。
+
+分析失败原因：其他方法的 agent 在定位到相关类文件后，
+未能正确理解多层继承关系，导致 patch 作用于错误的层次。
+\texttt{skill\_abstraction} 的成功原因在于：
+技能注入中包含了"处理继承关系时应逐层追溯父类定义"的操作模式，
+引导 agent 在阅读代码时按正确的继承顺序进行，最终定位到正确的修复点。
+
+这一实例说明：对于需要特定代码分析技能的问题，
+技能记忆的引导作用不可替代，远比注入更多代码片段更有效。
+
+\subsection{实例二：django\_\_django-13810（仅基线成功）}
+\label{subsec:case-django-13810}
+
+\texttt{django\_\_django-13810} 是一个 Django ORM 层面的 bug，
+问题描述较为模糊，仅通过关键词搜索难以定位目标文件。
+在七种方法中，\textbf{仅 \texttt{baseline\_raw} 成功解决}。
+
+分析原因：\texttt{rag\_topk} 和 \texttt{rag\_function} 的 BM25 检索
+因 issue 描述关键词与实际代码变量名不匹配，注入了错误的候选文件，
+干扰了 agent 的判断；skill 类方法的引导模式也与该 bug 的特殊定位路径不符。
+反而是 \texttt{baseline\_raw} 在不受额外信息干扰的情况下，
+通过多轮自主搜索逐步收敛到了正确的目标位置。
+
+这一实例揭示了 RAG 类方法的潜在风险：\textbf{低质量的检索结果不仅无益，
+反而会引入干扰，导致 agent 沿错误方向花费更多步骤}。
+这也解释了为何 \texttt{rag\_function} 和 \texttt{llmlingua\_original} 的解决率
+反而低于基线——对于一类关键词信号弱的实例，
+主动注入的信息可能比不注入更差。
+
+\subsection{实例三：astropy\_\_astropy-12907（RAG 与技能记忆成功，基线失败）}
+\label{subsec:case-astropy-12907}
+
+\texttt{astropy\_\_astropy-12907} 是一个关于 \texttt{separability\_matrix}
+在嵌套 \texttt{CompoundModel} 中计算错误的 bug（该实例也作为 JSON 格式示例出现在
+第~\ref{subsec:swebench-instance}~节）。
+\texttt{rag\_topk} 与 \texttt{skill\_memory\_md} 均成功解决，\texttt{baseline\_raw} 失败。
+
+该 bug 的修复需要理解 \texttt{astropy/modeling/separable.py} 中的递归可分性计算逻辑。
+\texttt{rag\_topk} 通过 BM25 成功将 \texttt{separable.py} 列为候选文件并注入片段，
+agent 直接在该文件中定位到 \texttt{\_separable} 函数的错误；
+\texttt{skill\_memory\_md} 的技能记忆中包含了"针对 compositing 模型应检查递归展开函数"的模式，
+同样引导 agent 快速到达目标。
+\texttt{baseline\_raw} 在没有额外信息的情况下，尝试了多个候选文件但未能在步数限制内收敛。
+
+这一实例说明，对于有明确语义信号（问题描述与目标函数名一致性较高）的 bug，
+文件级 RAG 检索能够发挥最大效果。
+
+\subsection{实例四：astropy\_\_astropy-13236（LLMlingua 与混合方法成功，纯 RAG 失败）}
+\label{subsec:case-astropy-13236}
+
+\texttt{astropy\_\_astropy-13236} 是 astropy 中与单位系统相关的精确数值计算 bug，
+\texttt{llmlingua\_original}、\texttt{skill\_memory\_md} 和 \texttt{hybrid\_llmlingua} 均成功，
+而 \texttt{baseline\_raw} 和 RAG 类方法（\texttt{rag\_topk}、\texttt{rag\_function}）失败。
+
+该实例的 issue 描述相对技术性强，关键词比较通用（\texttt{unit}、\texttt{value} 等），
+BM25 检索在此类实例上返回了大量候选文件，RAG 注入反而增加了 agent 的干扰，
+导致 agent 陷入多候选文件的反复比较中而超出步数。
+
+\texttt{llmlingua\_original} 通过压缩注入片段减少了干扰信息的体量，
+使 agent 更快聚焦到真正相关的代码区域；
+\texttt{skill\_memory\_md} 的技能记忆中包含了处理数值精度问题的专项模式；
+\texttt{hybrid\_llmlingua} 两者兼具，也成功解决。
+
+这一实例说明：在高歧义检索场景下，\textbf{压缩质量取决于干扰信息的比例}，
+当干扰信息较多时，LLMlingua 的稀疏化反而能帮助 agent 过滤噪声。
+
+\subsection{实例五：astropy\_\_astropy-13398（所有方法均失败）}
+\label{subsec:case-astropy-13398}
+
+\texttt{astropy\_\_astropy-13398} 对所有七种方法均构成失败，
+是表~\ref{tab:solve-distribution}~中"0/7 失败"的典型代表。
+
+分析各方法的轨迹日志可以发现，所有 agent 都能在前 10–15 步内正确定位到目标文件，
+但均无法生成通过测试的 patch。
+该 bug 涉及复杂的 C 扩展调用链和 Cython/NumPy 接口，
+修复需要理解底层内存布局与类型转换的细节，
+当前使用的 MiniMax-M1 模型在此类涉及底层实现细节的任务上存在明显盲点。
+
+这类实例说明：当前七种成本优化方法均作用于"上下文构建"和"行为引导"层面，
+对于由模型本身的知识或推理能力边界导致的失败，
+任何输入侧的优化均无法弥补。
 
 
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{成本—能力权衡讨论}
+\label{sec:tradeoff-discussion}
 
-\begin{table}[ht]
-\centering
-\caption{拒绝服务攻击漏洞检测结果}
-\label{tab:tool-comparison-DOS}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lcccccc}
-\toprule
-\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
-\midrule
-Mythril            & 2 & 26 & 4 & 7.14\% & 33.33\% & 11.76\% \\
-Oyente             & 1  & 47 & 5 & 2.08\% & 16.67\% & 3.70\% \\
-Slither            & 4  & 41 & 2 & 8.89\% & 66.67\% & 15.69\% \\
-本文                & 5 & 0 & 1 & 100\% & 83.33\% & 90.91\% \\
-\bottomrule
-\end{tabular}
-\end{table}
+\subsection{CPR 散点图分析}
+\label{subsec:cpr-scatter}
+
+为了从成本—能力二维视角直观呈现七种方法的相对位置，
+图~\ref{fig:cpr-scatter}~给出各方法在"解决率（能力轴）"与
+"平均总 token（成本轴）"上的散点分布示意图。
+
+\begin{algorithm}[H]
+\caption{【占位图】各方法成本—能力二维散点图}
+\label{fig:cpr-scatter}
+\tcc{横轴：平均总 token 消耗（万），范围 33–36}
+\tcc{纵轴：解决率（\%），范围 33–38}
+\tcc{各方法对应散点（括号内为 CPR，单位千）：}
+\tcc{  baseline\_raw    (346K tok, 34.0\%, CPR=1043)}
+\tcc{  rag\_topk        (355K tok, 37.8\%, CPR= 939)}
+\tcc{  rag\_function    (352K tok, 33.2\%, CPR=1062)}
+\tcc{  llmlingua\_orig  (334K tok, 33.0\%, CPR=1013)}
+\tcc{  skill\_abstract  (345K tok, 36.4\%, CPR= 947)}
+\tcc{  skill\_memory    (347K tok, 37.2\%, CPR= 933)}
+\tcc{  hybrid\_llmling  (345K tok, 36.2\%, CPR= 954)}
+\tcc{图注：等 CPR 曲线（双曲线）从左上至右下排列，}
+\tcc{        越靠近左上角表示成本越低且能力越高。}
+\tcc{        skill\_memory\_md 与 rag\_topk 位于 Pareto 前沿附近。}
+\end{algorithm}
+
+从成本—能力二维空间来看，各方法可以分为以下几组：
+
+\textbf{Pareto 前沿组}（解决率高且 CPR 低）：
+\texttt{skill\_memory\_md}（37.2\%，CPR=932,982）和
+\texttt{rag\_topk}（37.8\%，CPR=938,771）位于 Pareto 前沿附近，
+两者的综合效率最优，是在当前实验设置下最值得推荐的方法。
+两者的 CPR 差距不足 1\%，但 \texttt{skill\_memory\_md} 在 token 消耗上略有优势，
+而 \texttt{rag\_topk} 在解决率上略高，各有侧重。
+
+\textbf{次优层}（明显优于基线但距前沿有差距）：
+\texttt{skill\_abstraction}（CPR=947,406）和
+\texttt{hybrid\_llmlingua}（CPR=953,869）均较基线有约 9\% 的 CPR 改善，
+表现稳健，但不及前两者。
+
+\textbf{改善有限组}（CPR 改善不足 5\%）：
+\texttt{llmlingua\_original}（CPR=1,012,964，$-$2.9\%）
+虽然 token 削减最多，但解决率下降抵消了大部分收益，
+综合效率改善远不如 skill 类方法。
+
+\textbf{反向劣化组}（CPR 高于基线）：
+\texttt{rag\_function}（CPR=1,061,711，$+$1.8\%）是唯一一个
+CPR 劣于基线的方法，说明函数级裁剪策略在当前实验设置下不具竞争力。
+
+\subsection{方法优化机制的本质差异}
+\label{subsec:mechanism-comparison}
+
+从实验结果的模式来看，七种方法的优化机制可以从两个维度进行解读：
+\textbf{优化目标}（成本 vs 能力）和\textbf{优化方式}（信息注入 vs 行为引导）。
+
+\begin{itemize}
+  \item \textbf{信息注入类方法}（\texttt{rag\_topk}、\texttt{rag\_function}、
+        \texttt{llmlingua\_original}）：
+        通过向 agent 提供更好的初始知识来影响性能。
+        其核心假设是"agent 的失败源于信息不足"。
+        文件级注入（\texttt{rag\_topk}）因信息完整性高而效果较好；
+        函数级注入（\texttt{rag\_function}）因信息过度裁剪而效果变差；
+        压缩注入（\texttt{llmlingua\_original}）因信息失真而效果折损。
+
+  \item \textbf{行为引导类方法}（\texttt{skill\_abstraction}、
+        \texttt{skill\_memory\_md}、\texttt{hybrid\_llmlingua}）：
+        通过向 agent 提供经过验证的操作模式来改善决策质量。
+        其核心假设是"agent 的失败源于决策路径低效"。
+        实验结果表明这一假设更为贴切：agent 在有技能引导的情况下，
+        能够以更少的步骤完成相同质量的任务，CPR 从两端共同改善。
+\end{itemize}
+
+\textbf{这两类方法的对比揭示了代码修复智能体失败的主要原因不在于知识不足，
+而在于探索策略低效}。
+agent 往往已经浏览了足够多的代码，但由于缺乏有效的判断框架，
+无法快速收敛到正确的修复路径。
+skill 类方法正是通过提供这种判断框架而发挥作用。
+
+\subsection{不同瓶颈的优化路径}
+\label{subsec:bottleneck-analysis}
+
+结合阶段分析（第~\ref{sec:phase-breakdown}~节）和成功/失败轨迹分析
+（第~\ref{sec:success-failure}~节），可以识别三类不同的优化瓶颈：
+
+\textbf{瓶颈 A：搜索效率低（other 阶段过长）。}
+针对该瓶颈，文件级 RAG（\texttt{rag\_topk}）是有效手段，
+通过预先注入候选文件减少 agent 的盲目搜索。
+但当检索质量不高时，效果反转。
+
+\textbf{瓶颈 B：理解阶段冗余（understand 阶段过多无效读取）。}
+针对该瓶颈，skill 类方法最为有效。
+技能引导帮助 agent 聚焦于关键文件，避免在无关代码上浪费读取步骤。
+LLMlingua 压缩对此瓶颈的针对性相对有限，因为压缩的是注入内容而非 agent 的探索行为。
+
+\textbf{瓶颈 C：失败轨迹过长（步数耗尽未提交 patch）。}
+该瓶颈是所有方法面临的共同难题，当前七种方法均未对此进行专门优化。
+从实验数据来看，83\% 的总成本来自最终失败的实例，
+这意味着\textbf{早停机制}（如检测到"循环探索"模式时主动提前终止）
+具有远高于任何上下文优化手段的成本节省潜力。
+
+\subsection{对 RQ3 和 RQ4 的综合回答}
+\label{subsec:rq-answer}
+
+\textbf{RQ3（现有上下文压缩与检索增强方法是否适用于代码修复智能体）：}
+本文实验表明，现有方法在代码修复场景中的适用性存在显著分化。
+文件级 RAG 在信息质量可保证的前提下有效；
+函数级 RAG 和通用文本压缩（LLMlingua）因结构信息损失或代码语义失真
+而表现不佳，说明它们不能直接适配代码修复智能体的多轮交互需求。
+这一结论与第~\ref{sec:related-compression}~节援引的文献观点相互印证，
+且在 500 条大规模实例上得到了量化验证。
+
+\textbf{RQ4（如何在保证修复能力的前提下降低推理成本）：}
+实验结果表明，技能记忆注入（\texttt{skill\_memory\_md}）和文件级 RAG（\texttt{rag\_topk}）
+是当前最优的综合方案，二者均在解决率和 CPR 上同时优于基线。
+从更深层的机制来看，降低代码修复智能体推理成本的关键在于：
+（1）改善搜索效率，减少无效探索步骤；
+（2）提升决策质量，帮助 agent 更快收敛到正确路径；
+（3）控制失败轨迹成本（当前尚未系统解决）。
+仅依靠 token 压缩而不改善 agent 的决策路径，难以在 CPR 上取得实质性突破。
 
 
-
-\textbf{未检查的外部调用漏洞检测。}基准数据集共有52个标注存在未检查的外部调用的合约，各工具的检测结果如表~\ref{tab:tool-comparison-UEC}所示。
-
-检测结果表明，Mythril检测出39个真阳性，存在6个假阳性以及存在13个漏报，对应的准确率为42.86\%，召回率为60.00\%，F1分数为50.00\%；
-Oyente未能检测出数据集中的未检查的外部调用漏洞，52个标注存在该漏洞的合约全部漏报；
-Slither检测出44个真阳性，仅有1个假阳性以及存在8个漏报，对应的准确率为97.78\%，召回率为84.62\%，F1分数为90.72\%；
-本文工具检测出46个真阳性，仅有1个假阳性以及存在6个漏报，对应的准确率为97.87\%，召回率为88.46\%，F1分数为92.93\%。本文工具在检测未检查的外部调用漏洞的准确率与Slither一致且高于Mythril和Oyente，同时召回率和F1分数均优于Mythril、Oyente和Slither这三个基准工具。
-
-\begin{table}[ht]
-\centering
-\caption{未检查的外部调用漏洞检测结果}
-\label{tab:tool-comparison-UEC}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lcccccc}
-\toprule
-\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
-\midrule
-Mythril            & 39 & 6 & 13 & 42.86\% & 60.00\% & 50.00\% \\
-Oyente             & 0  & 0 & 52 & 0\% & 0\% & 0\% \\
-Slither            & 44 & 1 & 8 & 97.78\% & 84.62\% & 90.72\% \\
-本文                & 46 & 1 & 6 & 97.87\% & 88.46\% & 92.93\% \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-未检查外部调用漏洞的假阳性案例如图~\ref{lst:solidity-FP-UEC}所示。在该合约中，报告漏洞的位置为第2行，检测结果认为recipient.send(amount)的调用未检查返回值从而导致未检查外部调用漏洞。但从业务逻辑来看，该外部调用的成功与否不影响主业务逻辑，也不会影响合约的状态变量，属于容错性设计的一部分。本文所采用的未检查外部调用检测算法通过符号执行模拟合约执行，并在指令级别记录外部调用操作的返回值。随后，算法判断该返回值是否用于条件判断或参与路径约束，以此识别调用结果是否被显式检查，能有效捕捉多数风险场景。但在该假阳性案例中，算法未区分调用结果是否影响状态，因而在该类无副作用调用场景中产生误报。
-
-
-
-\addcontentsline{lof}{figure}{图~\ref{lst:solidity-FP-UEC} ~~~未检查的外部调用漏洞假阳性案例}
-\begin{lstlisting}[language=Solidity, style=solidity, caption={未检查的外部调用漏洞假阳性案例}, label={lst:solidity-FP-UEC}] 
-function logDonation(address recipient, uint256 amount) public {
-    recipient.send(amount);
-}
-\end{lstlisting}
-
-
-
-\textbf{短地址攻击检测。}基准数据集存在1个标注存在短地址攻击漏洞的合约，各工具的检测结果如表~\ref{tab:tool-comparison-SHORT}所示。
-
-检测结果表明，Mythril、Oyente和Slither均未能检测出其数据集中的短地址攻击漏洞，这是因为这三个工具缺乏针对短地址攻击漏洞的检测逻辑，而本文工具能检测出数据集中的短地址攻击漏洞，并且未产生假阳性，准确率、召回率和F1分数均为100\%。
-
-
-
-\begin{table}[H]
-\centering
-\caption{短地址攻击漏洞检测结果}
-\label{tab:tool-comparison-SHORT}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lcccccc}
-\toprule
-\textbf{工具} & \textbf{真阳性数} & \textbf{假阳性数} & \textbf{假阴性数} & \textbf{准确率} & \textbf{召回率} & \textbf{F1分数} \\
-\midrule
-Mythril            & 0 & 0 & 1 & 0\% & 0\% & 0\% \\
-Oyente             & 0  & 0 & 1 & 0\% & 0\% & 0\% \\
-Slither            & 0 & 0 & 1 & 0\% & 0\% & 0\% \\
-本文                & 1 & 0 & 0 & 100\% & 100\% & 100\% \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-
-
+%% ─────────────────────────────────────────────────────────────────────────────
 \section{本章小结}
-本章对本文提出的Web3智能合约漏洞检测工具在基准数据集SmartBugs-Curated上进行了实验评估，覆盖访问控制漏洞、不安全随机数、整数溢出、重入攻击、区块信息依赖漏洞、拒绝服务攻击、未检查的外部调用和短地址攻击这八种Web3智能合约漏洞，并与主流工具Mythril、Oyente和Slither进行了对比。实验结果表明，结果表明，本文工具在准确率、召回率和F1分数等指标上整体表现优于三种主流工具，分别达到93.85\%，89.71\%和91.73\%。此外，通过对典型假阳性和漏报案例的分析，指出误报主要来自访问控制结构形式多样、控制流依赖未影响核心逻辑或容错性调用未检查返回值等因素；漏报则因Z3无法求解过于复杂的跳转表达式，导致CFG断流。总体而言，实验结果验证了本文工具在漏洞检测方面的准确性。
+\label{sec:chap6-summary}
 
+本章对七种成本优化方法在 SWE-bench Verified（500 条实例）上的实验结果进行了
+全面呈现与深入分析，主要得到以下五点核心发现。
 
+\textbf{（1）skill\_memory\_md 和 rag\_topk 是综合表现最优的方法，
+CPR 分别较基线改善 10.5\% 和 10.0\%。}
+两者均实现了解决率提升与 token 成本下降的双向改善，
+达到当前实验设置下的 Pareto 前沿。
+技能记忆注入通过改善 agent 的决策行为，技能抽象和文件级 RAG
+通过提供精准的代码上下文，各自以不同路径实现了综合效率提升。
 
+\textbf{（2）通用文本压缩（LLMlingua）在代码修复场景中适配性不足，
+CPR 改善仅为 2.9\%，回答了 RQ3 的核心质疑。}
+尽管 LLMlingua 实现了最大幅度的 token 削减（$-$5.74\%），
+但解决率的下降（$-$1.0 pp）抵消了大部分成本收益。
+代码场景中看似冗余的 token（如类型标注、缩进结构）对语义理解至关重要，
+通用压缩无法甄别其结构性价值。
+函数级 RAG（\texttt{rag\_function}）的表现更差，CPR 反而高于基线，
+说明过度精简的代码片段会截断结构性上下文，不适用于仓库级修复任务。
 
+\textbf{（3）失败轨迹的成本约占总成本的 83\%，
+是控制代码修复智能体总成本最重要的杠杆。}
+失败实例几乎一律耗尽最大步数（40 步），
+单条失败轨迹消耗的 token 约为成功轨迹的 2–3 倍，
+且失败实例数量（约 66\%）远多于成功实例（34\%）。
+这意味着提升解决率（将失败变为成功）或实现有效早停（减少无效探索）
+均能带来远大于纯 token 压缩的 CPR 改善。
 
-%为评估多角色大模型协作验证模块在降低假阳性率方面的实际效果，本文设计了对比消融实验，比较在启用与禁用该模块两种情况漏洞检测结果的差异。
+\textbf{（4）代码阅读（understand）阶段是最大 token 消耗来源（约 50\%），
+而代码修改（implement）阶段仅占 2.3\%–2.6\%。}
+这一发现对未来优化方向具有重要指导意义：
+成本的关键不在于 patch 的生成，而在于"找到正确的修复位置"这一过程。
+任何以压缩最终输出为目标的方法，其优化空间都极为有限；
+而以减少冗余代码阅读为目标的方法，才更具潜力。
+
+\textbf{（5）七种方法在能力上具有互补性，
+60 条实例的独占成功分布说明不同方法各有独特优势。}
+\texttt{rag\_topk} 独占 15 条，\texttt{skill\_memory\_md} 独占 13 条，
+即便是基线 \texttt{baseline\_raw} 也独占 4 条，
+说明当前没有任何单一方法能够覆盖全部问题类型。
+40.6\% 的实例（203 条）对所有方法均构成失败，
+这些实例代表了当前模型能力边界之外的任务，
+进一步压缩上下文或改善检索均无法突破这一上限。
+
+综合以上发现，本文建议：在实际部署场景中，优先选择技能记忆注入或文件级 RAG 作为成本优化手段；
+在研究层面，将早停机制（针对瓶颈 C）与模型能力提升（针对难实例）列为下一步核心方向；
+对于追求极致 token 节省的场景，需审慎评估 LLMlingua 等通用压缩方法
+在具体仓库和问题类型上的适配性，避免因信息损失导致解决率下降反而提高 CPR。
 

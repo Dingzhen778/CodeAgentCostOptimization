@@ -1,0 +1,276 @@
+\documentclass[acmsmall,screen]{acmart}
+% ,anonymous
+\input{tool}
+
+
+%%
+%% \BibTeX command to typeset BibTeX logo in the docs
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    Bib\TeX}}}
+
+%% Rights management information.  This information is sent to you
+%% when you complete the rights form.  These commands have SAMPLE
+%% values in them; it is your responsibility as an author to replace
+%% the commands and values with those provided to you when you
+%% complete the rights form.
+% \setcopyright{acmlicensed}
+% \copyrightyear{2018}
+% \acmYear{2018}
+% \acmDOI{XXXXXXX.XXXXXXX}
+
+\setcopyright{cc}
+\setcctype{by-nc-sa}
+\acmDOI{10.1145/3728871}
+\acmYear{2025}
+\acmJournal{PACMSE}
+\acmVolume{2}
+\acmNumber{ISSTA}
+\acmArticle{ISSTA002}
+\acmMonth{7}
+\received{2024-10-31}
+\received[accepted]{2025-03-31}
+
+%% These commands are for a PROCEEDINGS abstract or paper.
+% \acmConference[Conference acronym 'XX]{Make sure to enter the correct
+%   conference title from your rights confirmation emai}{June 03--05,
+%   2018}{Woodstock, NY}
+%%
+%%  Uncomment \acmBooktitle if the title of the proceedings is different
+%%  from ``Proceedings of ...''!
+%%
+%%\acmBooktitle{Woodstock '18: ACM Symposium on Neural Gaze Detection,
+%%  June 03--05, 2018, Woodstock, NY}
+% \acmISBN{978-1-4503-XXXX-X/18/06}
+
+
+%%
+%% Submission ID.
+%% Use this when submitting an article to a sponsored event. You'll
+%% receive a unique submission ID from the organizers
+%% of the event, and this ID should be used as the parameter to this command.
+%%\acmSubmissionID{123-A56-BU3}
+
+%%
+%% For managing citations, it is recommended to use bibliography
+%% files in BibTeX format.
+%%
+%% You can then either use BibTeX with the ACM-Reference-Format style,
+%% or BibLaTeX with the acmnumeric or acmauthoryear sytles, that include
+%% support for advanced citation of software artefact from the
+%% biblatex-software package, also separately available on CTAN.
+%%
+%% Look at the sample-*-biblatex.tex files for templates showcasing
+%% the biblatex styles.
+%%
+
+%%
+%% The majority of ACM publications use numbered citations and
+%% references.  The command \citestyle{authoryear} switches to the
+%% "author year" style.
+%%
+%% If you are preparing content for an event
+%% sponsored by ACM SIGGRAPH, you must use the "author year" style of
+%% citations and references.
+%% Uncommenting
+%% the next command will enable that style.
+%%\citestyle{acmauthoryear}
+
+
+%%
+%% end of the preamble, start of the body of the document source.
+\begin{document}
+
+%%
+%% The "title" command has an optional parameter,
+%% allowing the author to define a "short title" to be used in page headers.
+% \title{\Swebenchx: A Multilingual and Multimodal Benchmark for \underline{G}itHub \underline{I}ssue \underline{R}eso\underline{L}ution}
+\title{\Swebenchx: A Multilingual and Multimodal Benchmark for GitHub Issue Resolution}
+
+\author{Lianghong Guo}
+\orcid{0009-0001-0943-5049}
+\affiliation{
+  \institution{Sun Yat-sen University, \department{Zhuhai Key Laboratory of Trusted Large Language Models}}
+  \city{Zhuhai}
+  \country{China}
+}
+\email{guolh8@mail2.sysu.edu.cn}
+
+\author{Wei Tao}
+\orcid{0000-0002-1800-1904}
+\affiliation{
+  \institution{Independent Researcher}
+  \city{Shenzhen}
+  \country{China}
+}
+\email{wtao@ieee.org}
+
+\author{Runhan Jiang}
+\orcid{0009-0000-3343-8023}
+\affiliation{
+  \institution{Sun Yat-sen University}
+  \city{Zhuhai}
+  \country{China}
+}
+\email{guolh8@mail2.sysu.edu.cn}
+
+\author{Yanlin Wang}
+\authornote{Corresponding author.}
+\orcid{0000-0001-7761-7269}
+\affiliation{
+  \institution{Sun Yat-sen University, \department{Zhuhai Key Laboratory of Trusted Large Language Models}}
+  \city{Zhuhai}
+  \country{China}
+}
+\email{wangylin36@mail.sysu.edu.cn}
+
+\author{Jiachi Chen}
+\orcid{0000-0002-0192-9992}
+\affiliation{
+  \institution{Sun Yat-sen University, \department{Zhuhai Key Laboratory of Trusted Large Language Models}}
+  \city{Zhuhai}
+  \country{China}
+}
+\email{chenjch86@mail.sysu.edu.cn}
+
+
+
+
+
+\author{Xilin Liu}
+\orcid{0009-0001-4870-1012}
+\affiliation{
+  \institution{Huawei Cloud Computing Technologies Co., Ltd.}
+  \city{Shenzhen}
+  \country{China}
+}
+\email{liuxilin3@huawei.com}
+
+\author{Yuchi Ma}
+\orcid{0009-0002-3304-1389}
+\affiliation{
+  \institution{Huawei Cloud Computing Technologies Co., Ltd.}
+  \city{Shenzhen}
+  \country{China}
+}
+\email{mayuchi1@huawei.com}
+
+\author{Mingzhi Mao}
+\orcid{0000-0001-9369-7828}
+\affiliation{
+  \institution{Sun Yat-sen University}
+  \city{Zhuhai}
+  \country{China}
+}
+\email{mcsmmz@mail.sysu.edu.cn}
+
+\author{Hongyu Zhang}
+\orcid{0000-0002-3063-9425}
+\affiliation{
+  \institution{Chongqing University}
+  \city{Chongqing}
+  \country{China}
+}
+\email{hyzhang@cqu.edu.cn}
+
+\author{Zibin Zheng}
+\orcid{0000-0002-7878-4330}
+\affiliation{
+  \institution{Sun Yat-sen University, \department{Zhuhai Key Laboratory of Trusted Large Language Models}}
+  \city{Zhuhai}
+  \country{China}
+}
+\email{zhzibin@mail.sysu.edu.cn}
+
+% \shortauthors{L. Guo, Y. Wang, E. Shi, W. Zhong, H. Zhang, J. Chen, R. Zhang, Y. Ma, Z. Zheng}
+% Title candidates:
+% [Lianghong] SWE-Bench-X: Multi-lingual GitHub Issue Resolution Evaluation of Large Language Models
+% SWE-Bench-X: A Multilingual and Multimodal Benchmark for GitHub Issue Resolution
+% SWE-Bench-X: A Multilingual and Multimodal Benchmark for Evaluating Large Language Models in GitHub Issue Resolution
+% SWE-Bench-X: Evaluating LLMs in Multilingual and Multimodal GitHub Issue Resolution
+
+%%
+%% By default, the full list of authors will be used in the page
+%% headers. Often, this list is too long, and will overlap
+%% other information printed in the page headers. This command allows
+%% the author to define a more concise list
+%% of authors' names for this purpose.
+% \renewcommand{\shortauthors}{Trovato et al.}
+\renewcommand{\shortauthors}{L. Guo, W. Tao, R. Jang, Y. Wang, J. Chen, X. Liu, Y. Ma, M. Mao, H. Zhang, Z. Zheng}
+
+\settopmatter{printacmref=false} 
+%%
+%% The abstract is a short summary of the work to be presented in the
+%% article.
+\begin{abstract}
+%\hy{the paper title does not read well to me}  
+The GitHub issue resolution task aims to resolve issues reported in repositories automatically. With advances in large language models (LLMs), this task has gained increasing attention, and several benchmarks are proposed to evaluate the issue resolution ability of LLMs. However, existing benchmarks have three main limitations. First, current benchmarks focus on a single programming language, limiting the evaluation of issues from repositories across different languages. Second, they usually cover a narrow range of domains, which may fail to represent the diversity of real-world issues. Third, existing benchmarks rely solely on textual information in issue descriptions, overlooking multimodal information such as images in issues. In this paper, we propose \Swebenchx, a \underline{G}itHub \underline{I}ssue \underline{R}eso\underline{L}ution benchmark that is multilingual, multimodal, and multi-domain.  \Swebenchx includes 959 task instances, which are collected from repositories across four programming languages (i.e., Python, JavaScript, TypeScript, and Java) and eight different domains. Our evaluation shows that current LLMs show limited performances on \Swebenchx. Notably, the best-performing model, \GPT, resolves only 8.6\% of the issues. Besides, we find that current LLMs struggle to resolve issues requiring understanding images. The best performance is achieved by \Claude, which resolves only 10.5\% of the issues with image information. Finally, we analyze the reasons behind current LLMs' failure on \Swebenchx, providing insights for future improvements.
+%\hy{write an abstract} \glh{done}
+\end{abstract}
+
+% with multi-aspect diversity in programming  in repositories languages, repositories domains and modality of input information. 
+
+%%
+%% The code below is generated by the tool at http://dl.acm.org/ccs.cfm.
+%% Please copy and paste the code instead of the example below.
+%%
+% \begin{CCSXML}
+% <ccs2012>
+%  <concept>
+%   <concept_id>00000000.0000000.0000000</concept_id>
+%   <concept_desc>Do Not Use This Code, Generate the Correct Terms for Your Paper</concept_desc>
+%   <concept_significance>500</concept_significance>
+%  </concept>
+%  <concept>
+%   <concept_id>00000000.00000000.00000000</concept_id>
+%   <concept_desc>Do Not Use This Code, Generate the Correct Terms for Your Paper</concept_desc>
+%   <concept_significance>300</concept_significance>
+%  </concept>
+%  <concept>
+%   <concept_id>00000000.00000000.00000000</concept_id>
+%   <concept_desc>Do Not Use This Code, Generate the Correct Terms for Your Paper</concept_desc>
+%   <concept_significance>100</concept_significance>
+%  </concept>
+%  <concept>
+%   <concept_id>00000000.00000000.00000000</concept_id>
+%   <concept_desc>Do Not Use This Code, Generate the Correct Terms for Your Paper</concept_desc>
+%   <concept_significance>100</concept_significance>
+%  </concept>
+% </ccs2012>
+% \end{CCSXML}
+
+% \ccsdesc[500]{Do Not Use This Code~Generate the Correct Terms for Your Paper}
+% \ccsdesc[300]{Do Not Use This Code~Generate the Correct Terms for Your Paper}
+% \ccsdesc{Do Not Use This Code~Generate the Correct Terms for Your Paper}
+% \ccsdesc[100]{Do Not Use This Code~Generate the Correct Terms for Your Paper}
+
+% %%
+% %% Keywords. The author(s) should pick words that accurately describe
+% %% the work being presented. Separate the keywords with commas.
+% \keywords{Repository-Level Code Generation, Benchmark, Large Language Models}
+% %% A "teaser" image appears between the author and affiliation
+% %% information and the body of the document, and typically spans the
+% %% page.
+
+% \received{20 February 2007}
+% \received[revised]{12 March 2009}
+% \received[accepted]{5 June 2009}
+
+
+
+%%
+%% This command processes the author and affiliation and title
+%% information and builds the first part of the formatted document.
+\maketitle
+
+
+
+\input{body}
+
+\bibliographystyle{IEEEtran}
+\bibliography{ref}
+
+\end{document}
+\endinput
+%%
+%% End of file `sample-acmsmall-conf.tex'.

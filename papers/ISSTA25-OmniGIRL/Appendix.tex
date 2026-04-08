@@ -1,0 +1,109 @@
+
+
+\documentclass[acmsmall,screen,review,anonymous]{acmart}
+
+\input{tool}
+
+
+%%
+%% \BibTeX command to typeset BibTeX logo in the docs
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    Bib\TeX}}}
+
+
+\appendix
+\begin{document}
+
+
+
+\section{Data Statistics}
+\begin{table}[t]
+\centering
+\caption{Statistics of \Swebenchx repositories.}
+\footnotesize
+\tabmargin
+\begin{tabular}{lccc}
+\toprule
+\textbf{Repository} & \textbf{\# Total Instances} & \textbf{\# Post Conversion} & \textbf{\# Post Validation} \\
+\midrule
+netty/netty & 7667 & 213 & 54 \\
+google/gson & 955 & 51 & 21 \\
+assertj/assertj & 2055 & 90 & 30 \\
+iamkun/dayjs & 889 & 122 & 93 \\
+webpack/webpack & 6795 & 548 & 58 \\
+prettier/prettier & 9369 & 1249 & 119 \\
+tailwindlabs/tailwindcss & 2690 & 203 & 100 \\
+jestjs/jest & 7237 & 538 & 31 \\
+babel/babel & 6989 & 1268 & 79 \\
+statsmodels/statsmodels & 3727 & 567 & 76 \\
+dateutil/dateutil & 576 & 59 & 36 \\
+redis/redis-py & 1582 & 127 & 29 \\
+pyca/cryptography & 8831 & 224 & 21 \\
+tqdm/tqdm & 439 & 90 & 23 \\
+python/mypy & 6866 & 1193 & 189 \\
+\midrule
+\textbf{Total} & \textbf{66667} & \textbf{6542} & \textbf{959} \\
+\bottomrule
+\end{tabular}
+\label{table:statistics}
+\end{table}
+% Title candidates:
+% [Lianghong] SWE-Bench-X: Multi-lingual GitHub Issue Resolution Evaluation of Large Language Models
+% SWE-Bench-X: A Multilingual and Multimodal Benchmark for GitHub Issue Resolution
+% SWE-Bench-X: A Multilingual and Multimodal Benchmark for Evaluating Large Language Models in GitHub Issue Resolution
+% SWE-Bench-X: Evaluating LLMs in Multilingual and Multimodal GitHub Issue Resolution
+
+%%
+%% By default, the full list of authors will be used in the page
+%% headers. Often, this list is too long, and will overlap
+%% other information printed in the page headers. This command allows
+%% the author to define a more concise list
+%% of authors' names for this purpose.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\setlength\tabcolsep{3pt}
+\caption{Overview of existing GitHub issue resolution datasets. }
+\tabmargin
+% \vspace*{-10pt}
+% \multicolumn{4}{c}{\textbf{\revise{Metric}}
+% \resizebox{\columnwidth}{!}{
+% |c|c|c|c|c|c
+    \begin{tabular}{lcccccccc}
+    \toprule
+    \multirow{2}{*}{\textbf{Dataset}} & \multirow{2}{*}{\textbf{Year}} & \multicolumn{4}{c}{\textbf{Programming Languages}} & \multirow{2}{*}{\textbf{\# Repositories}} & \multirow{2}{*}{\textbf{\# Instances }} & \textbf{w/ Visual} \\
+    \cmidrule(r){3-6}
+    && \bf Python & \bf Java & \bf TypeScript & \bf JavaScript & & & \bf Input\\
+    \midrule
+    % \hline
+    SWE-bench~\cite{puri2021codenet} & 2023 & $\checkmark$ & $\times$ & $\times$& $\times$& 12 & 2,294 & $\times$ \\
+    % \hline
+    SWE-bench-Java~\cite{ahmad2021avatar} & 2024 & $\times$& $\checkmark$ & $\times$& $\times$&6 & 91 & $\times$  \\
+    % \hline
+    SWE-bench-Verified~\cite{liu2024your} & 2024 & $\checkmark$ &$\times$ &$\times$ &$\times$ &12& 500 & $\times$  \\
+    SWE-Gym~\cite{pan2024training} & 2024 & $\checkmark$ &$\times$ &$\times$ &$\times$ &11& 2438 & $\times$  \\
+    \midrule
+
+    \Swebenchx &2024& $\checkmark$ & $\checkmark$ & $\checkmark$ &$\checkmark$ & 15 & 959 & $\checkmark$  \\
+    \toprule
+\end{tabular}
+% }%
+\label{table:datasets}
+    % SWE-Bench-Multimodal~\cite{yan2023codescope} &2024& Javascript & 17 & 617 & Yes  \\
+    % \hline
+% \vspace*{-2em}
+\end{table}%
+
+
+
+% \input{body}
+
+\bibliographystyle{IEEEtran}
+\bibliography{ref}
+
+\end{document}
+\endinput
+%%
+%% End of file `sample-acmsmall-conf.tex'.

@@ -4,6 +4,7 @@
 本章介绍本文实验的整体平台设计与七种成本优化方法的具体实现。
 第~\ref{sec:platform}~节描述实验环境、数据集与评估流程；
 第~\ref{sec:gateway}~节介绍本地 token 计量网关的设计；
+第~\ref{sec:method-motivation}~节说明方法选择的动机与来源；
 第~\ref{sec:baseline}~至第~\ref{sec:hybrid}~节依次描述各方法的实现原理
 与关键参数；最后第~\ref{sec:method-summary}~节对所有方法进行统一汇总。
 
@@ -14,7 +15,7 @@
 \subsection{软硬件环境}
 \label{subsec:hw-env}
 
-本文所有实验在单台 Azure 云服务器上运行，主要软硬件配置如表~\ref{tab:hw-env}~所示。
+本文所有实验在单台云服务器上运行，主要软硬件配置如表~\ref{tab:hw-env}~所示。
 
 \begin{table}[htbp]
   \centering
@@ -29,8 +30,8 @@
     内存 & 64 GB \\
     容器运行时 & Docker 24.0，官方 SWE-bench 镜像 \\
     Python & 3.11（Anaconda） \\
-    LLM 模型 & MiniMaxAI/MiniMax-M1（通过 SciTix API） \\
-    网关 & 本地 FastAPI 透明代理，端口 18110 \\
+    LLM 模型 & MiniMaxAI/MiniMax-M2.5（OpenAI-compatible API） \\
+    网关 & 本地 FastAPI 透明代理，端口 8080 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -60,7 +61,7 @@
   \For{每个实例 $\mathcal{T}_i = (r_i, s_i) \in \mathcal{D}$}{
     $\hat{s}_i \leftarrow \text{BuildContext}(s_i,\; r_i,\; m)$ \tcp*{按方法构建 task prompt}
     拉取 Docker 镜像 $\text{img}(r_i)$，挂载 \texttt{/testbed}\;
-    将 \texttt{OPENAI\_BASE\_URL} 指向本地网关（端口 18110）\;
+    将 \texttt{OPENAI\_BASE\_URL} 指向本地网关\;
     $\hat{p}_i \leftarrow \text{MiniSWEAgent}(\hat{s}_i,\; K)$ \tcp*{运行 agent，至多 K 步}
     $\text{resolved}_i \leftarrow \text{RunTests}(\hat{p}_i,\; \mathcal{T}_i)$ \tcp*{在 Docker 中执行测试}
     保存 \texttt{trajectory.json}，\texttt{result.json}，\texttt{patch.diff}\;
@@ -102,7 +103,7 @@ mini-swe-agent 通过 OpenAI-compatible API 调用 LLM。
 \begin{algorithm}[H]
 \caption{【占位图】此处应为本地 Token 计量网关架构图}
 \label{fig:gateway-arch}
-\tcc{图示内容：mini-swe-agent → 本地网关（FastAPI, :18110）→ 上游 SciTix API}
+\tcc{图示内容：mini-swe-agent → 本地网关（FastAPI 透明代理）→ 上游 MiniMax API}
 \tcc{网关拦截请求/响应，从 usage 字段提取 token 数并写入 JSONL 日志}
 \tcc{同时将实验名、方法名、instance\_id 附加到每条日志记录}
 \end{algorithm}
@@ -147,21 +148,90 @@ async def chat_completions(request: Request) -> JSONResponse:
 \end{lstlisting}
 
 启动时通过 YAML 配置文件指定上游 API 地址和模型名，
-agent 侧只需将 \texttt{OPENAI\_BASE\_URL=http://127.0.0.1:18110/v1} 即可无感接入：
+agent 侧只需将 \texttt{OPENAI\_BASE\_URL} 指向本地网关即可无感接入：
 
-\begin{lstlisting}[style=promptstyle, caption={网关配置文件示例（configs/gateway.scitix-minimax.yaml）}, label={lst:gateway-config}]
-upstream_url: "${SCITIX_API_BASE_URL}"
-upstream_key: "${SCITIX_API_KEY}"
-default_model: "MiniMaxAI/MiniMax-M1"
-log_dir: "logs/gateway_scitix_minimax"
+\begin{lstlisting}[style=promptstyle, caption={网关配置文件示例}, label={lst:gateway-config}]
+upstream_url: "${MINIMAX_API_BASE_URL}"
+upstream_key: "${MINIMAX_API_KEY}"
+default_model: "MiniMaxAI/MiniMax-M2.5"
+log_dir: "logs/gateway_minimax"
 host: "127.0.0.1"
-port: 18110
+port: 8080
 timeout: 180
 \end{lstlisting}
 
 每一步的 token 记录最终汇总写入 \texttt{trajectory.json} 的 \texttt{total\_usage} 字段，
 作为后续分析的唯一 token 数据来源。
 
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{方法选择动机与来源}
+\label{sec:method-motivation}
+
+\subsection{从 empirical 研究到系统优化实验}
+\label{subsec:empirical-motivation}
+
+本文所选取的六种优化方法（不含基线），并非随意拼凑，而是有明确研究依据的系统性选择。
+其方法来源可以从两条线索加以理解。
+
+\textbf{第一条线索：前期 empirical 研究的结论直接驱动了上下文压缩方法的选型。}
+本课题组在前期工作~\cite{icse26longcontext}%
+\footnote{该工作系本文作者参与的前期研究，已作为毕设前置基础，详见第~\ref{sec:prior-work}~节。}%
+中，对七种长上下文代码压缩方法（包括滑动窗口 RAG、函数级 RAG、LLMLingua、
+LongLLMLingua、LLMLingua-2 等）在代码补全任务上进行了系统性 empirical 评估，
+涵盖四个代码大模型与三个仓库级数据集。
+该研究揭示了两条核心结论，直接影响了本文的方法设计：
+
+\begin{enumerate}
+  \item \textbf{RAG 类方法在代码任务中效率与精度兼顾：}
+        固定窗口 RAG 可将生成时间降低最多 67\%，同时精确匹配率（EM）几乎不下降；
+        而 LLMLingua 等 token 级压缩方法虽可达到最高 10$\times$ 的压缩率，
+        却在代码任务上造成 30--50\% 的 EM 下降。
+  \item \textbf{代码结构使得通用压缩方法适配性不足：}
+        代码中的缩进、类型注解、函数边界、调用关系等结构性 token，
+        在语言学意义上看似"冗余"，却对语义理解具有不可替代的价值。
+        通用 NLP 压缩方法往往无法甄别代码中的结构性语义，导致关键上下文丢失。
+\end{enumerate}
+
+基于上述结论，本文在仓库级代码修复场景中验证并扩展了这些发现：
+选取文件级 BM25 检索（\texttt{rag\_topk}）作为代表性 RAG 方法，
+在其基础上叠加函数级裁剪（\texttt{rag\_function}）以测试更激进的结构化压缩，
+并引入 LLMLingua 语义重排序（\texttt{llmlingua\_original}）及其与 RAG 的组合（\texttt{hybrid\_llmlingua}），
+以评估通用压缩方法在 agent 多轮修复场景中的真实表现。
+换言之，上下文压缩类方法（方法二至四、七）的设计初衷，
+是在 agent 场景下\textbf{重新验证 empirical 研究中的方法}，
+并考察其在多轮动态上下文条件下是否仍然成立。
+
+\textbf{第二条线索：成本分析框架的实验结论驱动了工作流压缩方法的原创设计。}
+第~\ref{chap:framework}~章的阶段化成本分析表明，失败轨迹几乎总是耗尽 40 步预算，
+是最主要的成本黑洞；代码阅读（understand）阶段占总 token 约 50\%，
+而这一阶段的冗余本质上源于模型缺乏有效的搜索经验和任务规划能力。
+这一发现指向了一个 RAG 方法无法直接解决的问题：
+减少文件读入量可以压缩阅读成本，但若模型的决策质量低下、工作流混乱，
+它仍会在已有候选文件中反复徘徊，产生无效的多步开销。
+
+因此，本文针对上述瓶颈，设计并实现了两种\textbf{原创工作流压缩方法}：
+结构化工作流脚手架注入（\texttt{skill\_abstraction}）
+和静态可迁移经验记忆注入（\texttt{skill\_memory\_md}）。
+这两种方法是本文的核心创新贡献，将在后续小节中详细说明其设计思路与实现。
+
+\subsection{方法体系总览}
+\label{subsec:method-overview}
+
+综上，本文的七种方法构成两条正交优化路径：
+
+\begin{itemize}
+  \item \textbf{上下文压缩路径}（基于 empirical 研究方法移植与验证）：
+        在 agent 运行前通过预检索精简输入上下文，直接压缩阅读阶段的 token 开销。
+        包括：\texttt{rag\_topk}、\texttt{rag\_function}、\texttt{llmlingua\_original}、\texttt{hybrid\_llmlingua}。
+  \item \textbf{工作流压缩路径}（本文原创方法设计）：
+        通过向 agent 注入结构化决策指引或可迁移经验记忆，
+        改善 agent 的工作流效率，减少失败轨迹中的无效 token 开销。
+        包括：\texttt{skill\_abstraction}、\texttt{skill\_memory\_md}。
+\end{itemize}
+
+两条路径在机制上正交互补：前者优化"读什么"，后者优化"怎么做"。
+两者的实验结果将在第~\ref{chap:results}~章联合分析，以揭示各自的成本—能力权衡特征。
 
 %% ─────────────────────────────────────────────────────────────────────────────
 \section{方法一：baseline\_raw（无压缩基线）}
@@ -427,16 +497,30 @@ LLMLingua 的 \texttt{select\_cross\_files} 方法通过计算文件内容在问
 \section{方法五：skill\_abstraction（工作流脚手架注入）}
 \label{sec:skill-abstraction}
 
-\subsection{方法描述}
+\subsection{设计背景与问题动机}
+\label{subsec:skill-abs-motivation}
 
-\texttt{skill\_abstraction} 属于工作流压缩路径。
-它不改变检索逻辑，而是在 task prompt 中额外注入一段\textbf{结构化工作流提示}
-（workflow scaffold），引导 agent 按照固定的六步流程解题，
-从而减少模型在规划阶段的空转 token。
+在基线实验中，agent 的执行轨迹分析揭示了一个普遍现象：
+即使对于最终成功修复的 instance，agent 往往也要在搜索与阅读阶段消耗大量步骤，
+反复在不同文件之间跳转，或在同一文件中多次确认已读过的内容，才能逐步收敛到正确修复位置。
+对于失败的 instance，这一现象更加严重：agent 常常陷入一种"计划不清晰"的状态，
+每一步都重新试探搜索方向，缺乏连贯的目标感，最终耗尽全部步数预算而无功而返。
 
-\subsection{工作流提示内容}
+这一现象的根本原因在于：大语言模型在面对开放式的仓库级修复任务时，
+\textbf{缺乏内建的任务分解能力}。模型知道最终目标是"修复 issue"，
+却没有一个清晰的心理模型引导其以最短路径到达目标。
+在没有约束的情况下，模型倾向于逐步探索、反复确认，
+而这种探索行为在 token 计价环境中代价高昂。
 
-注入的工作流提示为固定字符串，内容如下：
+\texttt{skill\_abstraction} 的设计出发点正是对这一现象的直接回应：
+通过向 task prompt 中注入一段\textbf{结构化工作流提示}（workflow scaffold），
+为 agent 提供一个明确的六步求解框架，使其在整个修复过程中始终有清晰的阶段目标，
+从而减少规划阶段的冗余推理，提升每一步行动的目的性。
+
+\subsection{方法设计：结构化工作流脚手架}
+\label{subsec:skill-abs-design}
+
+工作流脚手架的核心是一段固定的自然语言指令，明确划定 agent 的六个执行阶段：
 
 \begin{lstlisting}[style=promptstyle, caption={skill\_abstraction 注入的工作流提示（节选自 src/agent/task\_context.py）}, label={lst:skill-scaffold}]
 Structured workflow:
@@ -448,6 +532,31 @@ Structured workflow:
 6. Submit the final patch only after verification.
 \end{lstlisting}
 
+这六步的设计并非随意排列，而是对成功修复轨迹的抽象提炼：
+
+\begin{enumerate}
+  \item \textbf{理解（Understand）}：先理解问题本质，避免过早跳入代码搜索。
+        这一步鼓励 agent 在行动前进行语义归因，减少"搜索方向错误"导致的回溯代价。
+  \item \textbf{定位候选文件（Narrow）}：将搜索范围收敛到 1--3 个文件，
+        而非遍历整个仓库。这直接约束了搜索阶段的宽度，防止无限扩展。
+  \item \textbf{精确定位（Locate）}：在候选文件内定位到函数或代码块级别，
+        进一步压缩后续阅读的范围。
+  \item \textbf{最小补丁（Minimal patch）}：明确要求生成最小化修改，
+        防止 agent 生成过度重构的补丁，减少编辑—验证的迭代轮次。
+  \item \textbf{验证（Verify）}：在提交前先做局部验证，而非依赖测试套件，
+        降低验证成本。
+  \item \textbf{提交（Submit）}：只有验证通过后才提交，避免无效提交引发的额外步骤。
+\end{enumerate}
+
+从成本分析角度看，这六步的编排方式体现了"漏斗式收敛"的思路：
+每一步都将问题空间压缩到更小的范围，使后续步骤的搜索和阅读代价逐步降低。
+与 baseline\_raw 相比，agent 不再需要在每一步自行决定"下一步该做什么"，
+而是有一个清晰的路线图可以参照，从而将决策成本从"每步自主规划"转变为"沿路线图执行"。
+
+\subsection{实现流程}
+
+工作流脚手架注入在上下文检索之后执行：
+
 \begin{algorithm}[H]
 \caption{skill\_abstraction：工作流脚手架注入}
 \label{alg:skill-abstraction}
@@ -455,25 +564,32 @@ Structured workflow:
 \KwOut{增强后的 task prompt $\hat{s}$}
 
 \BlankLine
-\tcc{Step 1: 同 rag\_topk 检索候选文件}
+\tcc{Step 1: 检索候选文件（同 rag\_topk）}
 $F_k \leftarrow \text{RetrieveTopK}(s, r, k=4)$\;
 
 \BlankLine
-\tcc{Step 2: 构建 prompt 各部分}
+\tcc{Step 2: 构建 prompt：注入工作流提示 + 候选文件}
 $\hat{s} \leftarrow s$\;
-$\hat{s} \leftarrow \hat{s} + W_{\text{scaffold}}$ \tcp*{注入结构化工作流提示（固定字符串）}
+$\hat{s} \leftarrow \hat{s} + W_{\text{scaffold}}$ \tcp*{注入六步结构化工作流提示（固定字符串）}
 $\hat{s} \leftarrow \hat{s} + \text{format}(F_k)$ \tcp*{追加候选文件片段}
 $\hat{s} \leftarrow \hat{s} + \text{"The additional context is a starting point..."}$\;
 \Return $\hat{s}$\;
 \end{algorithm}
 
-\subsection{设计意图}
+工作流提示被插入在 issue 文本之后、候选文件片段之前，
+确保 agent 在看到代码上下文之前已经接收到工作流约束，
+避免模型在读取到第一个候选文件后就立刻发起不受控的搜索行为。
 
-该方法本质上是 trajectory compression：通过抽象一个高层求解流程，
-减少 LLM 自行规划时产生的冗余推理步骤。
-直觉上，当模型收到明确的步骤指引时，
-它可以更快进入"定位文件 → 最小 patch → 验证"的有效路径，
-而不是在反复搜索和读取之间徘徊。
+\subsection{与上下文压缩方法的对比}
+
+\texttt{skill\_abstraction} 与 RAG 类方法的本质区别在于：
+RAG 方法优化的是"给 agent 看什么"（输入上下文的质量），
+而工作流脚手架优化的是"agent 如何用它所看到的"（决策过程的质量）。
+两者在机制上正交：
+同一组候选文件，在有工作流约束时，agent 更可能按序完成定位—修改—验证流程；
+在无约束时，即使文件已经正确，agent 也可能因为决策漂移而产生多余步骤。
+因此，\texttt{skill\_abstraction} 可以与 RAG 方法叠加使用，
+两者的优化目标不重叠。
 
 \subsection{参数设置}
 
@@ -497,20 +613,83 @@ $\hat{s} \leftarrow \hat{s} + \text{"The additional context is a starting point.
 \section{方法六：skill\_memory\_md（静态经验记忆注入）}
 \label{sec:skill-memory}
 
-\subsection{方法描述}
+\subsection{设计背景与核心思想}
+\label{subsec:skill-mem-motivation}
 
-\texttt{skill\_memory\_md} 是静态可迁移经验注入方法。
-它从根目录的 \texttt{skills.md} 文件中读取跨任务可复用的修复启发式经验，
-将其注入 task prompt。与 \texttt{skill\_abstraction} 不同，
-这里注入的不是固定流程指令，而是从历史 resolved 样本中人工整理的\textbf{可迁移搜索/编辑/验证启发式规则}。
+\texttt{skill\_abstraction} 解决了 agent 缺乏工作流约束的问题，
+但它注入的是"程序化的流程指令"，而非"来自实战经验的知识"。
+在实际修复轨迹中，即便 agent 知道"应该在 1--3 个文件中定位问题"，
+它在每类具体场景下究竟该如何搜索、应该避免哪些低效路径，仍是未知的。
+这类"如何做"的隐性经验，无法通过固定流程指令传递，
+而需要从历史成功案例中提炼和归纳。
+
+\texttt{skill\_memory\_md} 正是基于这一思路设计的原创方法：
+\textbf{将从已解决 instance 中归纳出的可迁移修复启发式经验，
+以结构化文本（\texttt{skills.md}）的形式注入 agent 的 task prompt，
+使其在面对新 instance 时能够复用这些"跨任务经验"}。
+
+这一设计的灵感来自两个维度的观察。
+
+\textbf{第一，从成功轨迹的阶段分析中发现规律性经验。}
+在对已 resolved instance 的轨迹进行仔细分析后，可以归纳出若干可复用的经验模式：
+例如，"对于描述参数验证行为的 issue，应优先从公共 API 入口点向内追溯"；
+"当 issue 中明确出现测试函数名时，优先检查最近的测试模块以推断目标代码路径"；
+"读取文件时避免整文件 dump，优先读取可疑行为所在函数，再视情况读一层调用方和被调用方"。
+这些经验不是某个具体 instance 的答案，而是\textbf{可以跨越不同仓库、不同 issue 类型被复用的策略模式}。
+
+\textbf{第二，从现有 agent 框架的记忆机制中获得启发。}
+SWE-agent 和 AutoCodeRover 等框架已经证明，
+向 agent 提供结构化的历史知识（工具文档、仓库摘要等）可以显著提升任务完成效率。
+但这些框架中的知识通常是\textbf{instance 特定的}（针对当前仓库的结构信息），
+而非\textbf{跨任务可迁移的}（从历史任务中提炼的策略经验）。
+\texttt{skill\_memory\_md} 填补了这一空白：
+它注入的是一套\textbf{与具体 instance 无关}的通用修复知识，
+使 agent 在开始每个新任务时已具备一定的"修复经验积累"。
+
+\subsection{skills.md 的构建方法论}
+\label{subsec:skills-md-construction}
+
+\texttt{skills.md} 的构建分为三个阶段：
+
+\textbf{（1）轨迹采样与分析。}
+从已完成实验的 resolved instance 中随机抽取代表性样本，
+逐一阅读其 \texttt{trajectory.json} 中的工具调用序列，
+重点关注：搜索阶段使用了哪些关键词、哪些搜索策略在最短步数内成功定位了目标文件、
+阅读阶段选择了哪些函数粒度、编辑阶段采用了何种最小化修改策略、
+验证阶段使用了什么命令。
+
+\textbf{（2）跨 instance 归纳抽象。}
+将具体操作提炼为与 instance 内容无关的策略描述，
+去除仓库名、函数名、具体错误信息等 instance 特定元素，
+保留可在新 instance 中复用的通用策略。
+例如，将"在某仓库的代码文件中通过搜索精确错误类名找到入口"
+抽象为"搜索 issue 中的精确错误消息名称或 API 名称，优先于搜索模糊关键词"。
+
+\textbf{（3）分阶段组织写入 skills.md。}
+将归纳出的启发式规则按照\texttt{SEARCH / READ / EDIT / VERIFY / SUBMIT} 五个阶段分节组织，
+保证注入到 agent 的经验与其执行阶段相对应，便于模型在执行特定阶段时参照相关规则。
+
+最终的 \texttt{skills.md} 包含五个模块，合计约 30 条启发式规则，
+token 长度约 400--500（在 GPT-4o tokenizer 下），属于轻量级注入，
+对总 token 预算的影响可忽略不计。
 
 \subsection{skills.md 内容结构}
 
-\texttt{skills.md} 分为五个小节，分别对应搜索、阅读、编辑、验证和提交五个阶段的启发式规则：
+\texttt{skills.md} 的核心内容如下所示，涵盖跨任务可迁移的修复经验：
 
 \begin{lstlisting}[style=promptstyle, caption={skills.md 内容节选（搜索与阅读启发式）}, label={lst:skills-md}]
+# Transferable Skills For Mini-SWE-Agent
+# Reusable heuristics distilled from previously resolved SWE-bench runs.
+
+## Core Workflow
+1. Identify 2-5 likely nouns, function names, classes, or modules from issue.
+2. Use rg to narrow candidate files before any large file reads.
+3. Once you have 1-3 plausible files, stop broad search; switch to local.
+4. Make the smallest patch that changes behavior at the suspected fault site.
+5. Run the narrowest verification first; submit once confirmed.
+
 ## Search Heuristics
-- Search for exact error messages, API names, and test names from the issue.
+- Search for exact error messages, API names, option names, and test names.
 - If the issue describes argument validation, start near the public API
   entrypoint and trace one level inward.
 - If tests are named in the issue metadata, inspect the nearest test module
@@ -520,8 +699,20 @@ $\hat{s} \leftarrow \hat{s} + \text{"The additional context is a starting point.
 - Avoid whole-file dumps unless the file is short.
 - Read the function containing the suspected behavior first, then one
   caller and one callee if needed.
-- Do not re-read the same file unless you are checking a different symbol.
+- Do not re-read the same file unless checking a different symbol.
+
+## Edit Heuristics
+- Prefer minimal conditional changes, validation guards, or return-path
+  fixes over broad refactors.
+- Preserve existing style and error semantics unless the issue requires
+  new behavior.
+
+## Verification Heuristics
+- After editing, run the narrowest targeted check that can falsify quickly.
+- If targeted check passes, avoid broad test suites unless necessary.
 \end{lstlisting}
+
+\subsection{实现流程}
 
 \begin{algorithm}[H]
 \caption{skill\_memory\_md：静态经验记忆注入}
@@ -531,7 +722,7 @@ $\hat{s} \leftarrow \hat{s} + \text{"The additional context is a starting point.
 
 \BlankLine
 $F_k \leftarrow \text{RetrieveTopK}(s, r, k=4)$ \tcp*{检索候选文件（同 rag\_topk）}
-$M \leftarrow \text{ReadFile}(\texttt{skills.md})$ \tcp*{加载静态 skill memory}
+$M \leftarrow \text{ReadFile}(\texttt{skills.md})$ \tcp*{加载静态 skill memory（约 400--500 token）}
 
 \BlankLine
 $\hat{s} \leftarrow s$\;
@@ -539,6 +730,48 @@ $\hat{s} \leftarrow \hat{s} + \text{"Transferable skill memory (reusable heurist
 $\hat{s} \leftarrow \hat{s} + \text{format}(F_k)$\;
 \Return $\hat{s}$\;
 \end{algorithm}
+
+\texttt{skills.md} 的注入位置与 \texttt{skill\_abstraction} 的工作流提示类似，
+均置于 issue 文本之后、候选文件上下文之前，
+确保 agent 在接触具体代码之前已经获得了工作流和经验层面的知识，
+而非事后才参考。
+
+\subsection{skill\_memory 与 skill\_abstraction 的区别与互补}
+
+两种方法在设计目标上有本质区别，如表~\ref{tab:skill-compare}~所示。
+
+\begin{table}[htbp]
+  \centering
+  \caption{skill\_abstraction 与 skill\_memory\_md 的设计对比}
+  \label{tab:skill-compare}
+  \begin{tabularx}{\textwidth}{lXX}
+    \toprule
+    维度 & \texttt{skill\_abstraction} & \texttt{skill\_memory\_md} \\
+    \midrule
+    注入内容 & 六步固定流程指令 & 分阶段启发式经验规则 \\
+    知识来源 & 人工抽象的通用流程 & 从 resolved 轨迹中归纳 \\
+    作用粒度 & 宏观工作流约束 & 微观操作层面的经验复用 \\
+    预期作用 & 减少规划空转、加快工作流收敛 & 提升每步决策质量、减少低效操作 \\
+    成本改善机制 & 减少无目标探索步骤 & 提升每步有效信息获取率 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+两种方法的互补性意味着，它们在理论上可以叠加使用：
+\texttt{skill\_abstraction} 保证 agent 整体路径正确，
+\texttt{skill\_memory\_md} 在每个阶段内部提供更细粒度的操作指引。
+本文未实现两者的直接组合（以保持各方法的独立可解释性），
+但这一方向是未来工作的自然延伸（见第~\ref{chap:conclusion}~章）。
+
+\subsection{与检索增强方法的定位对比}
+
+从更宏观的角度看，工作流压缩方法（\texttt{skill\_abstraction}、\texttt{skill\_memory\_md}）
+与上下文压缩方法（RAG 类）的分工如下：
+RAG 类方法优化 agent 的\textbf{信息输入质量}（给对文件、给精确内容），
+工作流方法优化 agent 的\textbf{行动决策质量}（走对路径、用好经验）。
+在理想情况下，两条路径的组合（如"RAG 定位 + skill 决策"）
+可以同时压缩阅读成本和决策成本，实现更大幅度的 CPR 改善，
+这也是本文第~\ref{sec:hybrid}~节和第~\ref{chap:conclusion}~章展望中讨论的组合方向。
 
 \subsection{参数设置}
 
@@ -728,7 +961,7 @@ mini-swe-agent 的执行器、Docker 环境、token 计量网关、
 本章介绍了完整的实验平台与七种成本优化方法的实现细节，主要内容包括：
 
 \begin{enumerate}
-  \item \textbf{实验平台}：基于 Azure 云服务器、官方 SWE-bench Docker 镜像和
+  \item \textbf{实验平台}：基于云服务器、官方 SWE-bench Docker 镜像和
         mini-swe-agent 构建统一执行环境，500 条 SWE-bench Verified instance
         在七种方法下独立运行，保证可比性。
 

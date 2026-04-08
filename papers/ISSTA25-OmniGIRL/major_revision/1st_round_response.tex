@@ -1,0 +1,1393 @@
+% This repository is adapted from [Karl-Ludwig Besser's template](https://www.overleaf.com/latex/templates/review-response-template/tmbvmjstxwrd), which provides a simple LaTeX template for writing responses to reviewers. You may preview the PDF file [here](https://shellywhen.github.io/Journal-Response-Letter-Template-Latex/Review_Response_Template.pdf)
+
+\documentclass[12pt,american]{article}
+\usepackage[T1]{fontenc}
+\usepackage{fourier}
+\usepackage[hidelinks]{hyperref}
+\usepackage{babel}
+\usepackage[babel]{microtype}
+\usepackage[babel]{csquotes}
+\usepackage[journal={ACM Transactions on Software Engineering and Methodology},
+			manuscript={\#33-ISSTA2025},
+			editor={Reviewers}]{reviewresponse}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage[a4paper,total={160mm,245mm},left=25mm,top=25mm]{geometry}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{.5pt}
+\usepackage[shortlabels]{enumitem}
+\newlist{detail}{itemize}{3}
+\setlist[detail, 1]{label=\textbullet,leftmargin=21pt,nosep}
+\usepackage[backend=biber,style=ieee,dashed=false,url=false,isbn=false,defernumbers=true,refsection=section]{biblatex}
+
+\input{tool.tex}
+% \newcommand{\revise}[1]{{\color{blue} #1}}
+
+\bibliography{ref.bib}
+
+
+\title{OmniGIRL: A Multilingual and Multimodal Benchmark for
+GitHub Issue Resolution}
+% \author{Wei Tao, Yucheng Zhou, Yanlin Wang, Hongyu Zhang, Haofen Wang and Wenqiang Zhang}
+
+
+\begin{document}
+% \maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Cover Letter
+% \input{cover_letter.tex}
+\thispagestyle{empty}
+
+\begin{center}
+    \textbf{\large Response Letter}
+
+    
+    \textbf{\large  {ISSTA2025-\#33: \emph{OmniGIRL}}}
+\end{center}
+
+\vspace{1em} 
+
+\noindent Dear \editorname,
+
+% Please find enclosed the revised version of our previous submission entitled \enquote{\thetitle} with manuscript number \manuscript. We would like to thank you and the reviewers for the valuable comments which help improving the quality of our manuscript.
+% In this revision, we have carefully addressed the reviewers' comments. A summary of main modifications and a detailed point-by-point response to the comments from Reviewers 1 and 3 (following the reviewers' order in the decision letter) are given below.
+We thank you very much for giving us this opportunity to revise our manuscript. We appreciate the anonymous reviewers very much for their constructive comments and insightful suggestions on our manuscript entitled \emph{\textbf{``OmniGIRL: A Multilingual and Multimodal Benchmark for GitHub Issue Resolution''}} (ID: \manuscript).
+
+We have studied each of the comments and suggestions carefully and made corresponding changes to the manuscript. The modified contents have been highlighted in blue in the revised manuscript for reviewers' convenience (newly added figures are annotated with blue in their respective captions). Attached please find our concrete response and the revised version, which we would like to submit for your kind consideration. Also, our GitHub repository (\url{https://anonymous.4open.science/r/OmniGIRL}) for reproduction is set up. We will make it public upon acceptance.
+
+We have addressed the concerns and suggestions and made corresponding changes to the manuscript. We have attached our point-of-view response to all reviewers along with this letter. We hope you find our responses satisfactory.
+
+\vspace{8em}
+
+\noindent Sincerely,
+
+\noindent Anonymous Authors
+% \theauthor
+
+\vfill
+\textbf{Note:} To enhance the legibility of this response letter, all the reviewers' comments are typeset in boxes. Rephrased or added sentences are typeseted in blue to indicate changes.
+
+
+\setcounter{page}{0}
+\pagestyle{fancy}
+\fancyfoot[R]{\thepage\ / \pageref{LastPage}}
+\fancyfoot[L]{Response Letter for \manuscript}
+\fancyfoot[C]{\ }
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Meta Review
+% \input{Reviewers/Meta.tex}
+% Response to Editor
+\editor
+\begin{generalcomment}
+However, several issues should be addressed before publication. Its generalizability and potential impacts are not clearly justified.  
+\end{generalcomment}
+\begin{revmeta}
+[Thanks for the comments! Below, we address the concerns regarding generalizability and potential impacts separately. 
+
+\textbf{Generalizability.} We are sorry for the confusion. To clarify, the OmniGIRL benchmark is not limited to evaluating only LLM-based tools. Instead, it is designed to evaluate any tool that can take GitHub issues as input and generate patches that resolve the corresponding issue. We have revised the presentation in Section 2.1, Figure 1, and Section 5 to avoid potential misunderstandings. Please refer to Comment 3.1 for the detailed response.   
+
+\textbf{Potential impacts.} We appreciate the suggestion to clarify the potential applications of our work. In the revision, we expand the ``Potential Impacts'' paragraph in Section 7 to highlight the real-world applications of our benchmark better. First,  \Swebenchx can be used for evaluating any method of resolving issues in different programming languages and with multimodal data. Second, we highlight the insights from our error analysis, which point to limitations in current methods, such as poor performance on TypeScript and JavaScript issues and challenges in resolving cross-file issues. Third, we highlight the availability of our data collection code and tutorial, which will allow other researchers to collect GitHub issue resolution data for further research. Please refer to Comment 3.3 for the detailed response.   ]
+
+% \begin{changes}
+
+
+
+% % \end{wrapfigure}
+
+% \textbf{2.1~~~~GitHub Issue Resolution}
+
+% The GitHub issue resolution task aims to resolve issues reported in the GitHub repository automatically [12, 13]. \revised{When evaluating the issue resolution ability of 
+% % GitHub issue resolution 
+% tools, we follow the pipeline as shown in Figure 1. During the inference stage, the tool receives the issue descriptions along with the corresponding codebase and generates a patch that contains all necessary code changes to the original codebase.} In the evaluation stage, the generated patch is applied to the codebase, and all test cases related to this issue are run. After obtaining the test log, we check the statuses of the test cases. The issue is considered resolved if all related test cases pass successfully. Some key concepts are listed below:
+
+% \begin{center}
+% \includegraphics[width=0.9\linewidth]{ISSTA25-acmart-primary/figures/EvaluationPipelineV5.pdf}
+
+% \revised{Fig. 1. Overview of the evaluation pipeline of GitHub issue resolution.}
+    
+% \end{center}
+% ......\newline
+% \textbf{5~~~~EVALUATION}
+
+
+% In this section, we first evaluate the issue resolution ability of three advanced LLMs on \Swebenchx. We then evaluate the performances of LLMs on issues that requires image understanding. Finally, we investigate why LLMs fail to resolve issues on \Swebenchx. %We will first introduce the setup of our experiments. Then, 
+% \revised{Note that we only evaluate LLM-based methods here because, according to the SWE-bench leaderboard [56], the most advanced tools are primarily LLM-based. However, our benchmark is designed to evaluate ability of any GitHub issue resolution tools, including those that do not rely on LLMs. In summary,}  we answer the following research questions: 
+
+
+% \end{changes}
+
+
+\end{revmeta}
+
+% \begin{generalcomment}
+% However, several issues should be addressed before publication. Its potential applications is not clearly justified. 
+% \end{generalcomment}
+% \begin{revmeta}
+% [Thanks for the comments. We appreciate the suggestion to clarify the potential applications of our work. In the revision, we have expanded the ``Potential Impacts'' in Section 7 to highlight the real-world applications of our benchmark better. First,  \Swebenchx can be used for evaluating LLMs and issue resolution methods on issues in different programming languages and with multimodal data. Second, we highlight the insights from our error analysis, which point to limitations in current methods, such as poor performance on TypeScript and JavaScript issues and challenges in resolving cross-file issues. Third, we highlight the availability of our data collection code and tutorial, which will allow other researchers to collect GitHub issue resolution data for further research.]
+
+% % generalizabilty : sorry for confusion 有误解，make it clear
+% % impact: 1)更真实全面的benchmark in github issue resolution task; 2)有利于researchers 设计更好的github issue resolution。 3）我们开源collect代码和流程；方便后续其他研究者follow，进一步研究这个问题
+
+% % [Thank you very much for your recognition and for taking the valuable time to review our manuscript. We are sorry for the confusion and unclear expression in the previous version. We have addressed each of the comments and suggestions. Please refer to our responses below for details.]
+% \begin{changes}
+% \revised{\textbf{7~~~~DISCUSSION}}
+
+% \revised{\textbf{Potential Impacts.} First, we propose a GitHub issue resolution benchmark that captures diversity across programming languages, repository domains, and modalities of input information. This allows researchers to more effectively evaluate the performance of LLMs and current approaches on issues in different programming languages and their ability to handle multimodal data. Second, our error analysis highlights specific limitations in current methods and LLMs, such as poor performance on TypeScript and JavaScript issues and challenges in resolving cross-file issues, etc.} \revised{These findings provide insights for improving LLMs and issue resolution} \revised{techniques. Third, we have made our data collection code and tutorial publicly available, allowing other researchers to collect GitHub issue resolution data for evaluation or training.}    
+% \end{changes}
+% \end{revmeta}
+
+\begin{generalcomment}
+There are some missing details in the evaluation setup. 
+\end{generalcomment}
+\begin{revmeta}
+[Thanks for the comments! We appreciate your suggestion to clarify the evaluation setup, especially the baseline selection criteria. In the revision, we have detailed the evaluation setup as follows.
+
+To ensure a comprehensive evaluation, following previous studies \text{[Ref1, Ref2, Ref3]}, we first categorize current issue resolution methods into three types: (1) RAG-based methods, (2) LLM workflow-based methods, and (3) LLM agent-based methods. Then, for each category, we select one method that demonstrates strong performance and reasonable costs based on the performance rankings in the SWE-bench leaderboard \text{[Ref4]}. Finally, we choose three methods as our baselines: oracle retrieval, Agentless and AutoCodeRover. Please refer to Comment 3.2 for the detailed baseline selection criteria.]
+% \begin{enumerate}
+%     \item For the RAG-based method, we select the oracle retrieval method. Previous studies \text{[Ref5]} indicate that current RAG-based methods show limited performance for this task. Using oracle retrieval allows us to evaluate the performance of LLMs under the ideal scenario where relevant code is correctly retrieved.
+%     \item For the LLM workflow-based method, we select the Agentless method due to its strong performance (ranks 5th on the SWE-bench-Verified) \text{[Ref4]} and reasonable cost.
+%     \item For the LLM agent-based method, we select the AutoCodeRover \text{[Ref6]} method (published at ISSTA'24), which also demonstrates strong performance (ranks 2nd in the SWE-bench-Full) \text{[Ref4]} and has a reasonable cost.
+% \end{enumerate}
+
+% The revised contents are presented as follows:
+% ]
+
+% \begin{changes}
+
+% \textit{5.1.2~~~~Evaluation Method.} Due to the complexity of issue resolution tasks, it is challenging to obtain correct results by directly feeding issue descriptions and codebases into LLMs. \revised{Therefore, we evaluate LLMs using some advanced GitHub issue resolution approaches. As mentioned in Section 2.2, we can divide current issue resolution approaches into three types following previous studies [36-38]: retrieval augmentation-based method, LLM workflow-based method, and LLM agent-based method. To ensure a comprehensive evaluation, we select one representative method from each category. Based on the SWE-bench leaderboard [56], we choose baselines with high performance and reasonable cost. Given the limited performance of current RAG-based methods [5,13], we choose the oracle retrieval method for evaluation. For the LLM workflow-based method, we select the Agentless [3] method, which is ranked 5th in the SWE-bench-Verified [56]. And for the agent-based method, we choose the AutoCoderOver [8] method, which is ranked 2nd in the SWE-bench-Full [56]. These methods not only demonstrate advanced performance but also have reasonable costs according to previous studies [3].}
+
+% \revised{Finally, we use three methods: the oracle retrieval [5,13], the Agentless method [3] and the AutoCodeRover method [8]. The descriptions of these methods are listed as follows:}
+
+% ......
+
+% \revised{\textbf{AutoCodeRover-X.} We choose the AutoCodeRover [8] method as our baseline. Similar to the Agentless method, the AutoCodeRover method only supports Python language. We adapt this method to support additional languages (e.g., JavaScript, TypeScript, and Java), enabling evaluation of our multilingual benchmark. We refer to this multilingual adaption as AutoCodeRover-X.
+
+% The original AutoCodeRover method resolves issues using two LLM-based agents: the context retrieval agent and the patch generation agent. First, given issue descriptions and codebase as input, the context retrieval agent searches code information related to the given issue. In this stage, the agent searches relevant code information by calling code search tools iteratively until the agent thinks that enough code information is retrieved. Then, the retrieved code information is input to the patch generation agent. This agent will keep refining the generated patch until it can be} \revised{applied successfully or until the maximum number of attempts is reached.
+
+% In AutoCodeRover-X, we retain AutoCodeRover's original design and expand it to support multiple languages. The context retrieval agent uses AST tools to parse file structures. In AutoCodeRover-X, we use different AST tools for each language: Babel [60] for JavaScript/TypeScript and tree-sitter [62] for Java. Additionally, we rewrite LLM prompts in multilingual versions. For parameter settings, we follow the default setting from the original AutoCodeRover implementation [63].}
+
+
+% \end{changes}
+
+% Following previous studies \text{[Ref1, Ref2, Ref3]}, we classify current issue resolution methods into three types. We supplement the introduction of these different categories in Section 2.2. The revised contents are presented as follows.
+
+% \begin{changes}
+% \textbf{2.2~~~~LLM-based Methods for GitHub Issue Resolution}
+
+% ......
+
+% \revised{Following previous studies [36-38], we can divide current LLM-based issue resolution methods into three types: RAG-based method, LLM workflow-based method, and LLM agent-based method. The RAG-based methods use a retriever to directly retrieve similar code files from the codebase to enhance issue resolution. However these methods, such as BM25 retrieval-based method, demonstrate limited performance on this task [13]. The second type, LLM workflow-based methods, break down the issue resolution process into predefined stages, where LLMs follow a fixed sequence to complete tasks. For example, Agentless [3] employs a structured workflow with a localization stage to retrieve relevant code and a patch generation stage to generate a final patch. Finally, LLM agent-based methods, such as AutoCodeRover [8] and SWE-agent [6], allow LLMs to autonomously interact with the codebase, using tools to collect key information and resolve tasks dynamically. }    
+% \end{changes}
+% The experimental settings are clarified in the revision. More details can be found in the response to R\ref{sec:reviewer1} (Response 1.\ref{reviewer:1.3} and 1.\ref{reviewer:1.4}).
+\end{revmeta}
+
+% 
+% 分为agent-based & rag-based? 或者follow repo-graph procedual-based&agent-based
+
+
+\begin{generalcomment}
+There could be some bias in subject selection.
+
+% 承认确实存在bias，注重popular 的repo会导致一些valuable 的repo被忽略，我们clarify this in revision。同时我们也开放我们的collect代码，方便其他研究者收集其他valuable repo的data in github issue resolution task.
+
+\end{generalcomment}
+\begin{revmeta}
+[Thanks for the comments! We acknowledge that focusing on popular repositories could introduce some bias, potentially overlooking valuable data from less popular repositories. In our work, we follow the approach used in SWE-bench \text{[Ref5]} by collecting data based on repository popularity. To address this, we have provided our data collection code and tutorial on our anonymous repository (\url{https://anonymous.4open.science/r/OmniGIRL}), enabling other researchers to collect data from repositories they consider valuable, even if they are less popular. Additionally, we plan to expand our benchmark in the future to include data from a broader range of repositories, which will help mitigate potential bias in repository selection. We have added this discussion in Section 7 of the revision. The revised contents are presented as follows:]
+
+
+\end{revmeta}
+
+\begin{changes}
+\revised{\textbf{7~~~~DISCUSSION}}
+
+......\newline
+\revised{\textbf{Limitations and future directions.} First, following the SWE-bench [13], we collect data based on repository popularity, which may introduce bias because of overlooking less popular but potentially valuable repositories. To address this, we have open-sourced our data collection code and tutorial, enabling other researchers to collect data from repositories they consider valuable. Additionally, we plan to expand our benchmark in the future to include data from a broader range of repositories to mitigate this bias. 
+
+......}
+\end{changes}
+ % The experimental settings are clarified in the revision. More details can be found in the response to R\ref{sec:reviewer1} (Response 1.\ref{reviewer:1.3} and 1.\ref{reviewer:1.4}).
+
+~\\
+
+\begin{generalcomment}~\label{meta:3}
+ In particular, it is necessary to do additional experiments with a more robust agentic architecture beyond just Oracle Retreival and Agentless-X.
+\end{generalcomment}
+\begin{revmeta}[Thanks for the comments! In the revision, we have added an LLM agent-based approach, AutoCodeRover, as an additional  baseline. We choose this method because of its robust performance on the SWE-bench leaderboard \text{[Ref4]}. This approach uses a context retrieval agent to collect relevant information from the codebase and a patch generation agent to generate patches resolving the corresponding issue. Because this method is currently designed for Python, we have adapted it to multiple languages without changing its original design. This adaptation is referred to as AutoCodeRover-X. We evaluate this approach on OmniGIRL and find that the original conclusions do not change. First, we find that the AutoCodeRover method shows limited performance on OmniGIRL, with the highest resolve rate of 8.1\%. Second, we find that this method shows limited performance on issues with visual
+input, with the highest performance of 5.3\%. Besides, we find that visual information can enhance the performance of AutoCodeRover-X on issues requiring image understanding. Third, we find that the AutoCodeRover method performs significantly worse on cross-file issues compared to single-file issues. Besides, we find that LLMs with the AutoCodeRover-X still show a high tendency to modify a single file on cross-file issues. Please refer to Comment 2.1 for the detailed response.]    
+\end{revmeta}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Reviewer #1
+% \input{Reviewers/R1.tex}
+
+% Reviewer 1
+
+\reviewer\label{sec:reviewer1}
+
+\begin{revcomment}
+
+However, a few limitations are worth noting. First, the paper’s reliance on popular repositories based on download counts may inadvertently skew the dataset toward mainstream libraries, potentially excluding less popular but valuable repositories. Addressing this selection bias, or explicitly acknowledging it as a limitation, would provide a more balanced perspective on the benchmark’s coverage.
+% Overall, this paper is well-written and it has clear and well-organized work. The research area, commit message generation, is vital in the version control system. This paper firstly finds the value of the good practice formed in the development community and injects it as knowledge into the generation model for better performance. This paradigm of leveraging developer knowledge to help models is instructive. This paper also mitigates the negative impact of the noise caused by introducing the knowledge to the model by updating the dynamic distribution list. The experimental results on the largest commit message dataset are comprehensive to validate the effectiveness of the proposed method. However, the discussion about the comparison with ChatGPT is not as comprehensive as the other parts. I have some suggestions below that could be included in that part which could make the paper more complete.
+
+\end{revcomment}
+
+\begin{revresponse}[Thanks for the comments! We acknowledge that focusing on popular repositories could introduce some bias, potentially overlooking valuable data from less popular repositories. In our work, we follow the approach used in SWE-bench \text{[Ref5]} by collecting data based on repository popularity. To address this, we have provided our data collection code and tutorial on our anonymous repository (\url{https://anonymous.4open.science/r/OmniGIRL}), enabling other researchers to collect data from repositories they consider valuable, even if they are less popular. Additionally, we plan to expand our benchmark in the future to include data from a broader range of repositories, which will help mitigate potential bias in repository selection. We have added this discussion in Section 7 of the revision. The revised contents are presented as follows:]
+
+
+
+
+
+% [Thanks for you comments! Please refer to Meta-Review-4 for the detailed response.]
+%Refer to M3. Clarify & open-source code for collecting data
+% Thanks for your recognition. We are sorry for the unclear expression in the previous version. We have addressed your comments and suggestions. Please refer to our responses below for details.
+
+
+
+\end{revresponse}
+
+\begin{changes}
+\revised{\textbf{7~~~~DISCUSSION}}
+
+......\newline
+\revised{\textbf{Limitations and future directions.} First, following the SWE-bench [13], we collect data based on repository popularity, which may introduce bias because of overlooking less popular but potentially valuable repositories. To address this, we have open-sourced our data collection code and tutorial, enabling other researchers to collect data from repositories they consider valuable. Additionally, we plan to expand our benchmark in the future to include data from a broader range of repositories to mitigate this bias. 
+
+......}
+\end{changes}
+
+
+\begin{revcomment}
+
+Furthermore, the paper uses path keywords to identify test files, which could result in missed instances where test files do not follow conventional naming patterns. Integrating alternative techniques, such as heuristic or machine learning-based file identification, would enhance the accuracy and comprehensiveness of the dataset.
+
+
+\end{revcomment}
+
+\begin{revresponse}[Thanks for the comments! Following the implementation of SWE-bench \text{[Ref5]}, we use path keywords to identify test files. During the construction of our benchmark, we manually check our dataset to ensure the correctness of test files. We agree that this could result in missed instances where test files do not follow conventional naming patterns. In the future, we will use more techniques, such as machine learning-based file identification, to improve the data collection pipeline. We have added this discussion in Section 7 of the revision. The revised contents are presented as follows:]
+
+\begin{changes}
+\revised{\textbf{7~~~~DISCUSSION}}
+
+......\newline
+\revised{\textbf{Limitations and future directions.}}
+
+......
+
+\revised{Second, following the SWE-bench [13], we use attribute filtering and execution-based filtering to remove invalid instances. However, this approach may filter out some instances. For example, using path keywords to identify test files could miss files that don't follow conventional naming patterns, and filtering out instances without FAIL2PASS tests excludes issues like performance improvements. We do this to ensure that the tests for each instance can reliably evaluate the correctness of the solution. In the future, we plan to use more advanced techniques, like machine learning-based file identification, to identify test files. Besides, we plan to expand the benchmark to include more issue types.}
+\end{changes}
+\end{revresponse}
+
+
+
+\begin{revcomment}\label{reviewer:1.3}
+The focus on FAIL2PASS test outcomes, while beneficial for tracking error resolution, might inadvertently exclude task instances that involve performance improvements or feature enhancements. Expanding the benchmark to cover these additional task types would enhance its versatility and better reflect the diversity of real-world issues. 
+\end{revcomment}
+
+
+\begin{revresponse}[Thanks for the comments! Following the implementation of SWE-bench \text{[Ref5]}, we only collect instances, including FAIL2PASS test cases. We agree that this will exclude some valuable instances, such as those related to performance improvements or feature enhancements. However, this method ensures that each instance is associated with tests that can validate the correctness of the solution, thereby maintaining the reliability of evaluations. In the future, we will collect issues covering more issue types. We have added this discussion in Section 7 of the revision. The revised contents are presented as follows:]
+
+\begin{changes}
+\revised{\textbf{7~~~~DISCUSSION}}
+
+......\newline
+\revised{\textbf{Limitations and future directions.}}
+
+......
+
+\revised{Second, following the SWE-bench [13], we use attribute filtering and execution-based filtering to remove invalid instances. However, this approach may filter out some instances. For example, using path keywords to identify test files could miss files that don't follow conventional naming patterns, and filtering out instances without FAIL2PASS tests excludes issues like performance improvements. We do this to ensure that the tests for each instance can reliably evaluate the correctness of the solution. In the future, we plan to use more advanced techniques, like machine learning-based file identification, to identify test files. Besides, we plan to expand the benchmark to include more issue types.}
+\end{changes}
+%sorry for confusion. 其实我们有，给出分布/占比。如果有不包含的issue type, 未来实现。写在limitation里。
+% Thanks for your comments. We have added the statistical method in Section 3.1 (as shown below) and added the statistical time in the footnote of Page 5. 
+
+% \begin{changes}
+% {\textbf{3.1~~~~Experiments and Empirical Findings}}\newline
+% As \mcmd has good traceability to find each commit's source, we investigated all of the repositories in \mcmd~\revise{by manually inspecting the file contents of each repository root directory and associated documentation such as README.md} and find that 188 out of 500 repositories do not have contributor guidelines.\newline.....
+% \end{changes}
+
+
+% Besides, we have added the reason for choosing the $F1$ score in Section 3.1 (as shown below). Moreover, we have added $EM$ as a supplemental metric. All of the results that had an $F1$ score also have an $EM$ score now as shown in Table 3 and Table 9.
+
+% \begin{changes}
+% {\textbf{3.1~~~~Experiments and Empirical Findings}}\newline
+% ......~\revise{As the length of the type is one and the length of scope is short (those with no more than 3 words account for more than 93\%), evaluating the performance of the generation of them can be considered as a multi-label classification task. Therefore, EM and }F1-score are used to evaluate the performance of type and scope.\newline
+% ......
+% \end{changes}
+\end{revresponse}
+
+
+
+\begin{revcomment}\label{reviewer:1.4}
+While RQ3 focuses on failure analysis, the paper could strengthen this section by providing structured criteria for categorizing failures, such as distinguishing between localization and repair issues. This added specificity would make the analysis more insightful and aligned with the research question, enhancing the paper’s contribution to understanding LLM limitations.
+
+
+%貌似是写法需要更改？
+% The discussion about the improved solution is practical for real software development as other PL datasets can also be used for the generation model. However, the next subpart of the discussion (section 6.2) is not clear enough. For example, the version of ChatGPT (gpt-3.5-turbo or gpt-4) used in the discussion is not clarified. Moreover, as more and more code large language models (Code LLMs) are popular for software understanding and code generation, why not choose one of the Code LLMs such as StarCoder [2] to be compared with KADEL?
+
+
+
+% [2] StarCoder: may the source be with you
+\end{revcomment}
+
+
+\begin{revresponse}[Thanks for the comments! We have revised the presentation in Section 5.4. We investigate why LLMs fail to resolve issues by analyzing the behavior of LLMs at the localization and patch generation stage. The revised contents are presented as follows: ]
+
+\begin{changes}
+\textbf{5.4~~~~Failure Analysis}
+
+\revised{To investigate why LLMs fail to resolve issues on \Swebenchx, we analyze their behavior at the localization and patch generation stages, identifying one type of failure at each stage.}
+
+\revised{ \textbf{Parsing failure of structural output.} This type of failure occurs in the localization }\revised{ stage of the Agentless-X method. It happens when the model fails to follow the specified output format given in the prompt.
+
+......
+
+\textbf{Insufficient ability of cross-file issue resolution.} This type of failure occurs in the patch generation stage of all evaluated baselines.} 
+
+......
+\end{changes}
+
+% Thanks for your comments. We have updated Section 6.2 to include the specific version of ChatGPT used (gpt-3.5-turbo-0613), as shown below.
+
+% \begin{changes}
+% ......\newline
+% \revise{Secondly, after the pre-study, we use a well-designed role prompt template from the study~[37] with the output format to generate commit messages with ChatGPT~(version: gpt-3.5-turbo-0613)} \revise{on whole test sets in all five programming languages in \mcmd.
+% \newline
+% ......}\newline
+% \textbf{REFERENCES}\newline
+% \footnotesize{
+% [37] Wei Ma, Shangqing Liu, Wenhan Wang, Qiang Hu, Ye Liu, Cen Zhang, Liming Nie, and Yang Liu. 2023. The Scope of ChatGPT in Software Engineering: A Thorough Investigation. \textit{CoRR} abs/2305.12138 (2023). \url{https://doi.org/10.48550/arXiv.2305.12138} arXiv:2305.12138}
+
+% \end{changes}
+
+
+% Moreover, we have incorporated the results and analysis of ChatGPT's performance on the whole MCMD test set, covering all five programming languages, in Section 6.2. More details can be found in Meta Comment~\ref{meta:3}.
+
+
+% We opted not to use code large language models (LLMs) due to their primary focus on code rather than code changes, which hinders their effectiveness in understanding and generating high-quality commit messages. To substantiate this hypothesis, we conducted experiments using StarChat-beta~\cite{starcoder} on the entire MCMD dataset. The results, shown in Table~\ref{tab:starcoder-comparison}, demonstrate StarCoder's markedly lower performance compared to our model, indicating its difficulty in producing commit messages akin to the reference. Given that both Code LLMs and ChatGPT are types of LLMs, we selected ChatGPT for a more thorough comparative analysis.
+
+
+
+% \begin{table*}[!t]
+% \renewcommand\arraystretch{0.7}
+% \centering
+% \small
+% \caption{StarCoder performance on each subset of \mcmd test set.}
+
+% \label{tab:starcoder-comparison}
+
+% \begin{tabular}{cllcccccc}
+% \toprule
+% \bf Model & \bf Dataset & \bf Metrics & \bf JavaScript & \bf C\# & \bf Python & \bf C++ & \bf Java & \bf \bf Overall    \\
+% \cmidrule(r){1-9}
+
+
+% \multirow{9}{*}{{StarCoder}}
+
+% & \multirow{3}{*}{\shortstack{\mcmdplu}} 
+% & \bleu	& 7.20	& 4.57	& 7.35	& 4.63	& 5.65	& 5.86	\\
+% && \meteor	& 11.59	& 7.14	& 10.54	& 6.50	& 7.99	& 8.70	\\
+% && \rouge	& 11.27	& 6.66	& 10.44	& 6.75	& 8.25	& 8.63	\\
+% \cmidrule(r){2-9}
+
+% & \multirow{3}{*}{\shortstack{\mcmdplm}} 
+% & \bleu	& 14.72	& 9.43	& 9.66	& 8.45	& 7.64	& 13.39	\\
+% && \meteor	& 23.00	& 14.92	& 13.41	& 10.84	& 10.39	& 20.63	\\
+% && \rouge	& 18.33	& 11.95	& 11.75	& 10.21	& 9.78	& 16.66	\\
+% \cmidrule(r){2-9}
+
+
+% & \multirow{3}{*}{\shortstack{\mcmd}} 
+% & \bleu	& 7.86	& 4.60	& 7.37	& 4.65	& 5.66	& 6.03	\\
+% && \meteor	& 12.60	& 7.20	& 10.56	& 6.53	& 8.00	& 8.98	\\
+% && \rouge	& 11.89	& 6.70	& 10.45	& 6.77	& 8.26	& 8.82	\\
+% \cmidrule(r){1-9}
+
+
+% \multirow{9}{*}{{KADEL}}
+
+% & \multirow{3}{*}{\shortstack{\mcmdplu}} 
+% & \bleu	& 22.86	& 24.72	& 19.99	& 18.21	& 19.79	& 21.08	\\
+% && \meteor	& 26.35	& 26.93	& 23.95	& 20.85	& 22.28	& 24.03	\\
+% && \rouge	& 27.77	& 27.75	& 25.46	& 22.72	& 23.28	& 25.35	\\
+% \cmidrule(r){2-9}
+
+% & \multirow{3}{*}{\shortstack{\mcmdplm}} 
+% & \bleu	& 38.28	& 24.95	& 22.61	& 16.94	& 25.27	& 34.55	\\
+% && \meteor	& 51.28	& 36.30	& 39.13	& 31.08	& 34.20	& 47.62	\\
+% && \rouge	& 43.26	& 30.67	& 34.05	& 25.66	& 32.02	& 40.31	\\
+% \cmidrule(r){2-9}
+
+
+% & \multirow{3}{*}{\shortstack{\mcmd}} 
+% & \bleu	& 24.22	& 24.72	& 20.01	& 18.20	& 19.81	& 21.39	\\
+% && \meteor	& 28.55	& 27.00	& 24.07	& 20.93	& 22.33	& 24.58	\\
+% && \rouge	& 29.14	& 27.77	& 25.53	& 22.74	& 23.31	& 25.70	\\
+% \bottomrule
+
+% \end{tabular}
+% \end{table*}
+
+% \printpartbibliography{starcoder}
+\end{revresponse}
+
+
+\begin{revcomment}
+% Presentation Improvements\newline
+% Table 3: “T” and “S” can be replaced by “Type” and “Scope” as no abbreviation is necessary here.\newline
+% Table 7 (line 2): “type”, “scope” -> “Type”, “Scope”. Words should start with capital letters so they are consistent with other words (such as “Input”) in the table.
+Lastly, the absence of web data interaction restricts the benchmark’s applicability in scenarios where LLMs could benefit from external resources, such as online documentation. Including or discussing this limitation would better align OmniGIRL with real-world issue resolution contexts, where interaction with external data often plays a crucial role.
+\end{revcomment}
+
+
+
+\begin{revresponse}[Thanks for the comments! To the best of our knowledge, there is no current public method using web data contained in issues to help resolve issues. This is why we do not evaluate the effects of web data interaction. We have clarified this in the revision. We will explore the impact of website information in the future. We have added this discussion in Section 7 of the revision. The revised contents are presented as follows:]
+
+\begin{changes}
+\revised{\textbf{7~~~~DISCUSSION}}
+
+......\newline
+\revised{\textbf{Limitations and future directions.}}
+
+......
+
+\revised{Finally, we do not evaluate the effects of web information, as there are currently no methods to resolve issues using the website information contained in the issue description. In the future, we will evaluate potential approaches to incorporate web-based information into issue resolution.}
+\end{changes}
+%  sorry for confusion. 我们的评估过程不限制模型接触外部资源，只是现在的方法，还没有实现收集外部信息的功能。我们clarify this 并且在未来会评测使用external data的方法。
+
+% Thanks for your careful suggestions. We have revised these tokens in Table 3 and Table 10~(formerly Table 7) according to your review. Both tables are also listed below for review.\newline
+
+
+% \begin{changes}
+% \includegraphics[width=1.0\columnwidth]{figures/tables/empirical_decoder.pdf}
+% ~\newline
+% \includegraphics[width=1.0\columnwidth]{figures/tables/knowledge_model.pdf}
+% ~\newline
+% \end{changes}
+
+\end{revresponse}
+
+
+\begin{revcomment}
+% Presentation Improvements\newline
+% Table 3: “T” and “S” can be replaced by “Type” and “Scope” as no abbreviation is necessary here.\newline
+% Table 7 (line 2): “type”, “scope” -> “Type”, “Scope”. Words should start with capital letters so they are consistent with other words (such as “Input”) in the table.
+Minor: Section: 2.1 the code repository contning → containing 
+\end{revcomment}
+
+
+
+\begin{revresponse}[Thanks for the comments! We have corrected these minor mistakes in the
+revision.]
+
+
+\end{revresponse}
+
+\begin{changes}
+\textbf{2.1~~~~Github Issue Resolution}
+
+......
+\begin{itemize}%[left=10pt]
+
+    \item \textbf{Codebase:} the code repository \revised{containing} the reported issue and all relevant code files necessary for resolving the issue.
+\end{itemize}
+......
+\end{changes}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Reviewer #2
+% \input{Reviewers/R2.tex}
+\reviewer\label{sec:reviewer2}
+
+\begin{revcomment}
+% The authors use good practice data to train a novel commit message generation model called KADEL. They also designed a dynamic denoising training method to improve the training. The experiments show that KADEL outperforms the baseline methods, and two components of the model are valuable to generate commit messages.
+However, the reliance on Agentless-X for the evaluation yields conclusions of limited confidence. More extensive evaluation, in particular using approaches that handle some of the challenges like cross-file patches more directly, would enable a more accurate picture of where LLMs stand today with regards to OmniGIRL.
+\end{revcomment}
+\begin{revresponse}[Thanks for the comments! We appreciate your suggestion to conduct additional experiments with a more robust agentic architecture. In the revision, we choose the \textbf{AutoCodeRover} \text{[Ref6]} method (published at ISSTA'24) as our agent-based method. This selection is made based on its strong performance, ranking second in the SWE-bench-full leaderboard \text{[Ref4]}, as well as its reasonable cost. 
+
+The original AutoCodeRover method is designed for Python language and resolves issues using two LLM-based agents: the context retrieval agent and the patch generation agent. The context retrieval agent searches for relevant code information based on issue descriptions and codebases, iteratively using code search tools until it considers that enough relevant code has been retrieved. The retrieved code is then passed to the patch generation agent, which refines the generated patch until it can be successfully applied or until the maximum number of attempts is reached.
+
+In the revision, we extend AutoCodeRover to support additional languages such as JavaScript, TypeScript, and Java, enabling evaluation of our multilingual benchmark. This adaptation is referred to as AutoCodeRover-X. We retain the original design of the method but adapt the context retrieval agent to handle different programming languages by using specific Abstract Syntax Tree (AST) tools. For JavaScript and TypeScript, we use Babel \text{[Ref7]}, and for Java, we use tree-sitter \text{[Ref8]}. Additionally, we modify the LLM prompts to be multilingual, ensuring the method can handle a variety of programming languages. For parameter settings, we follow the default configurations provided by the original AutoCodeRover implementation.
+
+The revised contents are presented as follows:]
+
+% add autocoderover. &swe-agent? (really expensive.)
+
+\begin{changes}
+\textbf{5.1~~~~Experimental Setup}
+
+......\newline
+\textit{5.1.1~~~~Evaluation Method.} Due to the complexity of issue resolution tasks, it is challenging to obtain correct results by directly feeding issue descriptions and codebases into LLMs. 
+
+......\newline
+\revised{\textbf{AutoCodeRover-X.} We choose the AutoCodeRover [8] method as our baseline. Similar to the Agentless method, the AutoCodeRover method only supports Python language. We adapt this method to support additional languages (e.g., JavaScript, TypeScript, and Java), enabling evaluation on our multilingual benchmark. We refer to this multilingual adaption as AutoCodeRover-X.
+
+The original AutoCodeRover method resolves issues using two LLM-based agents: the context retrieval agent and the patch generation agent. First, given issue descriptions and codebase as input, the context retrieval agent searches code information related to the given issue. In this stage, the agent searches relevant code information by calling code search tools iteratively until the agent thinks that enough code information is retrieved. Then, the retrieved code information is input to the patch generation agent. This agent will keep refining the generated patch until it can be applied successfully or until the maximum number of attempts is reached.
+
+In AutoCodeRover-X, we retain AutoCodeRover's original design and expand it to support multiple languages. The context retrieval agent uses AST tools to parse file} \revised{structures. In AutoCodeRover-X, we use different AST tools for each language: Babel [60] for JavaScript/TypeScript and tree-sitter [62] for Java. Additionally, we rewrite LLM prompts in multilingual versions. For parameter settings, we follow the default setting from the original AutoCodeRover implementation [63].}
+
+
+\end{changes}
+
+We evaluate the AutoCodeRover-X methods on \Swebenchx and present the experimental results as follows:
+
+\begin{enumerate}
+
+\item We evaluate three LLMs with AutoCodeRover-X on the OmniGIRL full set. We find that the experimental results do not change our original conclusions. First, we find that evaluated LLMs with AutoCodeRover-X show limited performance on the OmniGIRL, achieving the highest resolve rate of 8.1\%. Second, we find that AutoCodeRover-X can enhance the performance of all three LLMs, which shows AutoCodeRover's robustness. Finally, we find AutoCodeRover-X still struggles to resolve issues on TypeScript and JavaScript. Similar to the Agentless method, we believe this is because AutoCodeRover only focuses on extracting information from traditional
+object-oriented constructs like classes and methods but do not account for other critical structures such as ``type'' and ``interface''.
+
+The revised contents are presented as follows:
+% to include various prompts in the case study (Section 6.2.1 in the paper), all of which were designed following guidelines from recent studies~\cite{shieh2023best,abs-2305-12138}.
+
+\begin{changes}
+% \revise{
+\textbf{5.2~~~~Performance of LLMs on OmniGIRL}
+% \textit{6.2.1~~~~Case Study.~}}
+% \revise{All of the generation results can be seen in our repository. }
+
+\revised{We evaluate three advanced LLMs with three methods on \Swebenchx.}  The results are presented in Table 8. First, we can find that  performance of advanced LLMs on \Swebenchx remains limited. Among the evaluated models, \GPT with Agentless-X method achieves the highest resolve rate of 8.6\% and apply rate of 87.4\% on \Swebenchx. 
+\revised{And \GPT with AutoCodeRover-X method achieves the second best performance with the resolve rate of 8.1\% and apply rate of 85.8\% on \Swebenchx. 
+ Moreover, \Claude with oracle retrieval method achieves the third best performance with the resolve rate of 7.8\% and apply rate of 61.8\% on \Swebenchx.}
+
+\revised{Second, the results show that the Agentless-X method and the AutoCodeRover-X outperform the oracle retrieval method for both \GPT and \DeepSeek.} Specifically, for \GPT, Agentless-X increases the resolve rate from 2.5\% to 8.6\%, \revised{while AutoCodeRover-X improves it to 8.1\%}. 
+% Similarly, \DeepSeek's performance also improves with Agentless-X, as its resolve rate rises from 2.7\% to 3.9\%. 
+\revised{Similarly, \DeepSeek's performance also improves, with Agentless-X raising the resolve rate from }\revised{ 2.7\% to 3.9\% and AutoCodeRover-X enhancing it further to 6.0\%.} \revised{These results demonstrate the effectiveness of the Agentless and the AutoCoderRover in improving the issue resolution ability of LLMs.}
+
+% For the Agentless-X method, we observe notable performance improvements for both \GPT and \DeepSeek compared to the oracle retrieval method. Specifically, \GPT’s resolve rate increases from 2.5\% to 8.6\%, and its apply rate rises from 42.8\% to 87.4\%. Similarly, \DeepSeek’s resolve rate improves from 2.7\% to 3.9\%. These results highlight the effectiveness of the Agentless method in enhancing performance across different languages.
+
+% Third, we find that \Claude performs better with the oracle retrieval method, achieving a resolve rate of 7.8\%, while its performance with the Agentless-X method is limited to only 1.9\%.
+\revised{Third, we find that for \Claude, both the oracle retrieval method and the AutoCodeRover-X method perform better, achieving resolve rates of 7.8\% and 7.6\% respectively, while its performance with the Agentless-X method is limited to only 1.9\%.} 
+ We believe this higher performance with oracle retrieval is due to \Claude's strong capability in understanding long code segments, which allows it to make accurate code changes when the correct file locations are provided. In contrast, with Agentless-X method, \Claude's performance is limited because it often fails to produce results in the expected format during the localization stage. This inconsistency makes it hard to parse the location output correctly, ultimately preventing patch generation. The detailed discussion of this issue is in Section 5.4. \revised{Compared to the Agentless-X method, AutoCodeRover-X achieves better performance on \Claude, demonstrating its robustness in enhancing the performance of different LLMs. }
+
+\revised{Last, we observe that both the Agentless-X method and the AutoCodeRover-X method perform worse on JavaScript and TypeScript than on Java and Python. This is likely due to the design of these methods, which both rely on AST tools to parse repository files and locate key structures, such as classes and methods. Specifically, they focus on extracting information from traditional object-oriented constructs like classes and methods but do not account for other critical structures.}  In Python and Java, essential information is typically organized within classes and methods, so this AST-based extraction is effective. However, in JavaScript and TypeScript repositories, code frequently relies on types and interfaces to define important structures that are not part of the traditional class or method constructs. This makes it challenging for the original extraction method to capture this information effectively. Additionally, JavaScript and TypeScript always use anonymous and arrow functions, which AST tools struggle to parse compared to standard functions. \revised{For these methods} \revised{to handle JavaScript and TypeScript more effectively, it would need to account for these language-specific features, such as arrow functions, anonymous functions, and the use of types and interfaces.}
+
+\begin{center} 
+\begin{myboxc} \textbf{RQ1 Summary:} The performances of current LLMs remain limited on \Swebenchx. Besides, \revised{the Agentless-X method and the AutoCodeRover-X can effectively enhance issue resolution preformance of \GPT and \DeepSeek. However, while \Claude achieves good performance with the oracle retrieval method and the AutoCodeRover-X method}, it struggles with Agentless-X. \revised{Lastly, Agentless-X and AutoCodeRover-X perform better on Java and Python compared to JavaScript and TypeScript.} \end{myboxc} 
+\end{center}
+
+
+
+
+
+
+\end{changes}
+
+\begin{table}[h]
+  \centering
+  \small %\footnotesize
+  \setlength\tabcolsep{3pt}
+  \renewcommand{\thetable}{8}
+  \caption{\revised{\footnotesize{Performance comparison across different LLMs on \Swebenchx. In the table, DeepSeek-V2.5 is short for DeepSeek, GPT-4o-2024-08-06 is short for GPT-4o, and Claude-3.5-Sonnet-2024-06-25 is short for Claude-3.5.}}}
+  \tabmargin
+  \label{table:performanceAll}
+  \resizebox{\columnwidth}{!}{
+    \begin{tabular}{cccccccccc}
+    \toprule
+    \multirow{2}{*}{\textbf{Model}} & \multicolumn{3}{c}{\textbf{Oracle Retrieval}} & \multicolumn{3}{c}{\textbf{Agentless-X}} & \multicolumn{3}{c}{
+    {\revised{\textbf{AutoCodeRover-X}}}} \\
+    \cmidrule(r){2-4} \cmidrule(r){5-7} \cmidrule(r){8-10}
+    & \textbf{Resolve Rate} & \textbf{Apply Rate} & \textbf{Cost(\$)} & \textbf{Resolve Rate} & \textbf{Apply Rate} & \textbf{Cost(\$)} & \revised{\textbf{Resolve Rate}} & \revised{\textbf{Apply Rate}} & \revised{\textbf{Cost(\$)}} \\
+    \midrule
+    
+    \textbf{DeepSeek (All)} & 2.7\% (26/959)  & 49.0\% (470/959) &  
+    0.005& 3.9\% (37/959) & 52.0\% (499/959) & 0.010 & \revised{6.0 \% (58/959)} & \revised{53.0\% (508/959)} & \revised{0.028}  \\
+    \midrule
+    \quad Python & 1.3\% (5/374) & 49.7\% (186/374)& 0.008 & 6.1\% (23/374)& 70.9\% (265/374)& 0.014 & \revised{7.2 \% (27/374)} & \revised{53.2\% (199/374)} & \revised{0.026} \\
+    \quad TypeScript & 1.9\% (4/210)& 45.2\% (95/210)& 0.003 & 1.9\% (4/210)& 44.3\% (93/210)& 0.006  & \revised{4.3 \% (9/210)} & \revised{46.7\% (98/210)} & \revised{0.033}\\
+    \quad JavaScript & 2.2\% (6/270)& 48.5\% (131/270)& 0.003 & 2.6\% (7/270)& 37.0\% (100/270) & 0.009 &\revised{3.7 \% (10/270)} & \revised{53.3\% (144/270)} & \revised{0.029} \\
+    \quad Java & 10.5\%  (11/105)& 55.2\% (58/105) & 0.038 & 2.9\%  (3/105)&39.0\% (41/105)& 0.007 &\revised{11.4 \% (12/105)} & \revised{63.8\% (67/105)} & \revised{0.021}\\
+    \midrule
+    
+    \textbf{\GPT (All)} & 2.7\% (26/959)  & 42.6\% (409/959) & 0.069 & \textbf{8.6\% (82/959)} & \textbf{87.4\% (838/959)} & 0.098 &\revised{8.1 \% (78/959)} & \revised{85.8\% (823/959)} & \revised{0.168}\\
+    \midrule
+    \quad Python &1.9\% (7/374) &42.5\% (159/374) & 0.112 & 8.8\% (33/374) & 89.3\% (334/374) & 0.090 &\revised{9.9 \% (37/374)} & \revised{89.6\% (335/374)} & \revised{0.156}\\
+    \quad TypeScript & 3.3\% (7/210) &44.3\% (93/210) & 0.035 &6.2\% (13/210) &85.2\% (179/210) & 0.095 &\revised{6.2 \% (13/210)} & \revised{78.6\% (165/210)} & \revised{0.179}\\
+    \quad JavaScript &1.9\% (5/270) & 40.0\% (108/270) & 0.049 &6.3\%  (17/270)&87.8\% (237/270) & 0.113 &\revised{3.7 \% (10/270)} & \revised{84.4\% (228/270)} & \revised{0.193}\\
+    \quad Java &6.7\% (7/105)& 46.7\%  (49/105) & 0.003 & 18.1\% (19/105) &83.8\% (88/105) & 0.053 &\revised{17.1 \% (18/105)} & \revised{90.5\% (95/105)} & \revised{0.119}\\
+    \midrule                                                 
+    
+    \textbf{Claude-3.5 (All)} &7.8\% (75/959) & 61.8\% (593/959) & 0.110 & 1.9\% 
+ (18/959)& 14.6\%(140/959)& 0.272 &\revised{7.6 \% (73/959)} & \revised{61.5\% (590/959)} & \revised{0.325} \\
+ % 17.6(169/959)& 0.272 \\
+    \midrule
+    \quad Python & 5.1\% (19/374) & 52.9\% (198/374) & 0.179 & 1.6\%  (6/374)& 1.6\% (55/374) &0.335 &\revised{8.8 \% (33/374)} & \revised{80.5\% (301/374)} & \revised{0.260}\\
+ % (84/374)& 0.335 \\
+    \quad TypeScript & 6.7\% (14/210) & 70.0\% (147/210) & 0.047 & 1.0\% (2/210) & 10.5\% 
+ (22/210)& 0.170 &\revised{4.3 \% (9/210)} & \revised{33.8\% (71/210)} & \revised{0.353} \\
+    \quad JavaScript & 8.5\%  (23/270)& 63.3\% (171/270) & 0.073 & 2.2\% (6/270)& 18.5\% (50/270) & 0.178 &\revised{4.1 \% (11/270)} & \revised{46.7\% (126/270)} & \revised{0.392}\\
+    \quad Java & 18.1\% (19/105) & 73.3\% (77/105) & 0.063 &3.8\% (4/105|)& 12.4\% (13/105) & 0.342 &\revised{19.0 \% (20/105)} & \revised{87.6\% (92/105)} & \revised{0.327}\\
+    \bottomrule
+    \end{tabular}
+    }%
+
+\end{table}
+
+\item We also evaluate \GPT and \Claude using AutoCodeRover-X on issues with visual input. Experimental results do not change our original conclusions. First, we find that LLMs with AutoCodeRover-X show limited performance on issues with visual input, with the highest performance of 5.3\%. Besides, we find that visual information can enhance the performance of AutoCodeRover-X on issues requiring image understanding. For example, with the AutoCodeRover-X method, \GPT does not resolve any issue in the ``Text only'' setting. However, when image information is included, the resolve rate increases to 3.1\% in the ``Text \& Image'' setting and further improves to 5.3\% in the ``Image-augmented Text'' setting.
+
+The revised contents are presented as follows:
+% In the revision, we have expanded our experiments to include all samples across the five programming languages in the MCMD dataset using ChatGPT (\texttt{gpt-3.5-turbo}). Consequently, the number of data points for comparison has increased from 5 to 225,000. We have calculated ChatGPT's performance using all automatic evaluation metrics (including BLEU-Norm, \meteor, and \rougel) as illustrated in the updated Table (Table 14 in the revision). The corresponding analysis has been added in Section 6.2.2. 
+\begin{changes}
+% \includegraphics[width=1.0\columnwidth]{figures/tables/chatgpt_metrics.pdf}
+
+% \revise{\textit{6.2.2~~~~Quantitative Analysis.~}}
+% \revise{Automatic evaluation results of ChatGPT are shown in \Tab~14. As it shows, all the scores of ChatGPT are lower than the scores of our model among all five programming languages. It indicates that the similarity of the generation between the reference and ChatGPT is less than that between the reference and our model. One possible reason is that ChatGPT is not aimed at one certain domain so it cannot generate similar-style commit messages as reference. Moreover, the difference between BLEU scores is more than that between METEOR. A possible reason is that the ChatGPT is} \revise{more flexible in expressiveness. The difference in expressiveness also appears} \revise{in the case study about \Fig~9.
+
+\textbf{5.3~~~~Performances of LLMs on Issues With Visual Inputs}
+
+We evaluate two advanced LLMs with visual understanding capabilities, \GPT and \Claude, on a set of 19 task instances that require understanding images in issues. 
+% This evaluation uses both oracle retrieval method and Agentless-X method. 
+\revised{This evaluation uses all three baselines.} Additionally, given the relatively small size of the subset, we repeat each experiment three times to minimize the effects of randomness. To investigate the effect of visual inputs, we conduct experiments under three different settings: 
+
+......
+
+ The results are shown in Table 9, highlighting three key conclusions. First, current LLMs show limited performance on issues requiring image understanding. Using oracle retrieval method, which provides the correct files, \Claude achieves the best performance, resolving only 10.5\% of the issues in the image-augmented text setting. 
+ % In contrast, \GPT performs poorly, resolving only 1.6\% of issues. 
+\revised{In contrast, \GPT resolves only 5.3\% of issues with the AutoCodeRover-X method.} Second, leveraging visual information is beneficial for resolving issues requiring image understanding. When using oracle retrieval method, compared to the ``Text only'' setting, \Claude's resolve rate increases from 3.5\% to 10.5\% in the ``Image-augmented Text'' setting. \revised{Similarly, with the AutoCodeRover-X method, \GPT does not resolve any issue in the ``Text only'' setting. However, when image information is included, the resolve rate increases to 3.1\% in the ``Text \& Image'' setting and further improves to 5.3\% in the ``Image-augmented Text'' setting.} \revised{Third, LLMs using the Agentless-X method and the AutoCodeRover-X method both struggle to resolve issues requiring image understanding.}  Despite its solid performance on \Swebenchx, Agentless-X failed to resolve any issues requiring image understanding on both models. \revised{Similarly, AutoCodeRover-X also shows limited performance in this area, with \GPT resolving at most 5.3\% of issues, while \Claude failed to resolve any.} These results highlight  that current methods need improvements to utilize visual information effectively.
+
+\begin{center}
+    \begin{myboxc} \textbf{RQ2 Summary: } %cd
+     Our evaluation shows that current LLMs struggle with issues requiring image understanding. Besides,  leveraging visual information is beneficial for resolving issues requiring image understanding. However, \revised{we find LLMs with Agentless-X and AutoCodeRover-X show limited performances on issues requiring image understanding, highlighting the need for these methods to utilize visual information  effectively}.
+    \end{myboxc} %cd
+\end{center}
+
+% }
+\end{changes}
+
+
+\begin{table}[h]
+  \centering
+  % \small
+  \setlength{\tabcolsep}{3pt}
+  \renewcommand{\thetable}{9}
+    \caption{\revised{\footnotesize{Performance comparison across different LLMs on \Swebenchx-V. In this table, Claude-3.5-Sonnet-2024-06-25 is short for Claude-3.5 and the ``Image-augmented Text'' setting is short for IAG-Text.} }}
+  \label{table:performanceVisual}
+  \tabmargin
+  \resizebox{\columnwidth}{!}{
+    \begin{tabular}{llccccccccc}
+    \toprule
+    \multirow{2}{*}{\textbf{Model}} & \multirow{2}{*}{\textbf{Setting}} & \multicolumn{3}{c}{\textbf{Oracle Retrieval}} & \multicolumn{3}{c}{\textbf{Agentless-X}} & \multicolumn{3}{c}{\textbf{\revised{AutoCodeRover-X}}}\\
+    \cmidrule(r){3-5} \cmidrule(r){6-8}\cmidrule(r){9-11}
+    & & \textbf{Resolve Rate} & \textbf{Apply Rate} & \textbf{Cost(\$)} & \textbf{Resolve Rate} & \textbf{Apply Rate} & \textbf{Cost(\$)} & \textbf{\revised{Resolve Rate}} & \textbf{\revised{Apply Rate}} & \textbf{\revised{Cost(\$)}} \\
+    \midrule
+    \multirow{3}{*}{\GPT} 
+    & Text Only & 1.6\% (1/57) & 45.6\% (26/57) & 0.036 & 0\% (0/57) & 42.1\% (24/57) & 0.096 & \revised{0\% (0/57)} & \revised{84.2\% (48/57)} & \revised{0.159}\\
+    & Text \& Images & 1.6\% (1/57) & 33.3\% (19/57)  & 0.038 & 0\% (0/57) & 26.3\% (15/57) & 0.110 & \revised{3.5\% (2/57)} & \revised{77.2\% (44/57)} & \revised{0.220}\\
+    & \revised{IAG-Text} & 1.6\% (1/57) & 52.6\% (30/57) & 0.046 & 0\% (0/57) & 38.6\% (22/57) & 0.109 & \revised{5.3\% (3/57)} & \revised{78.9\% (45/57)} & \revised{0.269}\\
+    \midrule
+    \multirow{3}{*}{\revised{Claude-3.5}} 
+    & Text Only & 3.5\% (2/57) & 50.9\% (29/57) & 0.058 & 0\% (0/57) & 57.9\% (33/57) &  0.210 & \revised{0\% (0/57)} & \revised{84.2\% (48/57)} & \revised{0.271}\\
+    & Text \& Images & 3.5\% (2/57) & 59.6\% (34/57) & 0.062 & 0\% (0/57) & 63.2\% (36/57) &  0.224 & \revised{0\% (0/57)} & \revised{61.4\% (35/57)} & \revised{0.309}\\
+    & \revised{IAG-Text} & 10.5\% (6/57) &  59.6\% (34/57) & 0.074 & 0\% (0/57) & 52.6\% (30/57) & 0.233 & \revised{0\% (0/57)} & \revised{68.4\% (39/57)} & \revised{0.339}\\
+    \bottomrule
+    \end{tabular}
+  }
+
+\end{table}
+
+
+\item We also analyze the performances of LLMs with AutoCodeRover-X on cross-file issues and single-file issues. We find that original conclusions do not change. First, we find that all LLMs with AutoCodeRover-X perform significantly worse on cross-file issues compared to single-file issues. Besides, we find that LLMs with the AutoCodeRover-X still show a high tendency to modify a single file on cross-file issues.
+
+The revised contents are presented as follows:
+% We have conducted human evaluations on 50 randomly selected samples generated by ChatGPT. These evaluations focus on content adequacy, conciseness, and expressiveness, which provides a comparison with both human-annotated references and our model's outputs. The corresponding analysis has been added in Section 6.2.2. 
+
+\begin{changes}
+% \includegraphics[width=1.0\columnwidth]{figures/tables/chatgpt_human.pdf}
+
+\textbf{5.4~~~~Failure Analysis.}
+
+......
+
+We assume one reason LLMs perform poorly on cross-file issues is their tendency to modify only a single file. To investigate this assumption, we first examine the number of files modified in the patches generated by LLMs for cross-file issues. Then, we calculate the proportion of patches that include modifications to multiple files versus those with changes to only a single file. We find that, even with the oracle retrieval method, which provides the relevant files to the model, LLMs still primarily edit a single file. Specifically, \Claude modifies a single file in 88\% of issues, \GPT in 87\%, and \DeepSeek in 93\%. Moreover, with the Agentless-X method, all models modify a single file in 100\% of issues. \revised{Additionally, with the AutoCodeRover-X method, \Claude modifies a single file in 93.3\% of issues, \GPT in 82.4\%, and \DeepSeek in 90.0\%.}  These results highlight the insufficient ability of current LLMs in resolving issues that require modifying multiple files.
+
+% \revise{Therefore, human evaluation can better evaluate the performance of ChatGPT's generation results. The human evaluation results are shown in Table~15. This evaluation reveals that ChatGPT's content adequacy is nearly equivalent to that of human (reference), differing by a mere 0.04. ChatGPT outperforms human benchmarks in terms of conciseness and expressiveness. 
+% Although our model surpasses other baseline models as shown in \Tab~12, it does not exceed ChatGPT's capabilities. The difference between our model and ChatGPT is less than 0.5 in content adequacy and conciseness, but more pronounced in expressiveness.}
+
+% \revise{Overall, the scores of our model range from 2.10 to 2.32, which is higher than the midpoint (2) of the five-point scale (0, 1, 2, 3, 4) so it means the performance is above the moderate level. Although the scores of our model are not higher than the scores of human-written and ChatGPT, all of the scores on content adequacy and conciseness are between the midpoint score (2) and one level above the midpoint score (3). It indicates that the generation performance of our model and ChatGPT is at a similar level.}
+\end{changes}
+
+\begin{table}[h]
+  \centering
+  \small %\footnotesize
+  \setlength\tabcolsep{3pt}
+  \renewcommand{\thetable}{11}
+      \caption{\footnotesize{Performance comparison across different LLMs on \Swebenchx for cross-file and single-file issues.}}
+  \label{table:CrossFileEval}
+  \tabmargin
+  \resizebox{\columnwidth}{!}{
+    \begin{tabular}{llcccc}
+    \toprule
+    \multirow{2}{*}{\textbf{Model}} & \multirow{2}{*}{\textbf{Method}} & \multicolumn{2}{c}{\textbf{Single-file Issues}} & \multicolumn{2}{c}{\textbf{Cross-file Issues}} \\
+    \cmidrule(r){3-4} \cmidrule(r){5-6}
+    & & \textbf{Resolve Rate} & \textbf{Apply Rate} & \textbf{Resolve Rate} & \textbf{Apply Rate} \\
+    \midrule
+    \multirow{3}{*}{\GPT} 
+    & Oracle Retrieval & 3.5\% (21/601) & 42.9\% (258/601) & 1.4\% (5/358) & 42.2\% (151/358) \\
+    & Agentless-X &  12.0\% (72/601) & 87.4\% (525/601) & 2.8\% (10/358)  & 87.4\% (313/358) \\
+       & \revised{AutoCodeRover-X} &  \revised{11.5\% (69/601)} & \revised{88.4\% (531/601)} & \revised{2.5\% (9/358)}  & \revised{81.6\% (292/358)} \\
+
+    \midrule
+    \multirow{2}{*}{\DeepSeek} 
+    & Oracle Retrieval & 3.7\% (22/601)  & 50.6\% (304/601) & 1.1\% (4/358)  & 46.4\% (166/358) \\
+    & Agentless-X & 5.2\% (31/601)  & 52.4\% (315/601) & 1.7\% (6/358)  & 51.4\% (184/358) \\
+    & \revised{AutoCodeRover-X} &  \revised{8.5\% (51/601)} & \revised{55.9\% (336/601)} & \revised{1.9\% (7/358)}  & \revised{48.0\% (172/358)}  \\
+
+    \midrule
+    \multirow{2}{*}{\Claude} 
+        & Oracle Retrieval & 10.5\% (63/601) & 66.1\% (397/601) & 3.4\% (12/358) & 54.7\% (196/358) \\
+    & Agentless-X & 2.5\% (15/601) & 13.6\% (82/601) & 0.8\% (3/358) & 16.2\% (58/358) \\
+    & \revised{AutoCodeRover-X} &  \revised{10.8\% (65/601)} & \revised{63.4\% (381/601)} & \revised{2.2\% (8/358)}  & \revised{58.3\% (209/358)}  \\
+    \bottomrule
+    \end{tabular}
+    }%
+    
+
+\end{table}
+
+\end{enumerate}
+
+\end{revresponse}
+
+
+\begin{revweakness}
+The experimental reliance on a single approach, Agentless-X, with adaptations to extend its use beyond Python, may limit the generalizability of conclusions. While Agentless-X demonstrates utility in scaling to multiple languages, it may not optimally leverage LLM capabilities. For example, Sonnet 3.5's poor performance in cross-file edits underscores the need for agentic systems designed specifically for such tasks. The authors appear to also acknowledge that naive evaluations may not reflect optimal performance, suggesting the need for alternative methods tailored to complex resolution tasks.    
+\end{revweakness}
+
+\begin{revresponse}
+[Thanks for the comments! Following your suggestions, we evaluate the agentic system AutoCodeRover \text{[Ref6]} on OmniGIRL. Though this method uses a context retrieval agent to search relevant code information iteratively, it shows limited performance in the cross-file issues. Please refer to Comment 2.1 for the detailed experiment results.]
+\end{revresponse}
+
+\begin{revweakness}
+Along the same lines, a detailed exploration of strategies to address scope limitations, such as hierarchical patch generation or dependency graph analysis, would lend more support to the statements in the paper regarding current SOTA LLMs' readiness to handle the OmniGIRL dataset.    
+\end{revweakness}
+
+\begin{revresponse}[Thanks for the comments! In the revision, we evaluate an LLM agent-based approach, AutoCodeRover \text{[Ref6]}, which can search code information and generate patches dynamically. Please refer to the Comment 2.1 for the detailed experiment results. In the future, we will evaluate more advanced approaches with other techniques, such as  hierarchical patch generation or dependency graph analysis, on our benchmark.]
+
+\end{revresponse}
+
+
+\reviewer\label{sec:reviewer3}
+\begin{revcomment}
+It is commendable that OmniGIRL incorporates diverse domains, programming languages, and multimodal information, making it highly comprehensive. However, to enhance its utility, the benchmark should not be restricted solely to LLM-based approaches. It should also support the evaluation of any tool designed to resolve GitHub issues, even if those tools focus on a single programming language. This inclusivity would broaden the benchmark's applicability and relevance across various methodologies, making it a more valuable resource for researchers and practitioners alike.
+\end{revcomment}
+
+\begin{revresponse}[Thanks for the comments! We are sorry for the confusion. To clarify, the OmniGIRL benchmark is not limited to evaluating only LLM-based tools. Instead, it is designed to evaluate any tool that can take GitHub issues as input and generate patches that resolve the corresponding issue. We have revised the presentation in the Section 2.1 , Figure 1 and Section 5 to avoid potential misunderstandings.]
+
+\end{revresponse}
+
+\begin{changes}
+
+
+\textbf{2.1~~~~GitHub Issue Resolution}
+
+The GitHub issue resolution task aims to resolve issues reported in the GitHub repository automatically \text{[12,13]}. \revised{When evaluating the issue resolution ability of tools, we follow the pipeline as shown in Figure 1. During the inference stage, the tool receives the issue descriptions along with the corresponding codebase and generates a patch that contains all necessary code changes to the original codebase.} In the evaluation stage, the generated patch is applied to the codebase, and all test cases related to this issue are run. After obtaining the test log, we check the statuses of the test cases. The issue is considered resolved if all related test cases pass successfully. Some key concepts are listed below:
+
+......\newline
+
+\begin{center}
+\includegraphics[width=0.9\linewidth]{ISSTA25-acmart-primary/figures/EvaluationPipelineV5.pdf}
+
+\revised{Fig. 1. Overview of the evaluation pipeline of GitHub issue resolution.}
+    
+\end{center}
+
+\textbf{5~~~~EVALUATION}
+
+
+In this section, we first evaluate the issue resolution ability of three advanced LLMs on \Swebenchx. We then evaluate the performances of LLMs on issues that requires image understanding. Finally, we investigate why LLMs fail to resolve issues on \Swebenchx. %We will first introduce the setup of our experiments. Then, 
+\revised{Note that we only evaluate LLM-based methods here because, according to the SWE-bench leaderboard [56], the most advanced tools are primarily LLM-based. However, our benchmark is designed to evaluate issue resolution ability of any tools, including those that do not rely on LLMs. In summary,}  we answer the following research questions: 
+
+
+
+\end{changes}
+
+~\\
+
+\begin{revcomment}
+Following the concern regarding the benchmark's inclusivity, I believe the evaluation process could be more comprehensive. Currently, the benchmark includes only two baselines, while numerous state-of-the-art tools exist for resolving GitHub issues. Including tools that may be limited to specific languages or types of issues (e.g., Java-only solutions) would provide a more comprehensive understanding of the benchmark's effectiveness. This approach would better reflect the versatility of OmniGIRL and its applicability to a broader range of solutions.
+
+\end{revcomment}
+\begin{revresponse}[Thanks for the comments! We appreciate your suggestion to expand our evaluation and make it more comprehensive. In the revision, we first add detailed baseline selection criteria. Additionally, we add a new agent-based issue resolution method, \textbf{AutoCodeRover}, as one of our baselines.
+
+\textbf{Baseline selection criteria:} To ensure a comprehensive evaluation, following previous studies \text{[Ref1, Ref2, Ref3]}, we first categorize current issue resolution methods into three types: (1) RAG-based methods, (2) LLM workflow-based methods, and (3) LLM agent-based methods. For each category, we select one method that demonstrates strong performance and reasonable costs, based on the performance rankings in the SWE-bench leaderboard \text{[Ref4]}. Finally, we choose three methods as our baselines. The selection criteria for each are as follows:
+\begin{enumerate}
+    \item For the RAG-based method, we select the oracle retrieval method. Previous studies \text{[Ref5]} indicate that current RAG-based methods show limited performance for this task. Using oracle retrieval allows us to evaluate the performance of LLMs under the ideal scenario where relevant code is correctly retrieved.
+    \item For the LLM workflow-based method, we select the Agentless method due to its strong performance (ranks 5th on the SWE-bench-Verified) \text{[Ref4]} and reasonable cost.
+    \item For the LLM agent-based method, we select the AutoCodeRover \text{[Ref6]} method (published at ISSTA'24), which also demonstrates strong performance (ranks 2nd in the SWE-bench-Full) \text{[Ref4]} and has a reasonable cost.
+\end{enumerate}
+
+The revised contents are presented as follows:
+]
+
+\begin{changes}
+
+\textit{5.1.2~~~~Evaluation Method.} Due to the complexity of issue resolution tasks, it is challenging to obtain correct results by directly feeding issue descriptions and codebases into LLMs. \revised{Therefore, we evaluate LLMs using some advanced GitHub issue resolution approaches. As mentioned in Section 2.2, we can divide current issue resolution approaches into three types following previous studies [36-38]: retrieval augmentation-based method, LLM workflow-based method, and LLM agent-based method. To ensure a comprehensive evaluation, we select one representative method from each category. Based on the SWE-bench leaderboard [56], we choose baselines with high performance and reasonable cost. Given the limited} \revised{ performance  of current RAG-based methods [5,13], we choose the oracle retrieval method for evaluation. For the LLM workflow-based method, we select the Agentless [3] method, which is ranked 5th in the SWE-bench-Verified [56]. And for the agent-based method, we choose the AutoCoderOver [8] method, which is ranked 2nd in the SWE-bench-Full [56]. These methods not only demonstrate advanced performance but also have reasonable costs according to previous studies [3]. Finally, we use three methods: the oracle retrieval [5,13], the Agentless method [3] and the AutoCodeRover method [8]. The descriptions of these methods are listed as follows:}
+
+% ......
+
+% \revised{\textbf{AutoCodeRover-X.} We choose the AutoCodeRover [8] method as our baseline. Similar to the Agentless method, the AutoCodeRover method only supports Python language. We adapt this method to support additional languages (e.g., JavaScript, TypeScript, and Java), enabling evaluation of our multilingual benchmark. We refer to this multilingual adaption as AutoCodeRover-X.
+
+% The original AutoCodeRover method resolves issues using two LLM-based agents: the context retrieval agent and the patch generation agent. First, given issue descriptions and codebase as input, the context retrieval agent searches code information related to the given issue. In this stage, the agent searches relevant code information by calling code search tools iteratively until the agent thinks that enough code information is retrieved. Then, the retrieved code information is input to the patch generation agent. This agent will keep refining the generated patch until it can be} \revised{applied successfully or until the maximum number of attempts is reached.
+
+% In AutoCodeRover-X, we retain AutoCodeRover's original design and expand it to support multiple languages. The context retrieval agent uses AST tools to parse file structures. In AutoCodeRover-X, we use different AST tools for each language: Babel [60] for JavaScript/TypeScript and tree-sitter [62] for Java. Additionally, we rewrite LLM prompts in multilingual versions. For parameter settings, we follow the default setting from the original AutoCodeRover implementation [63].}
+
+
+\end{changes}
+
+Following previous studies \text{[Ref1, Ref2, Ref3]}, we classify current issue resolution methods into three types. We supplement the introduction of these different categories in Section 2.2. The revised contents are presented as follows.
+
+\begin{changes}
+\textbf{2.2~~~~LLM-based Methods for GitHub Issue Resolution}
+
+......
+
+\revised{Following previous studies [36-38], we can divide current LLM-based issue resolution methods into three types: RAG-based method, LLM workflow-based method, and LLM agent-based method. The RAG-based methods use a retriever to directly retrieve similar code files from the codebase to enhance issue resolution. However these methods, such as BM25 retrieval-based method, demonstrate limited performance on this task [13]. The second type, LLM workflow-based methods, break down the issue resolution process into predefined stages, where LLMs follow a fixed sequence to complete tasks. For example, Agentless [3] employs a structured workflow with a localization stage to retrieve relevant code and a patch generation stage to generate a final patch. Finally, LLM agent-based methods, such as AutoCodeRover [8] and SWE-agent [6], allow LLMs to autonomously interact with the codebase, using tools to collect key information and resolve tasks dynamically. }    
+\end{changes}
+
+\textbf{Introduction of the added baseline:} In the revision, we choose the \textbf{AutoCodeRover} \text{[Ref6]} method (published at ISSTA'24) as our agent-based method. This selection is made based on its strong performance, ranking second in the SWE-bench-full leaderboard \text{[Ref4]}, as well as its reasonable cost. 
+
+The original AutoCodeRover method is designed for Python language and resolves issues using two LLM-based agents: the context retrieval agent and the patch generation agent. The context retrieval agent searches for relevant code information based on issue descriptions and codebases, iteratively using code search tools until it considers that enough relevant code has been retrieved. The retrieved code is then passed to the patch generation agent, which refines the generated patch until it can be successfully applied or until the maximum number of attempts is reached.
+
+In the revision, we extend AutoCodeRover to support additional languages such as JavaScript, TypeScript, and Java, enabling evaluation of our multilingual benchmark. This adaptation is referred to as AutoCodeRover-X. We retain the original design of the method but adapt the context retrieval agent to handle different programming languages by using specific Abstract Syntax Tree (AST) tools. For JavaScript and TypeScript, we use Babel \text{[Ref7]}, and for Java, we use tree-sitter \text{[Ref8]}. Additionally, we modify the LLM prompts to be multilingual, ensuring the method can handle a variety of programming languages. For parameter settings, we follow the default configurations provided by the original AutoCodeRover implementation.
+
+The revised contents are presented as follows:
+
+% add autocoderover. &swe-agent? (really expensive.)
+
+\begin{changes}
+\textbf{5.1~~~~Experimental Setup}
+
+......\newline
+\textit{5.1.1~~~~Evaluation Method.} Due to the complexity of issue resolution tasks, it is challenging to obtain correct results by directly feeding issue descriptions and codebases into LLMs. 
+
+......\newline
+\revised{\textbf{AutoCodeRover-X.} We choose the AutoCodeRover [8] method as our baseline. Similar to the Agentless method, the AutoCodeRover method only supports Python language. We adapt this method to support additional languages (e.g., JavaScript, TypeScript, and Java), enabling evaluation on our multilingual benchmark. We refer to this multilingual adaption as AutoCodeRover-X.
+
+The original AutoCodeRover method resolves issues using two LLM-based agents: the context retrieval agent and the patch generation agent. First, given issue descriptions and codebase as input, the context retrieval agent searches code information related to the given issue. In this stage, the agent searches relevant code information }\revised{ by calling code search tools iteratively until the agent thinks that enough code information is retrieved. Then, the retrieved code information is input to the patch generation agent. This agent will keep refining the generated patch until it can be applied successfully or until the maximum number of attempts is reached.
+
+In AutoCodeRover-X, we retain AutoCodeRover's original design and expand it to} \revised{ support multiple languages. The context retrieval agent uses AST tools to parse file} \revised{structures. In AutoCodeRover-X, we use different AST tools for each language: Babel [60] for JavaScript/TypeScript and tree-sitter [62] for Java. Additionally, we rewrite LLM prompts in multilingual versions. For parameter settings, we follow the default setting from the original AutoCodeRover implementation [63].}
+
+
+\end{changes}
+
+\textbf{Experiment Results:} We evaluate the AutoCodeRover-X method on \Swebenchx and present the experimental results as follows:
+
+
+
+\begin{enumerate}
+
+\item We evaluate three LLMs with AutoCodeRover-X on the OmniGIRL full set. We find that the experimental results do not change our original conclusions. First, we find that evaluated LLMs with AutoCodeRover-X show limited performance on the OmniGIRL, achieving the highest resolve rate of 8.1\%. Second, we find that AutoCodeRover-X can enhance the performance of all three LLMs, which shows AutoCodeRover's robustness. Finally, we find AutoCodeRover-X still struggles to resolve issues on TypeScript and JavaScript. Similar to the Agentless method, we believe this is because AutoCodeRover only focuses on extracting information from traditional
+object-oriented constructs like classes and methods but do not account for other critical structures such as ``type'' and ``interface''.
+
+The revised contents are presented as follows:
+% to include various prompts in the case study (Section 6.2.1 in the paper), all of which were designed following guidelines from recent studies~\cite{shieh2023best,abs-2305-12138}.
+
+\begin{changes}
+% \revise{
+\textbf{5.2~~~~Performance of LLMs on OmniGIRL}
+% \textit{6.2.1~~~~Case Study.~}}
+% \revise{All of the generation results can be seen in our repository. }
+
+\revised{We evaluate three advanced LLMs with three methods on \Swebenchx.}  The results are presented in Table 8. First, we can find that  performance of advanced LLMs on \Swebenchx remains limited. Among the evaluated models, \GPT with Agentless-X method achieves the highest resolve rate of 8.6\% and apply rate of 87.4\% on \Swebenchx. 
+\revised{And \GPT with AutoCodeRover-X method} \revised{achieves the second best performance with the resolve rate of 8.1\% and apply rate of 85.8\% on \Swebenchx. 
+ Moreover, \Claude with oracle retrieval method achieves the third best performance with the resolve rate of 7.8\% and apply rate of 61.8\% on \Swebenchx.}
+
+\revised{Second, the results show that the Agentless-X method and the AutoCodeRover-}\revised{X outperform the oracle retrieval method for both \GPT and \DeepSeek.} Specifically, for \GPT, Agentless-X increases the resolve rate from 2.5\% to 8.6\%, \revised{while AutoCodeRover-X improves it to 8.1\%}. 
+% Similarly, \DeepSeek's performance also improves with Agentless-X, as its resolve rate rises from 2.7\% to 3.9\%. 
+\revised{Similarly, \DeepSeek's performance also improves, with Agentless-X raising the resolve rate from }\revised{ 2.7\% to 3.9\% and AutoCodeRover-X enhancing it further to 6.0\%.} \revised{These results demonstrate the effectiveness of the Agentless and the AutoCoderRover in improving the issue resolution ability of LLMs.}
+
+% For the Agentless-X method, we observe notable performance improvements for both \GPT and \DeepSeek compared to the oracle retrieval method. Specifically, \GPT’s resolve rate increases from 2.5\% to 8.6\%, and its apply rate rises from 42.8\% to 87.4\%. Similarly, \DeepSeek’s resolve rate improves from 2.7\% to 3.9\%. These results highlight the effectiveness of the Agentless method in enhancing performance across different languages.
+
+% Third, we find that \Claude performs better with the oracle retrieval method, achieving a resolve rate of 7.8\%, while its performance with the Agentless-X method is limited to only 1.9\%.
+\revised{Third, we find that for \Claude, both the oracle retrieval method and the AutoCodeRover-X method perform better, achieving resolve rates of 7.8\% and 7.6\% respectively, while its performance with the Agentless-X method is limited to only 1.9\%.} 
+ We believe this higher performance with oracle retrieval is due to \Claude's strong capability in understanding long code segments, which allows it to make accurate code changes when the correct file locations are provided. In contrast, with Agentless-X method, \Claude's performance is limited because it often fails to produce results in the expected format during the localization stage. This inconsistency makes it hard to parse the location output correctly, ultimately preventing patch generation. The detailed discussion of this issue is in Section 5.4. \revised{Compared to the Agentless-X method, AutoCodeRover-X achieves better performance on \Claude, demonstrating its robustness in enhancing the performance of different LLMs. }
+
+\revised{Last, we observe that both the Agentless-X method and the AutoCodeRover-X method perform worse on JavaScript and TypeScript than on Java and Python. This is likely due to the design of these methods, which both rely on AST tools to parse repository files and locate key structures, such as classes and methods. Specifically, they focus on extracting information from traditional} \revised{object-oriented constructs like classes and methods but do not account for other critical structures.}  In Python and Java, essential information is typically organized within classes and methods, so this AST-based extraction is effective. However, in JavaScript and TypeScript repositories, code frequently relies on types and interfaces to define important structures that are not part of the traditional class or method constructs. This makes it challenging for the original extraction method to capture this information effectively. Additionally, JavaScript and TypeScript always use anonymous and arrow functions, which AST tools struggle to parse compared to standard functions. \revised{For these methods} \revised{to handle JavaScript and TypeScript more effectively, it would need to account for these language-specific features, such as arrow functions, anonymous functions, and the use of types and interfaces.}
+
+\begin{center} 
+\begin{myboxc} \textbf{RQ1 Summary:} The performances of current LLMs remain limited on \Swebenchx. Besides, \revised{the Agentless-X method and the AutoCodeRover-X can effectively enhance issue resolution preformance of \GPT and \DeepSeek. However, while \Claude achieves good performance with the oracle retrieval method and the AutoCodeRover-X method}, it struggles with Agentless-X. \revised{Lastly, Agentless-X and AutoCodeRover-X perform better on Java and Python compared to JavaScript and TypeScript.} \end{myboxc} 
+\end{center}
+
+% \revise{One example\footnote{\revise{\footnotesize{The raw commit can be found at~\url{https://github.com/home-assistant/core/commit/9caa475}}}} is shown in \Fig~8. The generated messages by ChatGPT in three types of prompts are similar in many words: the action word ($update$), the version number ($0.9.4$), and the object ($bulb$). All of them are relative to the code change and similar to the reference. It indicates that ChatGPT has a strong ability to deal with code changes to generate commit messages in different types of prompts. Moreover, compared with the reference, the generated result by the second type of prompt is more similar than others because it contains $liffylights$ as the reference. Our model generates similar messages as the $ChatGPT_2$'s generation. As the information in the generation by our model and by $ChatGPT_2$ are nearly the same, we cannot conclude which one is better.}\newline
+
+
+% \includegraphics[width=1.0\columnwidth]{figures/tables/CaseStudy_ChatGPT_1.pdf}
+
+
+% A\revise{nother example\footnote{\revise{The figure shows the part of it, the full part can be found at~\url{https://github.com/mono/mono/commit/2ff8c74}}} is shown in \Fig~9. In this case, the second and third prompts show better performance than the first one as they contain many similar words as the reference: $PictureBox$, $null image$, $draw$, and $crash$. These words are key to understanding the commit. Considering the similarity with reference, our model is the best because the ``subject'' part of it is the same as the reference. On the other hand, all of the commit messages generated by our model, $ChatGPT_2$ and $ChatGPT_3$ have similar information and it is difficult to conclude which one is better.}\newline
+
+
+% \includegraphics[width=1.0\columnwidth]{figures/tables/CaseStudy_ChatGPT_2.pdf}
+
+% \revise{Another} example ......
+
+\end{changes}
+
+\begin{table}[h]
+  \centering
+  \small %\footnotesize
+  \setlength\tabcolsep{3pt}
+  \renewcommand{\thetable}{8}
+  \caption{\revised{\footnotesize{Performance comparison across different LLMs on \Swebenchx. In the table, DeepSeek-V2.5 is short for DeepSeek, GPT-4o-2024-08-06 is short for GPT-4o, and Claude-3.5-Sonnet-2024-06-25 is short for Claude-3.5.}}}
+  \tabmargin
+  \label{table:performanceAll}
+  \resizebox{\columnwidth}{!}{
+    \begin{tabular}{cccccccccc}
+    \toprule
+    \multirow{2}{*}{\textbf{Model}} & \multicolumn{3}{c}{\textbf{Oracle Retrieval}} & \multicolumn{3}{c}{\textbf{Agentless-X}} & \multicolumn{3}{c}{
+    {\revised{\textbf{AutoCodeRover-X}}}} \\
+    \cmidrule(r){2-4} \cmidrule(r){5-7} \cmidrule(r){8-10}
+    & \textbf{Resolve Rate} & \textbf{Apply Rate} & \textbf{Cost(\$)} & \textbf{Resolve Rate} & \textbf{Apply Rate} & \textbf{Cost(\$)} & \revised{\textbf{Resolve Rate}} & \revised{\textbf{Apply Rate}} & \revised{\textbf{Cost(\$)}} \\
+    \midrule
+    
+    \textbf{DeepSeek (All)} & 2.7\% (26/959)  & 49.0\% (470/959) &  
+    0.005& 3.9\% (37/959) & 52.0\% (499/959) & 0.010 & \revised{6.0 \% (58/959)} & \revised{53.0\% (508/959)} & \revised{0.028}  \\
+    \midrule
+    \quad Python & 1.3\% (5/374) & 49.7\% (186/374)& 0.008 & 6.1\% (23/374)& 70.9\% (265/374)& 0.014 & \revised{7.2 \% (27/374)} & \revised{53.2\% (199/374)} & \revised{0.026} \\
+    \quad TypeScript & 1.9\% (4/210)& 45.2\% (95/210)& 0.003 & 1.9\% (4/210)& 44.3\% (93/210)& 0.006  & \revised{4.3 \% (9/210)} & \revised{46.7\% (98/210)} & \revised{0.033}\\
+    \quad JavaScript & 2.2\% (6/270)& 48.5\% (131/270)& 0.003 & 2.6\% (7/270)& 37.0\% (100/270) & 0.009 &\revised{3.7 \% (10/270)} & \revised{53.3\% (144/270)} & \revised{0.029} \\
+    \quad Java & 10.5\%  (11/105)& 55.2\% (58/105) & 0.038 & 2.9\%  (3/105)&39.0\% (41/105)& 0.007 &\revised{11.4 \% (12/105)} & \revised{63.8\% (67/105)} & \revised{0.021}\\
+    \midrule
+    
+    \textbf{\GPT (All)} & 2.7\% (26/959)  & 42.6\% (409/959) & 0.069 & \textbf{8.6\% (82/959)} & \textbf{87.4\% (838/959)} & 0.098 &\revised{8.1 \% (78/959)} & \revised{85.8\% (823/959)} & \revised{0.168}\\
+    \midrule
+    \quad Python &1.9\% (7/374) &42.5\% (159/374) & 0.112 & 8.8\% (33/374) & 89.3\% (334/374) & 0.090 &\revised{9.9 \% (37/374)} & \revised{89.6\% (335/374)} & \revised{0.156}\\
+    \quad TypeScript & 3.3\% (7/210) &44.3\% (93/210) & 0.035 &6.2\% (13/210) &85.2\% (179/210) & 0.095 &\revised{6.2 \% (13/210)} & \revised{78.6\% (165/210)} & \revised{0.179}\\
+    \quad JavaScript &1.9\% (5/270) & 40.0\% (108/270) & 0.049 &6.3\%  (17/270)&87.8\% (237/270) & 0.113 &\revised{3.7 \% (10/270)} & \revised{84.4\% (228/270)} & \revised{0.193}\\
+    \quad Java &6.7\% (7/105)& 46.7\%  (49/105) & 0.003 & 18.1\% (19/105) &83.8\% (88/105) & 0.053 &\revised{17.1 \% (18/105)} & \revised{90.5\% (95/105)} & \revised{0.119}\\
+    \midrule                                                 
+    
+    \textbf{Claude-3.5 (All)} &7.8\% (75/959) & 61.8\% (593/959) & 0.110 & 1.9\% 
+ (18/959)& 14.6\%(140/959)& 0.272 &\revised{7.6 \% (73/959)} & \revised{61.5\% (590/959)} & \revised{0.325} \\
+ % 17.6(169/959)& 0.272 \\
+    \midrule
+    \quad Python & 5.1\% (19/374) & 52.9\% (198/374) & 0.179 & 1.6\%  (6/374)& 1.6\% (55/374) &0.335 &\revised{8.8 \% (33/374)} & \revised{80.5\% (301/374)} & \revised{0.260}\\
+ % (84/374)& 0.335 \\
+    \quad TypeScript & 6.7\% (14/210) & 70.0\% (147/210) & 0.047 & 1.0\% (2/210) & 10.5\% 
+ (22/210)& 0.170 &\revised{4.3 \% (9/210)} & \revised{33.8\% (71/210)} & \revised{0.353} \\
+    \quad JavaScript & 8.5\%  (23/270)& 63.3\% (171/270) & 0.073 & 2.2\% (6/270)& 18.5\% (50/270) & 0.178 &\revised{4.1 \% (11/270)} & \revised{46.7\% (126/270)} & \revised{0.392}\\
+    \quad Java & 18.1\% (19/105) & 73.3\% (77/105) & 0.063 &3.8\% (4/105|)& 12.4\% (13/105) & 0.342 &\revised{19.0 \% (20/105)} & \revised{87.6\% (92/105)} & \revised{0.327}\\
+    \bottomrule
+    \end{tabular}
+    }%
+
+\end{table}
+
+\item We also evaluate \GPT and \Claude using AutoCodeRover-X on issues with visual input. Experimental results do not change our original conclusions. First, we find that LLMs with AutoCodeRover-X show limited performance on issues with visual input, with the highest performance of 5.3\%. Besides, we find that visual information can enhance the performance of AutoCodeRover-X on issues requiring image understanding. For example, with the AutoCodeRover-X method, \GPT does not resolve any issue in the ``Text only'' setting. However, when image information is included, the resolve rate increases to 3.1\% in the ``Text \& Image'' setting and further improves to 5.3\% in the ``Image-augmented Text'' setting.
+
+The revised contents are presented as follows:
+% In the revision, we have expanded our experiments to include all samples across the five programming languages in the MCMD dataset using ChatGPT (\texttt{gpt-3.5-turbo}). Consequently, the number of data points for comparison has increased from 5 to 225,000. We have calculated ChatGPT's performance using all automatic evaluation metrics (including BLEU-Norm, \meteor, and \rougel) as illustrated in the updated Table (Table 14 in the revision). The corresponding analysis has been added in Section 6.2.2. 
+\begin{changes}
+% \includegraphics[width=1.0\columnwidth]{figures/tables/chatgpt_metrics.pdf}
+
+% \revise{\textit{6.2.2~~~~Quantitative Analysis.~}}
+% \revise{Automatic evaluation results of ChatGPT are shown in \Tab~14. As it shows, all the scores of ChatGPT are lower than the scores of our model among all five programming languages. It indicates that the similarity of the generation between the reference and ChatGPT is less than that between the reference and our model. One possible reason is that ChatGPT is not aimed at one certain domain so it cannot generate similar-style commit messages as reference. Moreover, the difference between BLEU scores is more than that between METEOR. A possible reason is that the ChatGPT is} \revise{more flexible in expressiveness. The difference in expressiveness also appears} \revise{in the case study about \Fig~9.
+
+\textbf{5.3~~~~Performances of LLMs on Issues With Visual Inputs}
+
+We evaluate two advanced LLMs with visual understanding capabilities, \GPT and \Claude, on a set of 19 task instances that require understanding images in issues. 
+% This evaluation uses both oracle retrieval method and Agentless-X method. 
+\revised{This evaluation uses all three baselines.} Additionally, given the relatively small size of the subset, we repeat each experiment three times to minimize the effects of randomness. To investigate the effect of visual inputs, we conduct experiments under three different settings: 
+
+......
+
+ The results are shown in Table 9, highlighting three key conclusions. First, current LLMs show limited performance on issues requiring image understanding. Using oracle retrieval method, which provides the correct files, \Claude achieves the best performance, resolving only 10.5\% of the issues in the image-augmented text setting. 
+ % In contrast, \GPT performs poorly, resolving only 1.6\% of issues. 
+\revised{In contrast, \GPT resolves only 5.3\% of issues with the AutoCodeRover-X method.} Second, leveraging visual information is beneficial for resolving issues requiring image understanding. When using oracle retrieval method, compared to the ``Text only'' setting, \Claude's resolve rate increases from 3.5\% to 10.5\% in the ``Image-augmented Text'' setting. \revised{Similarly, with the AutoCodeRover-X method, \GPT does not } \revised{resolve any issue in the ``Text only'' setting. However, when image information is included, the resolve rate increases to 3.1\% in the ``Text \& Image'' setting and further improves to 5.3\% in the ``Image-augmented Text'' setting. Third, LLMs using the Agentless-X method and the AutoCodeRover-X method both struggle to resolve issues requiring image understanding.}  Despite its solid performance on \Swebenchx, Agentless-X failed to resolve any issues requiring image understanding on both models. \revised{Similarly, AutoCodeRover-X also shows limited performance in this area, with \GPT resolving at most 5.3\% of issues, while \Claude failed to resolve any.} These results highlight  that current methods need improvements to utilize visual information effectively.
+
+\begin{center}
+    \begin{myboxc} \textbf{RQ2 Summary: } %cd
+     Our evaluation shows that current LLMs struggle with issues requiring image understanding. Besides,  leveraging visual information is beneficial for resolving issues requiring image understanding. However, \revised{we find LLMs with Agentless-X and AutoCodeRover-X show limited performances on issues requiring image understanding, highlighting the need for these methods to utilize visual information  effectively}.
+    \end{myboxc} %cd
+\end{center}
+
+% }
+\end{changes}
+
+
+\begin{table}[h]
+  \centering
+  % \small
+  \setlength{\tabcolsep}{3pt}
+  \renewcommand{\thetable}{9}
+    \caption{\revised{\footnotesize{Performance comparison across different LLMs on \Swebenchx-V. In this table, Claude-3.5-Sonnet-2024-06-25 is short for Claude-3.5 and the ``Image-augmented Text'' setting is short for IAG-Text. }}}
+  \label{table:performanceVisual}
+  \tabmargin
+  \resizebox{\columnwidth}{!}{
+    \begin{tabular}{llccccccccc}
+    \toprule
+    \multirow{2}{*}{\textbf{Model}} & \multirow{2}{*}{\textbf{Setting}} & \multicolumn{3}{c}{\textbf{Oracle Retrieval}} & \multicolumn{3}{c}{\textbf{Agentless-X}} & \multicolumn{3}{c}{\textbf{\revised{AutoCodeRover-X}}}\\
+    \cmidrule(r){3-5} \cmidrule(r){6-8}\cmidrule(r){9-11}
+    & & \textbf{Resolve Rate} & \textbf{Apply Rate} & \textbf{Cost(\$)} & \textbf{Resolve Rate} & \textbf{Apply Rate} & \textbf{Cost(\$)} & \textbf{\revised{Resolve Rate}} & \textbf{\revised{Apply Rate}} & \textbf{\revised{Cost(\$)}} \\
+    \midrule
+    \multirow{3}{*}{\GPT} 
+    & Text Only & 1.6\% (1/57) & 45.6\% (26/57) & 0.036 & 0\% (0/57) & 42.1\% (24/57) & 0.096 & \revised{0\% (0/57)} & \revised{84.2\% (48/57)} & \revised{0.159}\\
+    & Text \& Images & 1.6\% (1/57) & 33.3\% (19/57)  & 0.038 & 0\% (0/57) & 26.3\% (15/57) & 0.110 & \revised{3.5\% (2/57)} & \revised{77.2\% (44/57)} & \revised{0.220}\\
+    & \revised{IAG-Text} & 1.6\% (1/57) & 52.6\% (30/57) & 0.046 & 0\% (0/57) & 38.6\% (22/57) & 0.109 & \revised{5.3\% (3/57)} & \revised{78.9\% (45/57)} & \revised{0.269}\\
+    \midrule
+    \multirow{3}{*}{\revised{Claude-3.5}} 
+    & Text Only & 3.5\% (2/57) & 50.9\% (29/57) & 0.058 & 0\% (0/57) & 57.9\% (33/57) &  0.210 & \revised{0\% (0/57)} & \revised{84.2\% (48/57)} & \revised{0.271}\\
+    & Text \& Images & 3.5\% (2/57) & 59.6\% (34/57) & 0.062 & 0\% (0/57) & 63.2\% (36/57) &  0.224 & \revised{0\% (0/57)} & \revised{61.4\% (35/57)} & \revised{0.309}\\
+    & \revised{IAG-Text} & 10.5\% (6/57) &  59.6\% (34/57) & 0.074 & 0\% (0/57) & 52.6\% (30/57) & 0.233 & \revised{0\% (0/57)} & \revised{68.4\% (39/57)} & \revised{0.339}\\
+    \bottomrule
+    \end{tabular}
+  }
+
+\end{table}
+
+\newpage
+\item We also analyze the performances of LLMs with AutoCodeRover-X on cross-file issues and single-file issues. We find that original conclusions do not change. First, we find that all LLMs with AutoCodeRover-X perform significantly worse on cross-file issues compared to single-file issues. Besides, we find that LLMs with the AutoCodeRover-X still show a high tendency to modify a single file on cross-file issues.
+
+The revised contents are presented as follows:
+% We have conducted human evaluations on 50 randomly selected samples generated by ChatGPT. These evaluations focus on content adequacy, conciseness, and expressiveness, which provides a comparison with both human-annotated references and our model's outputs. The corresponding analysis has been added in Section 6.2.2. 
+
+\begin{changes}
+% \includegraphics[width=1.0\columnwidth]{figures/tables/chatgpt_human.pdf}
+
+\textbf{5.4~~~~Failure Analysis.}
+
+......
+
+We assume one reason LLMs perform poorly on cross-file issues is their tendency to modify only a single file. To investigate this assumption, we first examine the number of files modified in the patches generated by LLMs for cross-file issues. Then, we calculate the proportion of patches that include modifications to multiple files versus those with changes to only a single file. We find that, even with the oracle retrieval method, which provides the relevant files to the model, LLMs still primarily edit a single file. Specifically, \Claude modifies a single file in 88\% of issues, \GPT in 87\%, and \DeepSeek in 93\%. Moreover, with the Agentless-X method, all models modify a single file in 100\% of issues. \revised{Additionally, with the AutoCodeRover-X method, \Claude modifies a single file in 93.3\% of issues, \GPT in 82.4\%, and \DeepSeek in 90.0\%.}  These results highlight the insufficient ability of current LLMs in resolving issues that require modifying multiple files.
+
+% \revise{Therefore, human evaluation can better evaluate the performance of ChatGPT's generation results. The human evaluation results are shown in Table~15. This evaluation reveals that ChatGPT's content adequacy is nearly equivalent to that of human (reference), differing by a mere 0.04. ChatGPT outperforms human benchmarks in terms of conciseness and expressiveness. 
+% Although our model surpasses other baseline models as shown in \Tab~12, it does not exceed ChatGPT's capabilities. The difference between our model and ChatGPT is less than 0.5 in content adequacy and conciseness, but more pronounced in expressiveness.}
+
+% \revise{Overall, the scores of our model range from 2.10 to 2.32, which is higher than the midpoint (2) of the five-point scale (0, 1, 2, 3, 4) so it means the performance is above the moderate level. Although the scores of our model are not higher than the scores of human-written and ChatGPT, all of the scores on content adequacy and conciseness are between the midpoint score (2) and one level above the midpoint score (3). It indicates that the generation performance of our model and ChatGPT is at a similar level.}
+\end{changes}
+
+\begin{table}[h]
+  \centering
+  \small %\footnotesize
+  \setlength\tabcolsep{3pt}
+  \renewcommand{\thetable}{11}
+      \caption{\footnotesize{Performance comparison across different LLMs on \Swebenchx for cross-file and single-file issues.}}
+  \label{table:CrossFileEval}
+  \tabmargin
+  \resizebox{\columnwidth}{!}{
+    \begin{tabular}{llcccc}
+    \toprule
+    \multirow{2}{*}{\textbf{Model}} & \multirow{2}{*}{\textbf{Method}} & \multicolumn{2}{c}{\textbf{Single-file Issues}} & \multicolumn{2}{c}{\textbf{Cross-file Issues}} \\
+    \cmidrule(r){3-4} \cmidrule(r){5-6}
+    & & \textbf{Resolve Rate} & \textbf{Apply Rate} & \textbf{Resolve Rate} & \textbf{Apply Rate} \\
+    \midrule
+    \multirow{3}{*}{\GPT} 
+    & Oracle Retrieval & 3.5\% (21/601) & 42.9\% (258/601) & 1.4\% (5/358) & 42.2\% (151/358) \\
+    & Agentless-X &  12.0\% (72/601) & 87.4\% (525/601) & 2.8\% (10/358)  & 87.4\% (313/358) \\
+       & \revised{AutoCodeRover-X} &  \revised{11.5\% (69/601)} & \revised{88.4\% (531/601)} & \revised{2.5\% (9/358)}  & \revised{81.6\% (292/358)} \\
+
+    \midrule
+    \multirow{2}{*}{\DeepSeek} 
+    & Oracle Retrieval & 3.7\% (22/601)  & 50.6\% (304/601) & 1.1\% (4/358)  & 46.4\% (166/358) \\
+    & Agentless-X & 5.2\% (31/601)  & 52.4\% (315/601) & 1.7\% (6/358)  & 51.4\% (184/358) \\
+    & \revised{AutoCodeRover-X} &  \revised{8.5\% (51/601)} & \revised{55.9\% (336/601)} & \revised{1.9\% (7/358)}  & \revised{48.0\% (172/358)}  \\
+
+    \midrule
+    \multirow{2}{*}{\Claude} 
+        & Oracle Retrieval & 10.5\% (63/601) & 66.1\% (397/601) & 3.4\% (12/358) & 54.7\% (196/358) \\
+    & Agentless-X & 2.5\% (15/601) & 13.6\% (82/601) & 0.8\% (3/358) & 16.2\% (58/358) \\
+    & \revised{AutoCodeRover-X} &  \revised{10.8\% (65/601)} & \revised{63.4\% (381/601)} & \revised{2.2\% (8/358)}  & \revised{58.3\% (209/358)}  \\
+    \bottomrule
+    \end{tabular}
+    }%
+    
+
+\end{table}
+
+
+\end{enumerate}
+
+
+
+% [Thanks for your comments! Following your suggestions, we use AutoCodeRover \text{[Ref6]} (published at ISSTA'24) as a new baseline for evaluation on OmniGIRL. This agent-based approach demonstrates strong performance in issue resolution tasks, ranking in the 2nd position on SWE-bench-Verified \text{[Ref4]}. Please refer to Meta-review-5 for the detailed experimental results and Meta-review-3 for the detailed selection criteria. ]
+%加baseline
+% Thanks for your valuable comments. These studies are pioneers in the use of the LLM to solve many SE tasks. Inspired by these studies and your suggestion, we have added the comparison between our method and ChatGPT-3.5 on the whole dataset, MCMD.
+% The experimental settings have been updated in Section 6.2. Some of the changes are shown below.
+% Gratitude is extended for the invaluable insights provided in your comment. The referenced studies represent seminal contributions in harnessing the capabilities of the large language model for addressing various software engineering tasks. Inspired by these investigations and your recommendations, we have incorporated a comparative analysis encompassing our proposed method and ChatGPT-3.5 across the entire dataset, namely, MCMD. We have undergone amendments to the experimental settings in Section 6.2 (also shown below). 
+
+% \begin{changes}
+% {\textbf{6.2~~~~Comparison with ChatGPT}}
+
+% ChatGPT~[41] has attracted attention from both academia and industry since it is announced in November 2022. \revise{Pioneering researchers~[13, 14] have effectively utilized ChatGPT, introducing LLM-based methods for generating code comments.}
+% \revise{To compare our method with ChatGPT, we conduct some simple experiments. The details are described below.}
+
+% \revise{Firstly, following the guidelines~[51], we design three types of prompts~\footnote{\revise{full prompt content can be seen in our repository.}} to reduce the impact of prompts: (1) Basic prompt. (2) Basic prompt + Output format. (3) Rephrased prompt by ChatGPT. In the pre-study, these were employed to assess ChatGPT's performance across fifty randomly chosen commits per programming language.
+
+% Secondly, after the pre-study, we use a well-designed role prompt template from the study~[37] with the output format to generate commit messages with ChatGPT~(version: gpt-3.5-turbo-0613)} \revise{on whole test sets in all five programming languages in \mcmd. 
+% All of the ChatGPT generation results including the prompt can be found in our repository.}
+
+% \revise{Thirdly, considering the automatic metrics are focused on the similarity between the reference and the generation rather than the quality of the generated commit message, we also conduct a human evaluation of fifty ChatGPT generation results to evaluate from three perspectives: content adequacy, conciseness, and expressiveness, which can further enhance the solidity of the evaluation. The selected commits in this human evaluation are randomly selected from the test set. They are the same as the commits in the human evaluation described in \Sec~5.6.3 to compare with our model and previous baselines. The standard of the score and the experts who label the data are the same as described in \Sec~5.6.3.}
+
+% ......\newline
+% \textbf{REFERENCES}\newline
+% \footnotesize{
+% \revise{
+% [13] Aleksandra Eliseeva, Yaroslav Sokolov, Egor Bogomolov, Yaroslav Golubev, Danny Dig, and Timofey Bryksin. 2023.
+% From Commit Message Generation to History-Aware Commit Message Completion. \textit{arXiv Preprint} abs/2308.07655(2023). \url{https://doi.org/10.48550/arXiv.2308.07655 arXiv:2308.07655}}
+
+% [\revise{14] Mingyang Geng, Shangwen Wang, Dezun Dong, Haotian Wang, Ge Li, Zhi Jin, Xiaoguang Mao, and Xiangke Liao. 2023. Large Language Models are Few-Shot Summarizers: Multi-Intent Comment} \revise{Generation via In-Context Learning. \textit{arXiv Preprint} (2023). \url{https://doi.org/10.48550/arXiv.2304.11384} arXiv:2304.11384 [cs.SE]}
+
+% [37] Wei Ma, Shangqing Liu, Wenhan Wang, Qiang Hu, Ye Liu, Cen Zhang, Liming Nie, and Yang Liu. 2023. The Scope of ChatGPT in Software Engineering: A Thorough Investigation. \textit{CoRR} abs/2305.12138 (2023). \url{https://doi.org/10.48550/arXiv.2305.12138} arXiv:2305.12138
+
+% [41] OpenAI. 2022. \textit{Introducing ChatGPT}. Technical Report. OpenAI. [Online]. Available: \url{https://openai.com/blog/chatgpt}.
+
+% \revise{[51] Jessica Shieh. 2023. Best practices for prompt engineering with OpenAI API. \textit{OpenAI, February}
+% \url{https://help.openai.com/en/articles/6654000} (2023).}\newline
+% }
+% \end{changes}
+% ~\newline
+% The experimental results have been added as Table 14 and Table 15 (also presented below).
+
+% \begin{changes}
+% \includegraphics[width=1.0\columnwidth]{figures/tables/chatgpt_metrics.pdf}
+% % ~\newline
+% \includegraphics[width=1.0\columnwidth]{figures/tables/chatgpt_human.pdf}
+% \end{changes}
+% % ~\newline
+% % And the corresponding analysis of the comparison has been added in Section 6.2.2. Some of the changes are shown below.
+% And the corresponding analysis has been incorporated in Section 6.2.2 (also shown below).% The ensuing modifications are shown as follows.%\newline
+
+% \begin{changes}
+% \revise{\textit{6.2.2~~~~Quantitative Analysis.~}}
+% \revise{Automatic evaluation results of ChatGPT are shown in \Tab~14. As it shows, all the scores of ChatGPT are smaller than the scores of our model among all five programming languages. It indicates that the similarity of the generation between the reference and ChatGPT is less than that between the reference and our model. One possible reason is that ChatGPT is not aimed at one certain domain so it cannot generate similar-style commit messages as reference. Moreover, the difference between BLEU scores is more than that between METEOR. A possible reason is that the ChatGPT is more flexible in expressiveness. The difference in expressiveness also appears in the case study about \Fig~9.}
+
+% \revise{Therefore, human evaluation can better evaluate the performance of ChatGPT's generation results. The human evaluation results are shown in Table~15. This evaluation reveals that ChatGPT's content adequacy is nearly equivalent to that of human (reference), differing by a mere 0.04. ChatGPT outperforms human benchmarks in terms of conciseness and expressiveness. 
+% Although our model surpasses other baseline models as shown in \Tab~12, it does not exceed ChatGPT's capabilities. The difference between our model and ChatGPT is less than 0.5 in content adequacy and conciseness, but more pronounced in expressiveness.}
+
+% \revise{......}
+% % \revise{Overall, the scores of our model range from 2.10 to 2.32, which is higher than the midpoint (2) of the five-point scale (0, 1, 2, 3, 4) so it means the performance is above the moderate level. Although the scores of our model are not higher than the scores of human-written and ChatGPT, all of the scores on content adequacy and conciseness are between the midpoint score (2) and one level above the midpoint score (3). It indicates that the generation performance of our model and ChatGPT is at a similar level.}
+% \end{changes}
+% % ~\newline
+% We opted not to use ChatGPT-4.0 due to its cost, which is 15 times more expensive than ChatGPT-3.5 and the dataset contains 225,000 commits encompassing many long code changes. Following a comprehensive evaluation of ChatGPT-3.5's performance across the entire dataset, we find ourselves having exceeded our budget. Regrettably, we lack the requisite financial resources to undertake experiments with ChatGPT-4.0 at this juncture. We will investigate the performance of ChatGPT-4.0 and add the results to our repository when financial constraints are alleviated.
+\end{revresponse}
+
+\newpage
+\begin{revcomment}\label{reviewer:3.3}
+
+The paper could benefit from a discussion on the potential real-world impact of the OmniGIRL benchmark. How might it influence the development of future LLMs or other tools? What implications does it have for the software development community? Addressing these questions would provide a more comprehensive view of the benchmark's significance.
+
+% b) The key of the proposed approach is introducing the "Type" and "Scope" information into the Decoder Output of a CodeT5 model, based on the results in Table 3, the improvement happens only when both Type and Scope are included; intuitively the Type, Scope, and subject are independent to each other, why including these two types of information can help the model achieve better performance on predicting "subject"? Why including only one type of information does not help?  Authors need to explain the reasons behind such an unusual phenomenon.
+
+
+% In addition, it's surprising to see that adding the extra information on the Encoder input does not improve the performance while asking the model to generate more info without additional input can help generate better performance. I think authors need to spend more effort to demystify the reasons behind this.
+
+
+% Another point, expanding the Decoder Output can be done by asking the model to generate other types of information (not Type and Scope) plus "subject", i.e., code summarization, etc. Will this type of information also work?
+
+
+\end{revcomment}
+
+\begin{revresponse}
+[Thanks for the comments! We appreciate the suggestion to clarify the potential applications of our work. In the revision, we have expanded the ``Potential Impacts'' in Section 7 to highlight the real-world applications of our benchmark better. First,  \Swebenchx can be used for evaluating any method of resolving issues in different programming languages and with multimodal data. Second, we highlight the insights from our error analysis, which point to limitations in current methods, such as poor performance on TypeScript and JavaScript issues and challenges in resolving cross-file issues. Third, we highlight the availability of our data collection code and tutorial, which will allow other researchers to collect GitHub issue resolution data for further research.]
+
+% % generalizabilty : sorry for confusion 有误解，make it clear
+% % impact: 1)更真实全面的benchmark in github issue resolution task; 2)有利于researchers 设计更好的github issue resolution。 3）我们开源collect代码和流程；方便后续其他研究者follow，进一步研究这个问题
+
+% [Thank you very much for your recognition and for taking the valuable time to review our manuscript. We are sorry for the confusion and unclear expression in the previous version. We have addressed each of the comments and suggestions. Please refer to our responses below for details.]
+\begin{changes}
+\revised{\textbf{7~~~~DISCUSSION}}
+
+\revised{\textbf{Potential Impacts.} First, we propose a GitHub issue resolution benchmark that captures diversity across programming languages, repository domains, and modalities of input information. This allows researchers to more effectively evaluate any method of resolving issues in different programming languages and with multimodal data. Second, our error analysis highlights specific limitations in current methods and LLMs, such as poor performance on TypeScript and JavaScript issues and challenges in resolving cross-file issues, etc.} \revised{These findings provide insights for improving LLMs and issue resolution} \revised{techniques. Third, we have made our data collection code and tutorial publicly available, allowing other researchers to collect GitHub issue resolution data to build a new evaluation benchmark or training dataset.}    
+\end{changes}
+% [Thanks for your comments!  Please refer to Meta-Review-2 for the
+% detailed response.]
+
+% \section*{References}
+
+\section*{References}
+\begin{flushleft}
+\small
+    [Ref1] Anthropic, “Building effective agents,” 2024, accessed: 2024-12-31. [Online]. Available: \url{https://www.anthropic.com/research/building-effective-agents}
+    
+    [Ref2] S. Ouyang, W. Yu, K. Ma, Z. Xiao, Z. Zhang, M. Jia, J. Han, H. Zhang, and D. Yu, “Repograph: Enhancing ai software
+    engineering with repository-level code graph,” \textit{arXiv preprint} arXiv:2410.14684, 2024.
+    
+    [Ref3] J. Pan, X. Wang, G. Neubig, N. Jaitly, H. Ji, A. Suhr, and Y. Zhang, “Training software engineering agents and verifiers
+    with swe-gym,” \textit{arXiv preprint} arXiv:2412.21139, 2024
+    
+  [Ref4] S. bench Team, “Swe-bench leaderboard,” 2024, accessed: 2024-12-30. [Online]. Available: \url{https://www.swebench.com/}
+
+   [Ref5] C. E. Jimenez, J. Yang, A. Wettig, S. Yao, K. Pei, O. Press, and K. Narasimhan, “Swe-bench: Can language models resolve real-world github issues?” \textit{arXiv preprint} arXiv:2310.06770, 2023.
+
+   [Ref6] Y. Zhang, H. Ruan, Z. Fan, and A. Roychoudhury, “Autocoderover: Autonomous program improvement,” \textit{in Proceedings of the 33rd ACM SIGSOFT International Symposium on Software Testing and Analysis}, 2024, pp. 1592–1604.
+
+   [Ref7] “Babel,” \url{https://babeljs.io/}, 2024.
+
+    [Ref8] “tree-sitter,” \url{https://tree-sitter.github.io/}, 2024
+\end{flushleft}
+
+
+% We express our sincere gratitude for the valuable comments and insightful suggestions.
+
+% To discern the rationale behind the ineffectiveness of including only one type of information or adding the extra information on the encoder input, a meticulous investigation into the generation process of trained models has been undertaken. The outcomes of this empirical analysis have been incorporated into Section 3.2 to provide a comprehensive understanding of the observed phenomena. Selected changes are shown below.
+
+
+% \begin{changes}
+
+% \revise{\textbf{3.2~~~~Analysis and Discussion}}\newline
+% \revise{The empirical finding raises two critical questions for further exploration: (1) Why is it beneficial for the model when integrating ``type'' and ``scope'' information into the decoder instead of the encoder during training?  (2) Why does the model benefit greater from the combination of two types of information (``type'' or ``scope'') during training?}
+
+% ~\revise{To answer the first question, we conduct an in-depth analysis of the generation} \revise{process in trained models. Using the visualization tool~[58], we observe varying model's attention weights on ``type'' and ``scope'' during the generation process. The attention weights of the model trained in different settings are shown in \Fig~2. As the sub-figures in the upper row of \Fig~2 show, the model trained with both the ``type'' and ``scope'' information in the decoder can pay attention to both of them during the generation of tokens of the ``subject'' part. Conversely, models with ``type'' and ``scope'' information in the encoder show negligible utilization of these aspects in generating ``subject'' content. This variance in attention allocation contributes to performance disparities in the generation, thereby answering the first research question.}%\newline
+
+% \includegraphics[width=1.0\columnwidth]{figures/tables/attention_weight.pdf}
+% % ~\newline
+
+% \includegraphics[width=1.0\columnwidth]{figures/tables/empirical_decoder.pdf}
+% ~\newline
+
+% \includegraphics[width=1.0\columnwidth]{figures/tables/empirical_decoder-split.pdf}
+% ~\newline
+
+% \revise{
+% % want to explain why the performance of the model trained with both two information is better than that trained with one of them. 
+% \Tab~3 shows that the model trained with both ``type'' and ``scope'' information} \revise{outperforms others in the generation of these two kinds of information. Therefore, a possible reason for the second question is the impact of noise. Noise means incorrectly generating the information (``type'' or ``scope'') and it will mislead the subsequent generation of the ``subject''. To verify this conjecture, we divided the test set into two parts: one that correctly predicted the information before the ``subject'' and the other with incorrect predictions. The results on each part are shown in \Tab~4. As shown in the figure, all difference scores in ``Prefix Correct'' are higher than those in ``Prefix Wrong'', which indicates that the model gains more when it} \revise{can correctly predict the information before ``subject''. Moreover, when the model generates ``scope'', it also pays some attention to ``type'' as shown in \Fig~3. As the performance of ``subject'' is based on the information before it and the performance} \revise{of ``scope'' can also depend on the ``type'', training with the combination of ``type'' and ``scope'' makes better performance on each component in the commit message. Training using these two kinds of information can improve the performance of predicting both of them as shown in \Tab~3, so it is better to train with both rather than one of them.
+% }\newline
+
+% \includegraphics[width=1.0\columnwidth]{figures/tables/type-influence-scope.pdf}
+% % ~\newline
+
+% \textbf{REFERENCES}\newline
+% \footnotesize{
+% \revise{
+% [58] Jesse Vig. 2019. A Multiscale Visualization of Attention in the Transformer Model. In \textit{Proceedings of the 57th Annual Meeting of the Association for Computational Linguistics: System Demonstrations}. Association for Computational Linguistics, Florence, Italy, 37–42. \url{https://doi.org/10.18653/v1/P19-3007}
+% }}
+% ~\newline
+% \end{changes}
+
+
+% To the best of our knowledge, the information pertaining to a code change exhibits limited diversity. Through manually inspecting files such as README.md, CONTRIBUTING.md, and DEVELOPERS.md across 500 repositories in \mcmd, we found that ``Type'' and ``Scope'' are what we only find to use except for the summarization of code change (i.e, original commit message). 
+
+% We express our gratitude to the developers particularly those in the JavaScript communities for establishing and effectively utilizing these types of information. Moving forward, we expect developers to forge new consensuses and this knowledge can also be applied to software engineering tasks, at which time we will study their value in commit message generation.
+
+\end{revresponse}
+
+
+
+% \begin{revcomment}\label{reviewer:3.4}
+
+% c) The performance of predicting "Type" and "Scope" is in general not bad, e.g., F1 values are 61.59 and 56.67 respectively. For both "Type" and "Scope", their potential values are limited, for example, "Type" includes doc, test, chore, fix, refactor, etc. "Scope" is similar to “Type” also has limited values, I am wondering, are there any special combinations of these two types of information that contribute more?
+
+% \end{revcomment}
+
+% \begin{revresponse}[]
+
+% Thanks for your valuable comments.
+
+% We have counted the types and frequencies of combinations and calculated the ``Subject'' generation performance after each combination accordingly. Specifically, we selected the most ten popular combinations of ``type'' and ``scope'' in the generation stage, each yielding more than 30 generated commit messages. The evaluation results of each group's ``subject'' part are shown in Table~\ref{tab:comb-perf}. The table shows varying contributions from different combinations. Notably, $chore ( release )$ contributes most from the perspective of BLEU and ROUGE while $chore ( package )$ contributes more from the perspective of METEOR. This observed phenomenon may be attributed to the similarity in code changes within these types, enabling the model to better comprehend the code change and to generate ``subject'' with the aid of ``type'' and ``scope'' information.
+
+% % \begin{table*}[!t]
+% % \renewcommand\arraystretch{0.7}
+% % \centering
+% % \caption{Performance of the ``Subject'' part in test cases with different combinations of ``type'' and ``scope'' in dataset $MCMD_{js-m}$.}
+% % \label{tab:comb-perf}
+% % \begin{tabular}{lrrr}
+% % \toprule
+% % \textbf{Combination} &  \textbf{BLEU-Norm} &  \textbf{METEOR} &  \textbf{ROUGE} \\
+% % \midrule
+% % chore ( deps )     &   44.59 &   55.36 &    49.88 \\
+% % chore ( release )  &   91.38 &   64.58 &    91.86 \\
+% % chore ( docs )     &   20.33 &   30.48 &    17.50 \\
+% % chore ( package )  &   72.27 &   77.62 &    79.90 \\
+% % chore ( showcase ) &   44.52 &   57.32 &    51.28 \\
+% % chore ( starters ) &   69.63 &   75.28 &    71.73 \\
+% % test ( document )  &   76.39 &   36.73 &    76.47 \\
+% % fix ( ui )         &   14.26 &   10.80 &    15.85 \\
+% % chore ( gatsby )   &   34.26 &   40.82 &    25.87 \\
+% % docs ( readme )    &   18.97 &   23.12 &    19.00 \\
+% % \bottomrule
+% % \end{tabular}
+% % \end{table*}
+
+
+
+% \end{revresponse}
+
+
+
+
+% \begin{revcomment}
+
+
+% d) Based on the description in section 5.1, seems the data splitting process was only conducted once, which can be biased, I suggest authors rerun the experiments with different data splitting to remove potential bias.
+
+
+% \end{revcomment}
+
+
+% \begin{revresponse}[]
+
+
+% Thanks for your valuable comments and suggestions. To mitigate potential bias, we have re-executed all experiments using another data splitting strategy (split-by-time), and the experimental results are shown below (also presented in Table 7 and Table 8 of the paper). We are pleased to note that the experimental conclusions under both splitting strategies remain consistent, affirming that our model exhibits state-of-the-art performance compared to all baselines. Furthermore, we have included detailed descriptions of the experimental settings in Section 5.3 and analyzed these results in Section 5.4.3.\newline
+
+
+% \begin{changes}
+% \textbf{5.3~~~~Experimental Settings}\newline
+% ......\newline
+% \revise{In addition to random splitting, we also experimented with another splitting strategy: splitting by time. During the training of the knowledge model in that strategy, we find that older commits did less following the good practice.
+% For example, in the \mcmdjs under this splitting strategy, only 55.23\% of the samples in the training set with a quantity ratio of 80\% follow good practice.
+% This trend suggests an increasing adoption of best practices over time. 
+% Meanwhile, the samples having scope information in the training set under this setting are too small to train a knowledge model for other programming languages except for JavaScript. Specifically, there are only 128 samples having scope information in \mcmdjava. To deal with this issue, we use the knowledge model trained on \mcmdjsm (also under the setting of split-by-time) for other languages. 
+% This setup can also be used in real development situations.
+% Other details are the same as training on the dataset split randomly.
+% }\newline
+
+% ......\newline
+
+% \includegraphics[width=1.0\columnwidth]{figures/tables/split-by-time-overall.pdf}
+% ~\newline
+
+% \textit{\revise{5.4.3~~~~Performance on Splitting-By-Time.~}}
+% \revise{In this splitting strategy, the overall experimental results are shown in \Tab~7, and the performance of each subset is shown in \Tab~8. As \Tab~7 shows, our method outperforms baseline models across all metrics (\bleunorm, \meteor, and \rougel), surpassing the previous state-of-the-art by 25.37\%, 16.40\%, and 27.19\% respectively. These scores also validate the effectiveness and advancement of our method, KADEL. \Tab~8 also shows the scores have improved on each subset: from the perspective of \bleumosesnorm, the improvement ratio of our model ranges from 16.04\% to 26.93\% on \mcmdplu, which means that our method can be effectively applied to most situations (about 97.70\% in \mcmd). The substantial enhancements in performance reveal the capability of our knowledge model to facilitate knowledge transfer across time.
+% }\newline
+
+
+% \includegraphics[width=1.0\columnwidth]{figures/tables/split-by-time-split.pdf}
+% ~\newline
+
+% \end{changes}
+% \end{revresponse}
+
+
+% \begin{revcomment}
+% e) Results of human evaluation in Table 9 showed that although the proposed approach achieved higher scores in Content Adequacy, Conciseness, and Expressiveness compared to other baselines, the low score (~2) of KADEL on each of the three characteristics also suggests the limited practice value of the tool.
+% \end{revcomment}
+% \begin{revresponse}[]
+% Thank you very much for your thoughtful comments. 
+
+% Firstly, we acknowledge that the task of automatically generating good commit messages is still a way in progress. In our pursuit of advancing this field, we aspire for our work to contribute to ongoing progress. In this paper, our empirical findings empower the model to more effectively leverage commit knowledge, and the proposed method consistently yields superior results compared to previous baselines. 
+
+% Secondly, to assess the practical utility of our tool, we have conducted a human evaluation on human-written commit messages (which is regarded as the reference). The results are presented in Table 15 of the paper. It reveals scores for human-written messages ranging from 2.51 to 2.59. These scores surpass the midpoint (2) of the five-point scale (0, 1, 2, 3, 4), signifying performance above the moderate level. Although the scores of our model (2.10 to 2.32) do not surpass those of human-written messages, they still exceed the midpoint, suggesting that the quality generated by our method is better than the moderate level and closer to humans than other baselines. Furthermore, we have introduced the discussion on the practical value of our approach in Section 6.2. 
+
+% % Thirdly, to make this paper more rigorous and pragmatic, we have incorporated the limitation of potential practical issues in Section 6.3. 
+
+% Lastly, we will continue to improve the design of methods for automatically generating commit messages. The possible directions have been outlined in future work (Section 7). 
+
+% Selected changes are shown below.\newline
+
+% \begin{changes}
+% ~\newline
+% \includegraphics[width=1.0\columnwidth]{figures/tables/chatgpt_human.pdf}
+% ~\newline
+% {\textbf{6.2~~~~Comparison with ChatGPT}}
+
+% ......\newline
+% \revise{Overall, the scores of our model range from 2.10 to 2.32, which is higher than the midpoint (2) of the five-point scale (0, 1, 2, 3, 4) so it means the performance is} \revise{above the moderate level. Although the scores of our model are not higher than the} \revise{scores of human-written and ChatGPT, all of the scores on content adequacy and conciseness are between the midpoint score (2) and one level above the midpoint score (3). It indicates that the generation performance of our model and ChatGPT is at a similar level.}\newline
+
+% % {\textbf{6.3~~~~Limitations}}\newline
+% % ......
+% % \begin{itemize}
+% % \item{\emph{\revise{Limited Practical Use.}}}
+% % \revise{The comparisons in \Tab~5 and \Tab~12 demonstrate that while our model outperforms existing baselines, its human evaluation scores are below 3. According to the human evaluation standards shown in \Tab~11, the score 3 means the generation probably has some missing or unnecessary. Therefore, our model is more effectively utilized as an assistant for developers in composing commit messages, rather than as a complete replacement for manual writing.}
+% % \end{itemize}
+
+% % ......\newline
+
+% {\textbf{7~~~~CONCLUSION AND FUTUREWORK}}\newline
+% ......\newline
+% \revise{Moreover, the comparison with ChatGPT also suggests the potential of LLM for commit message generation. And we will investigate some LLM-based methods for the task.}
+% \end{changes}
+
+% \end{revresponse}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\end{document}
+
+
+
