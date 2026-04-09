@@ -131,15 +131,28 @@ def upload_doc(local_path: str, doc_id: str):
                 print(f'[ot-upload] joinDoc OK  version={version}  existing={len(cur)} chars')
 
                 # Build op: delete existing content, insert new content
+                #
+                # KEY ENCODING INSIGHT (hard-won):
+                # Overleaf's document-updater stores documents as real Unicode strings internally.
+                # joinDoc returns the content as mojibake (UTF-8 bytes decoded as Latin-1 chars,
+                # e.g. 实 → U+00E5 U+00AE U+009E).
+                # To delete, we must send the REAL UTF-8 decoded version of cur (not the mojibake).
+                # Similarly, insert new_content as real UTF-8.
+                # Both must use ensure_ascii=False in json.dumps so Unicode chars stay as-is.
+                try:
+                    delete_str = cur.encode('latin-1').decode('utf-8')
+                except (UnicodeDecodeError, UnicodeEncodeError):
+                    delete_str = cur  # fallback: use as-is if not mojibake
+
                 ops = []
-                if cur:
-                    ops.append({'d': cur, 'p': 0})
+                if delete_str:
+                    ops.append({'d': delete_str, 'p': 0})
                 ops.append({'i': new_content, 'p': 0})
 
                 ws.send('5:3+::' + json.dumps({
                     'name': 'applyOtUpdate',
                     'args': [doc_id, {'op': ops, 'v': version, 'meta': {'source': 'claude-code'}}]
-                }))
+                }, ensure_ascii=False))
                 print(f'[ot-upload] applyOtUpdate sent  '
                       f'del={len(cur)}  ins={len(new_content)}')
                 ot_time = time.time()

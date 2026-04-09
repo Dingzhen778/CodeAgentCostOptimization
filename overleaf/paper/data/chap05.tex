@@ -100,13 +100,16 @@ mini-swe-agent 通过 OpenAI-compatible API 调用 LLM。
 为精确计量每一步的 token 消耗，而不依赖上游服务商的计费日志，
 本文在 agent 与模型 API 之间插入一个\textbf{本地透明代理网关}（图~\ref{fig:gateway-arch}）。
 
-\begin{algorithm}[H]
-\caption{【占位图】此处应为本地 Token 计量网关架构图}
-\label{fig:gateway-arch}
-\tcc{图示内容：mini-swe-agent → 本地网关（FastAPI 透明代理）→ 上游 MiniMax API}
-\tcc{网关拦截请求/响应，从 usage 字段提取 token 数并写入 JSONL 日志}
-\tcc{同时将实验名、方法名、instance\_id 附加到每条日志记录}
-\end{algorithm}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.86\linewidth]{figures/gateway_arch.pdf}
+  \caption{本地 Token 计量网关架构。
+    网关作为透明代理插入在 mini-swe-agent 与上游模型 API 之间，
+    不修改任何请求/响应内容，仅拦截并解析响应中的 \texttt{usage} 字段，
+    将每步的输入 token 数、输出 token 数、实验名和 instance\_id 落盘至 JSONL 日志，
+    最终汇总进 \texttt{trajectory.json} 供成本分析使用。}
+  \label{fig:gateway-arch}
+\end{figure}
 
 \subsection{网关实现}
 \label{subsec:gateway-impl}
@@ -744,7 +747,8 @@ $\hat{s} \leftarrow \hat{s} + \text{format}(F_k)$\;
   \centering
   \caption{skill\_abstraction 与 skill\_memory\_md 的设计对比}
   \label{tab:skill-compare}
-  \begin{tabularx}{\textwidth}{lXX}
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lp{4.5cm}p{4.5cm}}
     \toprule
     维度 & \texttt{skill\_abstraction} & \texttt{skill\_memory\_md} \\
     \midrule
@@ -754,7 +758,7 @@ $\hat{s} \leftarrow \hat{s} + \text{format}(F_k)$\;
     预期作用 & 减少规划空转、加快工作流收敛 & 提升每步决策质量、减少低效操作 \\
     成本改善机制 & 减少无目标探索步骤 & 提升每步有效信息获取率 \\
     \bottomrule
-  \end{tabularx}
+  \end{tabular}
 \end{table}
 
 两种方法的互补性意味着，它们在理论上可以叠加使用：
@@ -906,19 +910,20 @@ mini-swe-agent 的执行器、Docker 环境、token 计量网关、
   \centering
   \caption{七种方法的关键参数汇总}
   \label{tab:method-params-all}
-  \begin{tabularx}{\textwidth}{lXXXXX}
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{lcrccl}
     \toprule
-    方法 & 检索文件数 & 函数裁剪 & LLMLingua & token budget & 工作流/记忆注入 \\
+    方法 & 检索数 & 函数裁剪 & LLMLingua & Tok.Budget & 工作流/记忆 \\
     \midrule
-    \texttt{baseline\_raw}       & —    & —    & —    & —    & — \\
-    \texttt{rag\_topk}           & 4    & —    & —    & —    & — \\
-    \texttt{rag\_function}       & 4    & Yes  & —    & —    & — \\
-    \texttt{llmlingua\_original} & 4    & Yes  & Yes  & —    & — \\
-    \texttt{skill\_abstraction}  & 4    & —    & —    & —    & Workflow \\
-    \texttt{skill\_memory\_md}   & 4    & —    & —    & —    & Memory \\
-    \texttt{hybrid\_llmlingua}   & 4    & Yes  & Yes  & 2500 & — \\
+    \texttt{baseline\_raw}       & —  & —           & —           & —    & — \\
+    \texttt{rag\_topk}           & 4  & —           & —           & —    & — \\
+    \texttt{rag\_function}       & 4  & \checkmark  & —           & —    & — \\
+    \texttt{llmlingua\_original} & 4  & \checkmark  & \checkmark  & —    & — \\
+    \texttt{skill\_abstraction}  & 4  & —           & —           & —    & Workflow \\
+    \texttt{skill\_memory\_md}   & 4  & —           & —           & —    & Memory \\
+    \texttt{hybrid\_llmlingua}   & 4  & \checkmark  & \checkmark  & 2500 & — \\
     \bottomrule
-  \end{tabularx}
+  \end{tabular}
 \end{table}
 
 \subsection{方法分类与预期优化机制}
@@ -927,32 +932,37 @@ mini-swe-agent 的执行器、Docker 环境、token 计量网关、
   \centering
   \caption{七种方法的优化路径与预期作用阶段}
   \label{tab:method-classification}
-  \begin{tabularx}{\textwidth}{llXX}
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{p{3.8cm}llp{4cm}}
     \toprule
-    方法 & 优化路径 & 主要作用阶段 & 预期节省来源 \\
+    方法 & 优化路径 & 作用阶段 & 预期节省来源 \\
     \midrule
-    \texttt{baseline\_raw}       & 无 & — & 对照组 \\
-    \texttt{rag\_topk}           & 上下文压缩 & Search + Read & 减少全仓搜索 \\
-    \texttt{rag\_function}       & 上下文压缩 & Search + Read & 减少文件内冗余 \\
-    \texttt{llmlingua\_original} & 上下文压缩 & Search + Read & 语义精选高价值文件 \\
-    \texttt{skill\_abstraction}  & 工作流压缩 & 全阶段 & 减少规划空转 \\
-    \texttt{skill\_memory\_md}   & 工作流压缩 & 全阶段 & 复用跨任务经验 \\
-    \texttt{hybrid\_llmlingua}   & 两路结合 & 全阶段 & 同时压文件数和长度 \\
+    \texttt{baseline\_raw}       & 无           & —        & 对照组 \\
+    \texttt{rag\_topk}           & 上下文压缩   & Search+Read & 减少全仓搜索 \\
+    \texttt{rag\_function}       & 上下文压缩   & Search+Read & 减少文件内冗余 \\
+    \texttt{llmlingua\_original} & 上下文压缩   & Search+Read & 语义精选高价值片段 \\
+    \texttt{skill\_abstraction}  & 工作流压缩   & 全阶段   & 减少规划空转 \\
+    \texttt{skill\_memory\_md}   & 工作流压缩   & 全阶段   & 复用跨任务经验 \\
+    \texttt{hybrid\_llmlingua}   & 两路结合     & 全阶段   & 同时压文件数和长度 \\
     \bottomrule
-  \end{tabularx}
+  \end{tabular}
 \end{table}
 
 \subsection{方法实现依赖关系}
 
 图~\ref{fig:method-deps}~展示了各方法共享的代码模块依赖关系。
 
-\begin{algorithm}[H]
-\caption{【占位图】此处应为方法实现模块依赖关系图}
-\label{fig:method-deps}
-\tcc{图示内容：各方法 → TaskContextBuilder}
-\tcc{TaskContextBuilder 调用：TopKFileSelector / FunctionLevelTrimmer / TokenBudgetTrimmer / LLMLinguaRanker}
-\tcc{所有方法共享：AgentRunner → mini-swe-agent → Docker → Token Gateway}
-\end{algorithm}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.95\linewidth]{figures/method_deps.pdf}
+  \caption{各方法实现的模块依赖关系。
+    顶层为七种实验方法；中间为统一的 \texttt{TaskContextBuilder}，
+    根据方法类型调用对应组件（BM25 检索器、AST 函数裁剪器、
+    Token 预算裁剪器、LLMLingua 排序器或 Skill 注入器）；
+    底层共享 \texttt{AgentRunner}—mini-swe-agent—Docker—Token 计量网关的统一执行链路，
+    确保各方法在相同基础设施上进行公平比较。}
+  \label{fig:method-deps}
+\end{figure}
 
 %% ─────────────────────────────────────────────────────────────────────────────
 \section{本章小结}
