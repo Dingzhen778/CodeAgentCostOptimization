@@ -4,150 +4,127 @@
 
 \begin{abstract}\label{abstract}
 
-近年来，大语言模型在软件工程任务中的应用迅速扩展，基于大语言模型的代码智能体
-在自动程序修复、代码理解与仓库级问题求解等场景中展现出显著潜力。然而，随着任
-务复杂度从函数级代码生成向真实仓库级修复转变，代码修复智能体在实际运行中所
-产生的推理成本问题日益突出。智能体在多轮交互过程中需要反复搜索代码文件、读取
-大量上下文并累积历史执行轨迹，导致 token 消耗随步数超线性增长，严重制约了其在
-真实工程部署场景中的可用性。尽管已有研究关注代码智能体的任务成功率与模型能力，
-但针对代码修复智能体推理成本的结构分析与系统优化仍相对不足。
-
-为此，本文围绕代码修复智能体的高推理成本问题展开系统研究，以
-\texttt{mini-swe-agent} 为执行主体，以 \texttt{MiniMaxAI/MiniMax-M2.5} 为
-推理模型，以 SWE-bench Verified 500 条实例为评测基准，构建了面向代码修复任务的
-完整实验与分析闭环。本文首先搭建了涵盖 issue 输入、Docker 隔离执行环境、补丁生成、
-轨迹记录与 token 精确统计的端到端实验平台，并通过本地透明代理网关实现了每步
-input/output token 的逐步计量，保证了成本数据的可复现性与精确性。
-
-在成本结构分析方面，本文将代码修复智能体的执行轨迹划分为搜索、阅读、编辑、
-验证、提交五个阶段，对不同阶段的 token 消耗进行了细粒度归因。分析结果表明，
-代码阅读（understand）阶段是最主要的 token 消耗来源，约占总消耗的
-50\%；代码修改（implement）阶段仅占约 2--3\%。失败轨迹几乎总是耗尽
-最大步数预算（40 步），其平均消耗约为成功轨迹的 2--3 倍，且失败实例约占总成本
-的 83\%。这表明，成本优化的核心不在于压缩补丁生成阶段的输出，而在于减少"定位
-正确修复位置"过程中的冗余搜索与阅读。
-
-在优化方法设计方面，本文沿\textbf{上下文压缩}与\textbf{工作流压缩}两条正交路径，
-设计并实现了六种成本优化方法：基于 BM25 打分的文件级 RAG 检索
-（\texttt{rag\_topk}）、叠加函数级代码裁剪的 RAG（\texttt{rag\_function}）、
-基于 LLMLingua 语义重排序的压缩（\texttt{llmlingua\_original}）、结构化工作流脚手架
-注入（\texttt{skill\_abstraction}）、静态跨任务经验记忆注入
-（\texttt{skill\_memory\_md}）以及三阶段组合压缩（\texttt{hybrid\_llmlingua}）。
-各方法均与无增强基线（\texttt{baseline\_raw}）在同一执行框架下进行公平对比，
-评估维度涵盖解决率、平均 token 消耗与单位成功成本（CPR）。
-
-实验结果表明，\texttt{skill\_memory\_md} 和 \texttt{rag\_topk} 是综合表现最优的
-两种方法，CPR 分别较基线降低 10.5\% 和 10.0\%，同时解决率分别提升 3.2 和 3.8 个
-百分点，实现了修复能力与推理成本的双向改善。通用文本压缩方法
-（\texttt{llmlingua\_original}）虽实现了最大幅度的 token 削减（$-$5.74\%），
-但因代码结构性信息损失导致解决率下降，CPR 改善仅为 2.9\%，说明面向自然语言的
-通用压缩难以直接适配代码修复场景。函数级 RAG 裁剪
-（\texttt{rag\_function}）因截断横向上下文导致解决率低于基线，进一步验证了代码
-修复任务需要保留跨函数和跨文件的结构性语义。此外，独占成功实例的分布分析表明，
-不同方法优化的是不同的成本瓶颈：文件级检索改善定位效率，技能记忆注入改善决策
-质量，结构化工作流引导收敛速度，各方法之间具有显著互补性。
-
-本文的主要贡献包括以下四个方面：第一，构建了基于 SWE-bench Verified 的代码修复
-智能体完整实验平台，实现了从 issue 输入到 token 精确统计的可复现实验闭环；
-第二，提出了面向多轮执行轨迹的阶段化成本分析框架，识别出代码阅读阶段与失败
-轨迹是推理成本的主要来源；第三，设计并实现了上下文压缩与工作流压缩两条优化路径
-共六种方法，并在 500 条实例上完成了系统对比实验；第四，建立了以解决率、平均
-token 消耗与 CPR 为核心的成本—能力联合评估框架，为代码修复智能体的工程部署与
-后续优化研究提供了量化依据。
-
-总体而言，本文从实验平台搭建、成本结构归因、方法设计与系统评估四个层面，对代码
-修复智能体的高推理成本问题进行了系统研究。研究结果表明，降低代码修复智能体
-推理成本的有效路径在于改善搜索效率与决策质量，而非简单压缩输入 token；失败
-轨迹的成本控制与解决率的进一步提升，是当前最值得关注的两个优化方向。本文为后续
-研究高效代码修复智能体以及大语言模型驱动软件工程自动化提供了实验基础与方法参考。
-
-
-  \sysusetup{
-    keywords = {大语言模型, 代码修复智能体, 推理成本优化, 上下文压缩, SWE-bench},
-  }
-\end{abstract}
-
-\begin{abstract*}
-
-In recent years, large language models (LLMs) have demonstrated significant potential
-in software engineering tasks, particularly in automated program repair, code
-understanding, and repository-level issue resolution. However, as task complexity
-shifts from function-level code generation to real-world repository-level repair,
-the inference cost of code repair agents has emerged as a critical bottleneck. Agents
-must iteratively search code files, read large contexts, and accumulate execution
-histories across multiple rounds of interaction, causing token consumption to grow
-super-linearly with the number of steps. This severely limits the practical
-deployability of such systems. Despite growing interest in agent capability and
-task success rates, systematic study of the cost structure and optimization strategies
-for code repair agents remains insufficient.
-
-This paper addresses the high inference cost problem of code repair agents through
-a systematic experimental and analytical study. Using \texttt{mini-swe-agent} as the
-execution framework, \texttt{MiniMaxAI/MiniMax-M2.5} as the reasoning model, and
-SWE-bench Verified (500 instances) as the evaluation benchmark, we construct a
-complete end-to-end experimental pipeline covering issue input, Docker-isolated
-execution, patch generation, trajectory recording, and per-step token metering
-via a local transparent proxy gateway.
-
-For cost structure analysis, we decompose agent trajectories into five phases:
-search, read, edit, verify, and submit, and perform fine-grained token attribution
-across phases. Results show that the \textit{understand} (code reading) phase
-accounts for approximately 50\% of total token consumption, while the
-\textit{implement} (code editing) phase contributes only 2--3\%. Failed trajectories
-almost universally exhaust the maximum step budget (40 steps), consuming 2--3$\times$
-more tokens than successful ones, and account for approximately 83\% of total
-inference cost. These findings reveal that the primary cost bottleneck lies in
-``locating the correct repair site'' rather than ``generating the patch itself.''
-
-Based on these findings, we design and implement six optimization methods along two
-orthogonal paths: \textbf{context compression} and \textbf{workflow compression}.
-Context compression methods reduce the amount of code context injected before
-agent execution: file-level RAG retrieval with BM25 scoring (\texttt{rag\_topk}),
-function-level code trimming on top of RAG (\texttt{rag\_function}), and
-LLMLingua-based semantic re-ranking (\texttt{llmlingua\_original}).
-Workflow compression methods improve agent decision-making by injecting structured
-guidance: a six-step workflow scaffold (\texttt{skill\_abstraction}) and a static
-transferable skill memory derived from resolved instances (\texttt{skill\_memory\_md}).
-A three-stage combined method (\texttt{hybrid\_llmlingua}) integrates both paths.
-All methods are evaluated against an unaugmented baseline (\texttt{baseline\_raw})
-under a unified execution framework.
-
-Experimental results on 500 SWE-bench Verified instances demonstrate that
-\texttt{skill\_memory\_md} and \texttt{rag\_topk} achieve the best overall
-performance, reducing CPR (Cost Per Resolved instance) by 10.5\% and 10.0\%
-respectively while simultaneously improving resolve rates by 3.2 and 3.8 percentage
-points. The general-purpose text compression method (\texttt{llmlingua\_original})
-achieves the largest token reduction ($-$5.74\%) but suffers from decreased resolve
-rate due to structural information loss in code, yielding only a 2.9\% CPR
-improvement. This confirms that general NLP compression techniques cannot be
-directly adapted to code repair without careful consideration of code structure.
-Function-level trimming (\texttt{rag\_function}) degrades performance below
-baseline by severing cross-function and cross-file dependencies, further validating
-that repository-level repair requires preserving structural semantics beyond individual
-functions. Analysis of exclusive-success instances reveals that different methods
-optimize distinct bottlenecks---file retrieval improves localization efficiency,
-skill memory improves decision quality, and workflow scaffolding accelerates
-convergence---demonstrating strong complementarity among methods.
-
-The main contributions of this paper are fourfold: (1) a reproducible experimental
-platform for code repair agents on SWE-bench Verified, with precise per-step token
-metering; (2) a phase-level cost attribution framework identifying code reading and
-failed trajectories as the dominant cost sources; (3) six optimization methods across
-context and workflow compression paths, systematically evaluated on 500 instances;
-and (4) a joint cost--capability evaluation framework based on resolve rate, average
-token consumption, and CPR, providing quantitative guidance for agent deployment
-and future research.
-
-Overall, this work demonstrates that effective cost reduction for code repair agents
-requires improving search efficiency and decision quality rather than naively
-compressing input tokens. Controlling the cost of failed trajectories and further
-improving resolve rates represent the most impactful directions for future work.
-This research provides an experimental foundation and methodological reference for
-building more efficient code repair agents and advancing LLM-driven software
-engineering automation.
-
-
-  \sysusetup{
-    keywords* = {Large Language Model, Code Repair Agent, Inference Cost Optimization, Context Compression, SWE-bench},
-  }
-\end{abstract*}
+  近年来，基于大语言模型的代码智能体在自动程序修复与仓库级问题求解中展现出显著潜力。
+  然而，随着任务从函数级代码生成转向真实仓库级修复，智能体在多轮交互中反复搜索代码、
+  读取大量上下文并累积历史执行轨迹，导致词元（词元）消耗随步数超线性增长，严重制约其工程部署可用性。
+  
+  本文以 \texttt{mini-swe-agent} 为执行框架、\texttt{MiniMaxAI/MiniMax-M2.5} 为推理模型、
+  SWE-bench Verified 500 条实例为评测基准，构建了端到端实验平台，
+  通过本地透明代理网关实现每步 词元 精确计量，保证成本数据的可复现性。
+  
+  在成本结构分析方面，本文将执行轨迹划分为搜索、阅读、编辑、验证、提交五个阶段进行细粒度归因。
+  结果表明，代码阅读阶段约占总 词元 消耗的 50\%；代码修改阶段仅占 2--3\%。
+  失败轨迹几乎总是耗尽最大步数预算（40 步），平均消耗约为成功轨迹的 2--3 倍，
+  且占全部成本的约 83\%。成本优化的核心在于减少定位修复位置过程中的冗余搜索与阅读，
+  而非压缩补丁生成阶段的输出。
+  
+  在方法设计方面，本文沿上下文压缩与工作流压缩两条正交路径，设计并实现了六种方法：
+  文件级 RAG 检索（\texttt{rag\_topk}）、函数级裁剪检索（\texttt{rag\_function}）、
+  LLMLingua 语义重排序（\texttt{llmlingua\_original}）、结构化工作流脚手架注入（\texttt{skill\_abstraction}）、
+  静态跨任务经验记忆注入（\texttt{skill\_memory\_md}）及三阶段组合压缩（\texttt{hybrid\_llmlingua}），
+  并与无增强基线（\texttt{baseline\_raw}）在统一框架下对比，评估维度涵盖解决率、平均 词元 消耗与单位成功成本（CPR）。
+  
+  实验结果表明，\texttt{skill\_memory\_md} 和 \texttt{rag\_topk} 综合表现最优，
+  CPR 较基线分别降低 10.5\% 和 10.0\%，解决率分别提升 3.2 和 3.8 个百分点。
+  通用文本压缩（\texttt{llmlingua\_original}）虽实现最大 词元 削减（$-$5.74\%），
+  但因代码结构性信息损失导致解决率下降，CPR 改善仅 2.9\%，说明通用压缩难以直接适配代码修复场景。
+  函数级裁剪（\texttt{rag\_function}）因截断跨文件上下文导致解决率低于基线，
+  验证了仓库级修复需要保留结构性语义。
+  
+  本文的主要贡献包括：构建了基于 SWE-bench Verified 的可复现实验平台；
+  提出了阶段化成本分析框架；实现并系统评估了六种优化方法；
+  建立了以解决率、平均 词元 消耗与 CPR 为核心的成本—能力联合评估框架。
+  研究表明，降低代码修复智能体推理成本的有效路径在于改善搜索效率与决策质量，
+  而非简单压缩输入 词元，为后续高效代码智能体研究提供了实验基础与方法参考。
+  
+  
+    \sysusetup{
+      keywords = {大语言模型, 代码修复智能体, 推理成本优化, 上下文压缩, SWE-bench},
+    }
+  \end{abstract}
+  
+  \begin{abstract*}
+  
+  In recent years, large language models (LLMs) have demonstrated significant potential
+  in software engineering tasks, particularly in automated program repair, code
+  understanding, and repository-level issue resolution. However, as task complexity
+  shifts from function-level code generation to real-world repository-level repair,
+  the inference cost of code repair agents has emerged as a critical bottleneck. Agents
+  must iteratively search code files, read large contexts, and accumulate execution
+  histories across multiple rounds of interaction, causing 词元 consumption to grow
+  super-linearly with the number of steps. This severely limits the practical
+  deployability of such systems. Despite growing interest in agent capability and
+  task success rates, systematic study of the cost structure and optimization strategies
+  for code repair agents remains insufficient.
+  
+  This paper addresses the high inference cost problem of code repair agents through
+  a systematic experimental and analytical study. Using \texttt{mini-swe-agent} as the
+  execution framework, \texttt{MiniMaxAI/MiniMax-M2.5} as the reasoning model, and
+  SWE-bench Verified (500 instances) as the evaluation benchmark, we construct a
+  complete end-to-end experimental pipeline covering issue input, Docker-isolated
+  execution, patch generation, trajectory recording, and per-step 词元 metering
+  via a local transparent proxy gateway.
+  
+  For cost structure analysis, we decompose agent trajectories into five phases:
+  search, read, edit, verify, and submit, and perform fine-grained 词元 attribution
+  across phases. Results show that the \textit{understand} (code reading) phase
+  accounts for approximately 50\% of total 词元 consumption, while the
+  \textit{implement} (code editing) phase contributes only 2--3\%. Failed trajectories
+  almost universally exhaust the maximum step budget (40 steps), consuming 2--3$\times$
+  more 词元s than successful ones, and account for approximately 83\% of total
+  inference cost. These findings reveal that the primary cost bottleneck lies in
+  ``locating the correct repair site'' rather than ``generating the patch itself.''
+  
+  Based on these findings, we design and implement six optimization methods along two
+  orthogonal paths: \textbf{context compression} and \textbf{workflow compression}.
+  Context compression methods reduce the amount of code context injected before
+  agent execution: file-level RAG retrieval with BM25 scoring (\texttt{rag\_topk}),
+  function-level code trimming on top of RAG (\texttt{rag\_function}), and
+  LLMLingua-based semantic re-ranking (\texttt{llmlingua\_original}).
+  Workflow compression methods improve agent decision-making by injecting structured
+  guidance: a six-step workflow scaffold (\texttt{skill\_abstraction}) and a static
+  transferable skill memory derived from resolved instances (\texttt{skill\_memory\_md}).
+  A three-stage combined method (\texttt{hybrid\_llmlingua}) integrates both paths.
+  All methods are evaluated against an unaugmented baseline (\texttt{baseline\_raw})
+  under a unified execution framework.
+  
+  Experimental results on 500 SWE-bench Verified instances demonstrate that
+  \texttt{skill\_memory\_md} and \texttt{rag\_topk} achieve the best overall
+  performance, reducing CPR (Cost Per Resolved instance) by 10.5\% and 10.0\%
+  respectively while simultaneously improving resolve rates by 3.2 and 3.8 percentage
+  points. The general-purpose text compression method (\texttt{llmlingua\_original})
+  achieves the largest 词元 reduction ($-$5.74\%) but suffers from decreased resolve
+  rate due to structural information loss in code, yielding only a 2.9\% CPR
+  improvement. This confirms that general NLP compression techniques cannot be
+  directly adapted to code repair without careful consideration of code structure.
+  Function-level trimming (\texttt{rag\_function}) degrades performance below
+  baseline by severing cross-function and cross-file dependencies, further validating
+  that repository-level repair requires preserving structural semantics beyond individual
+  functions. Analysis of exclusive-success instances reveals that different methods
+  optimize distinct bottlenecks---file retrieval improves localization efficiency,
+  skill memory improves decision quality, and workflow scaffolding accelerates
+  convergence---demonstrating strong complementarity among methods.
+  
+  The main contributions of this paper are fourfold: (1) a reproducible experimental
+  platform for code repair agents on SWE-bench Verified, with precise per-step 词元
+  metering; (2) a phase-level cost attribution framework identifying code reading and
+  failed trajectories as the dominant cost sources; (3) six optimization methods across
+  context and workflow compression paths, systematically evaluated on 500 instances;
+  and (4) a joint cost--capability evaluation framework based on resolve rate, average
+  词元 consumption, and CPR, providing quantitative guidance for agent deployment
+  and future research.
+  
+  Overall, this work demonstrates that effective cost reduction for code repair agents
+  requires improving search efficiency and decision quality rather than naively
+  compressing input 词元s. Controlling the cost of failed trajectories and further
+  improving resolve rates represent the most impactful directions for future work.
+  This research provides an experimental foundation and methodological reference for
+  building more efficient code repair agents and advancing LLM-driven software
+  engineering automation.
+  
+  
+    \sysusetup{
+      keywords* = {Large Language Model, Code Repair Agent, Inference Cost Optimization, Context Compression, SWE-bench},
+    }
+  \end{abstract*}
+  
