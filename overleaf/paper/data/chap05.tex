@@ -1,349 +1,985 @@
-\chapter{总结与展望}
-\label{chap:conclusion}
+\chapter{实验平台与成本优化方法}
+\label{chap:methods}
 
-本章对全文研究工作进行系统总结，梳理主要贡献与核心结论，
-并在此基础上指出当前工作的局限性与未来可探索的研究方向。
+本章介绍本文实验的整体平台设计与七种成本优化方法的具体实现。
+第~\ref{sec:platform}~节描述实验环境、数据集与评估流程；
+第~\ref{sec:gateway}~节介绍本地 词元 计量网关的设计；
+第~\ref{sec:method-motivation}~节说明方法选择的动机与来源；
+第~\ref{sec:baseline}~至第~\ref{sec:hybrid}~节依次描述各方法的实现原理
+与关键参数；最后第~\ref{sec:method-summary}~节对所有方法进行统一汇总。
 
 %% ─────────────────────────────────────────────────────────────────────────────
-\section{全文总结}
-\label{sec:conclusion-summary}
+\section{实验平台设计}
+\label{sec:platform}
 
-本文以代码修复智能体在仓库级修复任务中的高推理成本问题为核心，
-围绕"成本来自哪里"与"如何系统降低成本"两个层次展开研究，
-以 \texttt{mini-swe-agent} 为执行框架，以 SWE-bench Verified（500 条实例）
-为评测基准，构建了完整的实验分析闭环，对六种成本优化方法与一个无增强基线进行了
-系统对比。全文主要工作与贡献如下。
+\subsection{软硬件环境}
+\label{subsec:hw-env}
 
-\subsection{建立了面向代码修复智能体的成本分析框架}
-\label{subsec:contribution-framework}
-
-第四章在形式化定义代码修复任务的基础上，提出了一套\textbf{阶段化推理成本分析框架}。
-框架将 agent 的执行轨迹分解为 \texttt{SEARCH}、\texttt{READ}、\texttt{EDIT}、
-\texttt{VERIFY}、\texttt{RETRY} 五个阶段，并给出了精确的 词元 度量口径：
-
-\begin{equation}
-  C_{\text{total}} = \sum_{k=0}^{K-1}\bigl(c_k^{\text{in}} + c_k^{\text{out}}\bigr)
-  = C_{\text{search}} + C_{\text{read}} + C_{\text{edit}} + C_{\text{verify}} + C_{\text{retry}}
-\end{equation}
-
-框架揭示了三个关键机制：
-（1）对话历史累积导致输入 词元 随步数超线性增长；
-（2）早期读取的大文件在后续每一步都作为上下文重现，产生放大效应；
-（3）失败轨迹几乎总是耗尽最大步数预算，其成本远超成功轨迹。
-该框架在本文实验中通过本地透明代理网关（FastAPI 透明代理）进行了精确验证，
-为后续方法设计提供了理论依据和测量工具。
-
-\subsection{设计并实现了两条正交的成本优化路径}
-\label{subsec:contribution-methods}
-
-第五章在上述框架的指导下，围绕\textbf{上下文压缩}与\textbf{工作流压缩}
-两条正交路径，设计并实现了六种优化方法：
-
-\textbf{上下文压缩路径}（三种方法）：通过在 agent 运行前精简输入上下文，
-减少搜索和阅读阶段的 词元 开销。
-\begin{itemize}
-  \item \texttt{rag\_topk}：基于关键词检索与 BM25 打分，注入 top-4 候选文件片段
-  \item \texttt{rag\_function}：在文件级检索基础上叠加函数级代码裁剪
-  \item \texttt{llmlingua\_original}：使用 \texttt{deepseek-coder-1.3b} 对候选文件
-        进行语义相关性重排序，替代词频统计
-\end{itemize}
-
-\textbf{工作流压缩路径}（两种方法）：通过引导 agent 遵循更高效的求解流程，
-减少规划空转和无效探索带来的 词元 浪费。
-\begin{itemize}
-  \item \texttt{skill\_abstraction}：注入六步结构化工作流脚手架，
-        约束 agent 按"理解 → 定位 → 最小 patch → 验证 → 提交"路径求解
-  \item \texttt{skill\_memory\_md}：注入从历史 resolved 样本中整理的
-        跨任务可迁移启发式经验（\texttt{skills.md}）
-\end{itemize}
-
-\textbf{组合路径}（一种方法）：
-\begin{itemize}
-  \item \texttt{hybrid\_llmlingua}：串联语义重排序、函数级裁剪与 词元 budget 截断
-\end{itemize}
-
-所有方法均遵循统一的输入输出接口，在相同执行框架下进行公平比较。
-
-\subsection{在 500 条实例上完成了系统实验并得出量化结论}
-\label{subsec:contribution-results}
-
-第六章基于完整 500 条 SWE-bench Verified 实例的实验结果，
-得出以下核心量化结论（全部相对基线 \texttt{baseline\_raw} 计算）：
+本文所有实验在单台云服务器上运行，主要软硬件配置如表~\ref{tab:hw-env}~所示。
 
 \begin{table}[htbp]
-  \centering
-  \caption{全文核心实验结论汇总}
-  \label{tab:conclusion-summary}
-  \begin{tabularx}{\textwidth}{lXrr}
-    \toprule
-    方法 & 主要结论 & $\Delta$Resolve & $\Delta$CPR \\
-    \midrule
-    \texttt{rag\_topk}          & 最高解决率（37.8\%），CPR 降低 10.0\%      & $+$3.8 pp & $-$10.0\% \\
-    \texttt{skill\_memory\_md}  & 最佳综合方案，CPR 降低 10.5\%             & $+$3.2 pp & $-$10.5\% \\
-    \texttt{skill\_abstraction} & 最低成功运行时 119 s，CPR 降低 9.2\%      & $+$2.4 pp & $-$9.2\%  \\
-    \texttt{hybrid\_llmlingua}  & 组合压缩有效，CPR 降低 8.6\%             & $+$2.2 pp & $-$8.6\%  \\
-    \texttt{llmlingua\_original}& 词元 削减最多（$-$5.74\%），但解决率下降  & $-$1.0 pp & $-$2.9\%  \\
-    \texttt{rag\_function}      & 函数级裁剪过度，解决率和 CPR 均劣于基线   & $-$0.8 pp & $+$1.8\%  \\
-    \bottomrule
-  \end{tabularx}
+\centering
+\caption{实验硬件与软件环境}
+\label{tab:hw-env}
+\begin{tabular}{ll}
+\toprule
+项目 & 配置 \\
+\midrule
+操作系统 & Ubuntu 22.04 LTS \\
+CPU & 16 vCPU（Intel Xeon） \\
+内存 & 64 GB \\
+容器运行时 & Docker 24.0，官方 SWE-bench 镜像 \\
+Python & 3.11（Anaconda） \\
+LLM 模型 & MiniMaxAI/MiniMax-M2.5（OpenAI-compatible API） \\
+网关 & 本地 FastAPI 透明代理，端口 8080 \\
+\bottomrule
+\end{tabular}
 \end{table}
 
-三条最重要的实验发现如下：
+\subsection{数据集}
+\label{subsec:dataset}
 
-\textbf{发现一：失败轨迹是最大的成本黑洞。}
-所有失败实例几乎一律耗尽 40 步上限，平均消耗约 440--470 秒运行时；
-而成功实例平均仅需 29--30 步、约 120--135 秒。
-失败实例占比约 66\%，其 词元 消耗约占总成本的 83\%。
-这意味着降低 CPR 的最有效杠杆不是上下文压缩，而是\textbf{提升解决率或引入有效早停}。
+本文使用 \textbf{SWE-bench Verified} 子集，共 500 条经人工验证的高质量 instance，
+覆盖 \texttt{astropy}、\texttt{django}、\texttt{sympy}、\texttt{matplotlib}、
+\texttt{scikit-learn} 等主流 Python 开源仓库。
+每条 instance 由仓库快照、issue 描述和参考补丁三部分构成（见第~\ref{subsec:swebench-instance}~节）。
+所有 7 种方法均在同一组 500 条 instance 上独立运行，保证结果的可比性。
 
-\textbf{发现二：代码阅读（understand）阶段是 词元 消耗主体（约 50\%），
-代码修改（implement）仅占约 2.3\%--2.6\%。}
-成本瓶颈在于"找到正确的修复位置"，而非生成 patch 本身。
-因此，任何以压缩最终输出为目标的方法优化空间极为有限，
-而减少冗余代码阅读的方法才更具潜力。
+\subsection{实验执行流程}
+\label{subsec:run-pipeline}
 
-\textbf{发现三：不同方法优化的是不同瓶颈，具有互补性。}
-\texttt{rag\_topk} 改善的是\textbf{文件定位效率}，
-\texttt{llmlingua\_original} 改善的是\textbf{上下文冗余}，
-\texttt{skill\_abstraction} 改善的是\textbf{工作流稳定性}，
-\texttt{skill\_memory\_md} 改善的是\textbf{跨任务经验迁移}。
-这一发现对未来方法组合设计具有重要指导意义。
+整体执行流程见算法~\ref{alg:run-pipeline}。
 
-\subsection{回答了四个核心研究问题}
-\label{subsec:rq-answers}
+\begin{algorithm}[H]
+\caption{批量实验执行流程}
+\label{alg:run-pipeline}
+\KwIn{实例集合 $\mathcal{D}$（500 条），方法列表 $\mathcal{M}$，最大步数 $K=40$}
+\KwOut{每方法的 Resolve Rate、Avg Tokens、CPR}
 
-\textbf{RQ1（成本主要来自哪些环节）：}
-代码阅读（understand）阶段占总 词元 消耗的 50\% 左右，是主体；
-失败轨迹由于步数耗尽，其总 词元 远高于成功轨迹；
-搜索（search）阶段约占 10\%，验证（validate）约占 12\%，
-真正的代码修改（implement）仅占 2--3\%。
+\BlankLine
+\For{每种方法 $m \in \mathcal{M}$}{
+\For{每个实例 $\mathcal{T}_i = (r_i, s_i) \in \mathcal{D}$}{
+$\hat{s}_i \leftarrow \text{BuildContext}(s_i,\; r_i,\; m)$ \tcp*{按方法构建 task prompt}
+拉取 Docker 镜像 $\text{img}(r_i)$，挂载 \texttt{/testbed}\;
+将 \texttt{OPENAI\_BASE\_URL} 指向本地网关\;
+$\hat{p}_i \leftarrow \text{MiniSWEAgent}(\hat{s}_i,\; K)$ \tcp*{运行 agent，至多 K 步}
+$\text{resolved}_i \leftarrow \text{RunTests}(\hat{p}_i,\; \mathcal{T}_i)$ \tcp*{在 Docker 中执行测试}
+保存 \texttt{trajectory.json}，\texttt{result.json}，\texttt{patch.diff}\;
+}
+聚合统计：$\text{ResolveRate}(m)$，$\overline{C}(m)$，$\overline{K}(m)$，$\text{CPR}(m)$\;
+}
+\Return 所有方法的评估指标矩阵\;
+\end{algorithm}
 
-\textbf{RQ2（仓库级修复为何更易引发上下文膨胀）：}
-根本原因在于两点：（1）对话历史不截断导致每步输入随步数线性累积；
-（2）大文件的放大效应——第 $j$ 步读取的 $F$ 词元s 的文件，
-在此后 $(K-j-1)$ 步中每步都会出现在输入中，总贡献为 $F \times (K-j-1)$，
-远超一次阅读本身的代价。
+每个 instance 独立在 Docker 容器中运行，互不干扰。
+所有方法共享相同的 mini-swe-agent 执行器和相同的测试评估逻辑，
+区别仅在于 \texttt{BuildContext} 阶段注入的 task prompt 不同。
 
-\textbf{RQ3（已有压缩方法在代码修复中是否适用）：}
-通用文本压缩方法（LLMlingua）在代码修复场景中适配性不足：
-代码中看似冗余的结构性 词元（缩进、类型注解、调用层次）
-对语义理解具有不可替代的价值，通用压缩无法甄别其结构性价值。
-函数级 RAG 因截断横向上下文而解决率下降，说明代码修复需要保留
-函数簇和跨文件调用关系，而非单一函数片段。
-文件级 RAG（\texttt{rag\_topk}）是迄今最适合仓库级修复的检索方案。
+\subsection{评估指标}
+\label{subsec:metrics}
 
-\textbf{RQ4（如何在保证修复能力前提下降低推理成本）：}
-技能记忆注入（\texttt{skill\_memory\_md}，CPR $-$10.5\%）和
-文件级 RAG（\texttt{rag\_topk}，CPR $-$10.0\%）是当前最优综合方案，
-两者均同时提升解决率并降低平均 词元 消耗，达到 Pareto 改善。
-从机制层面，降低 CPR 的三个有效杠杆依次为：
-（1）提升解决率（将失败变为成功）；
-（2）减少冗余搜索与阅读（改善搜索效率）；
-（3）稳定工作流（减少规划空转）。
-纯粹的 词元 压缩在不改善解决率的前提下，CPR 改善空间有限。
-
-
-%% ─────────────────────────────────────────────────────────────────────────────
-\section{工作局限性}
-\label{sec:limitations}
-
-尽管本文在 500 条 SWE-bench Verified 实例上进行了系统实验，
-设计并评估了七种方法，仍存在以下几方面局限性，
-对结论的适用范围有一定影响。
-
-\subsection{单模型依赖}
-\label{subsec:limit-single-model}
-
-本文所有实验均使用 \texttt{MiniMaxAI/MiniMax-M1} 作为推理模型。
-不同基础模型在代码理解能力、指令遵循能力和工作流压缩的响应方式上存在显著差异。
-特别是工作流脚手架注入（\texttt{skill\_abstraction}）和经验记忆注入
-（\texttt{skill\_memory\_md}）的有效性，在很大程度上取决于模型对结构化提示的
-理解与遵循能力。在更强或更弱的基础模型上，本文方法的效果可能存在一定偏差。
-未来工作需要在 GPT-4o、Claude 3.5 Sonnet、DeepSeek-V3 等代表性模型上
-进行跨模型验证，以评估方法的模型无关性。
-
-\subsection{评估基准的代表性局限}
-\label{subsec:limit-benchmark}
-
-SWE-bench Verified 500 条实例主要覆盖 \texttt{astropy}、
-\texttt{django}、\texttt{sympy}、\texttt{matplotlib}、\texttt{scikit-learn}
-等 Python 开源仓库，且以函数级 bug 修复为主。
-这一分布可能无法完全代表工业界真实软件仓库中的修复任务，
-例如：跨语言代码库、遗留代码系统、与数据库或外部服务深度耦合的业务逻辑 bug 等。
-此外，SWE-bench 的任务难度分布并非均匀：约 40\% 的实例（203 条）对全部方法均失败，
-这些"硬实例"的存在使得 resolve rate 的绝对数值对方法优劣的区分度降低，
-也限制了 CPR 指标在极端情况下的解释能力。
-
-\subsection{BM25 检索的关键词依赖性}
-\label{subsec:limit-retrieval}
-
-本文的文件级 RAG 检索基于关键词提取与 BM25 打分，
-其效果高度依赖问题描述中是否包含可识别的函数名、类名或模块路径等显式线索。
-对于问题描述较为模糊、以自然语言描述现象而非直接引用代码符号的实例，
-BM25 检索可能无法召回正确文件，从而导致 \texttt{rag\_topk} 退化为噪声注入。
-更高质量的语义检索（如基于 code embedding 的向量检索）可能在这类实例上
-取得更好效果，但本文未进行系统比较。
-
-\subsection{skill memory 的手工构建成本}
-\label{subsec:limit-skill}
-
-\texttt{skill\_memory\_md} 依赖人工整理的 \texttt{skills.md} 文件，
-其内容是基于部分已 resolved 样本总结的启发式规则。
-这一构建过程存在以下局限：
-（1）经验规则覆盖的模式有限，对规则未覆盖的新类型 bug 帮助有限；
-（2）构建过程存在数据泄露风险（若规则来源样本与测试样本有重叠），
-本文实验在设计上保证了训练集与测试集的隔离，但工业应用中需要更严格的审计；
-（3）当基础模型更换时，已有 skill memory 的有效性可能需要重新评估。
-自动化的 skill memory 构建与持续更新机制，是未来将该方法推向实用的关键挑战。
-
-\subsection{缺乏早停机制}
-\label{subsec:limit-earlystop}
-
-本文实验固定最大步数为 $K=40$，所有失败实例均消耗全部步数预算。
-然而，实验结果表明失败轨迹的平均 词元 消耗是成功轨迹的 2--3 倍，
-而失败与成功的分化在轨迹早期往往已有信号可循（例如反复读取同一文件、
-patch 格式错误循环、搜索无收敛等）。
-本文尚未研究基于轨迹特征的早停策略，这是当前成本瓶颈中
-"失败成本过高"问题最直接的解决方向，但也需要在不误判成功轨迹的前提下
-设计合适的终止条件，具有一定的实现复杂度。
-
-
-%% ─────────────────────────────────────────────────────────────────────────────
-\section{未来工作展望}
-\label{sec:future-work}
-
-基于本文的实验发现与局限性分析，以下几个方向具有较高的研究价值与工程落地潜力。
-
-\subsection{轨迹级早停与无进展检测}
-\label{subsec:future-earlystop}
-
-当前成本的最大黑洞是失败轨迹的步数耗尽问题。
-未来工作可以从以下两个角度设计轨迹级成本控制机制：
-
-\textbf{（1）无进展检测（stagnation detection）。}
-通过分析连续步骤的操作类型、文件读取重复率和 patch 尝试的差异性，
-识别轨迹陷入循环的模式。当检测到无进展信号时触发策略切换（如扩展搜索范围、
-换用不同提示策略）或提前终止。
-
-\textbf{（2）置信度估计（confidence estimation）。}
-在每一步生成后估计当前状态下任务成功的概率，
-当概率低于阈值时优雅退出并返回当前最优 patch（若有），
-而非继续消耗预算。这需要训练一个轻量级的 trajectory-level 状态分类器。
-
-初步估计，若将失败轨迹的平均步数从 40 步降至 25 步，
-在 resolve rate 不变的前提下，全局平均 CPR 可改善约 20--30\%，
-优于本文所有已实现方法的改善幅度。
-
-\subsection{自动化 skill memory 构建与更新}
-\label{subsec:future-skill-memory}
-
-当前 \texttt{skill\_memory\_md} 依赖人工整理的启发式规则，
-限制了其规模化应用能力。未来可以探索以下自动化路径：
-
-\textbf{（1）从成功轨迹自动提炼经验。}
-对已 resolved 实例的 \texttt{trajectory.json} 进行结构化分析，
-自动提取关键决策模式（如"在 X 类问题上应优先搜索 Y 类文件"），
-并用语言模型将其归纳为可复用的文字规则，动态更新 \texttt{skills.md}。
-
-\textbf{（2）基于强化学习的 skill 演化。}
-将技能规则视为策略参数，通过在新实例上的执行反馈（resolved/unresolved）
-评估每条规则的贡献，并用梯度信号或进化算法迭代优化规则集合。
-
-\textbf{（3）分仓库、分 bug 类型的专属 skill memory。}
-不同仓库的代码结构和 bug 分布存在显著差异，
-为 \texttt{django}、\texttt{astropy} 等高频仓库单独维护 skill memory
-可能比通用 memory 更加有效。
-
-\subsection{语义向量检索替代 BM25}
-\label{subsec:future-embedding}
-
-当前 \texttt{rag\_topk} 的文件检索基于 BM25 关键词匹配，
-对问题描述依赖显式代码标识符的实例效果好，
-但对语义相关性不依赖关键词共现的问题描述存在召回率下降的问题。
-未来可以引入基于 code embedding 的向量检索，例如：
+我们使用以下四个指标评估压缩方法的性能：
 
 \begin{itemize}
-  \item 使用 \texttt{CodeBERT}、\texttt{UnixCoder} 或
-        \texttt{text-embedding-3-large} 对仓库文件进行离线向量化
-  \item 在 agent 运行前，用问题描述的 embedding 查询 Top-K 文件
-  \item 将向量检索与 BM25 结果进行融合重排（RRF，Reciprocal Rank Fusion）
+\item \textbf{Resolve Rate}：正确解决的 instance 比例（FAIL\_TO\_PASS 测试全部通过）
+\item \textbf{Avg Tokens}：所有 instance 的平均词元消耗（输入+输出）
+\item \textbf{Avg Steps}：平均执行步数
+\item \textbf{CPR}（Cost Per Resolved）：$\overline{C}_{\text{total}} \;/\; \text{ResolveRate}$，
+综合反映成本与能力的联合效率
 \end{itemize}
 
-语义检索尤其对"问题描述描述的是现象而非代码符号"的实例更有帮助，
-有望进一步提升 \texttt{rag\_topk} 在当前 37.8\% 基础上的解决率。
 
-\subsection{分层组合方法设计}
-\label{subsec:future-pipeline}
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{本地词元计量网关}
+\label{sec:gateway}
 
-实验结果表明，不同方法优化的是不同瓶颈，具有互补性：
-\texttt{rag\_topk} 改善文件定位效率，
-\texttt{skill\_memory\_md} 改善决策与执行质量。
-一个自然的后续方向是将这两条路径系统地组合为三层 pipeline：
+\subsection{网关设计动机}
+\label{subsec:gateway-motivation}
+
+mini-swe-agent 通过 OpenAI-compatible API 调用 LLM。
+为精确计量每一步的词元消耗，而不依赖上游服务商的计费日志，
+本文在 agent 与模型 API 之间插入一个\textbf{本地透明代理网关}。
+网关作为透明代理插入在 mini-swe-agent 与上游模型 API 之间，
+不修改任何请求/响应内容，仅拦截并解析响应中的 \texttt{usage} 字段，
+将每步的输入 词元 数、输出 词元 数、实验名和 instance\_id 统一记录至 JSONL 日志，
+最终汇总进 \texttt{trajectory.json} 供成本分析使用。
+
+\subsection{网关实现}
+\label{subsec:gateway-impl}
+
+网关基于 \texttt{FastAPI} 实现，核心逻辑如下：
+
+\begin{lstlisting}[style=promptstyle, caption={网关核心：拦截 token 用量并落盘（节选自 src/gateway/server.py）}, label={lst:gateway-core}]
+@app.post("/v1/chat/completions")
+async def chat_completions(request: Request) -> JSONResponse:
+body = await request.json()
+instance_id = request.headers.get("X-Instance-Id", "")
+strategy    = request.headers.get("X-Strategy-Name", "")
+
+# 转发至上游 API
+async with httpx.AsyncClient(timeout=180.0) as client:
+resp = await client.post(
+f"{upstream_url}/chat/completions",
+json=body,
+headers={"Authorization": f"Bearer {upstream_key}"},
+)
+
+data  = resp.json()
+usage = data.get("usage", {})
+
+# 记录 token 用量到 JSONL
+record = {
+"ts":           time.time(),
+"instance_id":  instance_id,
+"strategy":     strategy,
+"input_tokens":  usage.get("prompt_tokens",     0),
+"output_tokens": usage.get("completion_tokens", 0),
+"total_tokens":  usage.get("prompt_tokens", 0)
++ usage.get("completion_tokens", 0),
+}
+with token_log_file.open("a") as f:
+f.write(json.dumps(record) + "\n")
+
+return JSONResponse(content=data)
+\end{lstlisting}
+
+启动时通过 YAML 配置文件指定上游 API 地址和模型名，
+agent 侧只需将 \texttt{OPENAI\_BASE\_URL} 指向本地网关即可无感接入：
+
+\begin{lstlisting}[style=promptstyle, caption={网关配置文件示例}, label={lst:gateway-config}]
+upstream_url: "${MINIMAX_API_BASE_URL}"
+upstream_key: "${MINIMAX_API_KEY}"
+default_model: "MiniMaxAI/MiniMax-M2.5"
+log_dir: "logs/gateway_minimax"
+host: "127.0.0.1"
+port: 8080
+timeout: 180
+\end{lstlisting}
+
+每一步的 词元 记录最终汇总写入 \texttt{trajectory.json} 的 \texttt{total\_usage} 字段，
+作为后续分析的唯一 词元 数据来源。
+
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{方法选择动机与来源}
+\label{sec:method-motivation}
+
+\subsection{从 empirical 研究到系统优化实验}
+\label{subsec:empirical-motivation}
+
+本文所选取的六种优化方法（不含基线），并非随意拼凑，而是有明确研究依据的系统性选择。
+其方法来源可以从两条线索加以理解。
+
+\textbf{第一条线索：前期 empirical 研究的结论直接驱动了上下文压缩方法的选型。}
+本课题组在前期工作中，对七种长上下文代码压缩方法（包括滑动窗口 RAG、函数级 RAG、LLMLingua、
+LongLLMLingua、LLMLingua-2 等）在代码补全任务上进行了系统性 empirical 评估，
+涵盖四个代码大模型与三个仓库级数据集。
+该研究揭示了两条核心结论，直接影响了本文的方法设计：
 
 \begin{enumerate}
-  \item \textbf{检索层}：利用向量检索或 BM25 缩小候选文件集合（对标 \texttt{rag\_topk}）
-  \item \textbf{决策层}：注入结构化工作流与可迁移经验
-        （对标 \texttt{skill\_abstraction} + \texttt{skill\_memory\_md}）
-  \item \textbf{止损层}：加入基于轨迹特征的无进展检测与早停机制
+\item \textbf{RAG 类方法在代码任务中效率与精度兼顾：}
+固定窗口 RAG 可将生成时间降低最多 67\%，同时精确匹配率（EM）几乎不下降；
+而 LLMLingua 等 词元 级压缩方法虽可达到最高 10$\times$ 的压缩率，
+却在代码任务上造成 30--50\% 的 EM 下降。
+\item \textbf{代码结构使得通用压缩方法适配性不足：}
+代码中的缩进、类型注解、函数边界、调用关系等结构性 词元，
+在语言学意义上看似"冗余"，却对语义理解具有不可替代的价值。
+通用 NLP 压缩方法往往无法甄别代码中的结构性语义，导致关键上下文丢失。
 \end{enumerate}
 
-三层方法分别对应"定位"、"收敛"、"止损"三个瓶颈，
-理论上可将 CPR 改善叠加到 20\% 以上，
-同时避免单一方法过拟合某类实例的风险。
+基于上述结论，本文在仓库级代码修复场景中验证并扩展了这些发现：
+选取文件级 BM25 检索（\texttt{rag\_topk}）作为代表性 RAG 方法，
+在其基础上叠加函数级裁剪（\texttt{rag\_function}）以测试更激进的结构化压缩，
+并引入 LLMLingua 语义重排序（\texttt{llmlingua\_original}）及其与 RAG 的组合（\texttt{hybrid\_llmlingua}），
+以评估通用压缩方法在 agent 多轮修复场景中的真实表现。
+换言之，上下文压缩类方法（方法二至四、七）的设计初衷，
+是在 agent 场景下\textbf{重新验证 empirical 研究中的方法}，
+并考察其在多轮动态上下文条件下是否仍然成立。
 
-\subsection{跨模型泛化性验证}
-\label{subsec:future-model-transfer}
+\textbf{第二条线索：成本分析框架的实验结论驱动了工作流压缩方法的原创设计。}
+第~\ref{chap:framework}章的阶段化成本分析表明，失败轨迹几乎总是耗尽 40 步预算，
+是最主要的成本黑洞；代码阅读（understand）阶段占总 词元 约 50\%，
+而这一阶段的冗余本质上源于模型缺乏有效的搜索经验和任务规划能力。
+这一发现指向了一个 RAG 方法无法直接解决的问题：
+减少文件读入量可以压缩阅读成本，但若模型的决策质量低下、工作流混乱，
+它仍会在已有候选文件中反复徘徊，产生无效的多步开销。
 
-本文所有实验基于 \texttt{MiniMax-M1} 模型。
-为验证所提方法的普适性，未来工作应在以下模型上进行跨模型对比：
+因此，本文针对上述瓶颈，设计并实现了两种\textbf{原创工作流压缩方法}：
+结构化工作流脚手架注入（\texttt{skill\_abstraction}）
+和静态可迁移经验记忆注入（\texttt{skill\_memory\_md}）。
+这两种方法是本文的核心创新贡献，将在后续小节中详细说明其设计思路与实现。
+
+\subsection{方法体系总览}
+\label{subsec:method-overview}
+
+综上，本文的七种方法构成两条正交优化路径：
+
 \begin{itemize}
-  \item 开源模型：\texttt{DeepSeek-V3}、\texttt{Qwen2.5-Coder-32B}、\texttt{Llama-3.3-70B}
-  \item 商业模型：\texttt{GPT-4o}、\texttt{Claude-3.5-Sonnet}
+\item \textbf{上下文压缩路径}（基于 empirical 研究方法移植与验证）：
+在 agent 运行前通过预检索精简输入上下文，直接压缩阅读阶段的 词元 开销。
+包括：\texttt{rag\_topk}、\texttt{rag\_function}、\texttt{llmlingua\_original}、\texttt{hybrid\_llmlingua}。
+\item \textbf{工作流压缩路径}（本文原创方法设计）：
+通过向 agent 注入结构化决策指引或可迁移经验记忆，
+改善 agent 的工作流效率，减少失败轨迹中的无效 词元 开销。
+包括：\texttt{skill\_abstraction}、\texttt{skill\_memory\_md}。
 \end{itemize}
 
-重点验证的问题包括：
-（1）工作流脚手架（\texttt{skill\_abstraction}）对不同指令遵循能力模型的效果差异；
-（2）BM25 检索注入对模型上下文利用率的影响是否模型无关；
-（3）skill memory 在不同模型上是否需要重新调优。
+两条路径在机制上正交互补：前者优化"读什么"，后者优化"怎么做"。
+两者的实验结果将在第~\ref{chap:results}章联合分析，以揭示各自的成本—能力权衡特征。
 
-\subsection{面向工业代码库的适配性研究}
-\label{subsec:future-industrial}
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{方法一：baseline\_raw（无压缩基线）}
+\label{sec:baseline}
 
-SWE-bench 任务以 Python 开源库为主，
-与工业界的真实软件修复场景存在一定差异：
-工业代码库通常规模更大、多语言混合、依赖关系更复杂、
-问题描述的质量与格式也更加多样。
-未来工作可以从以下方面推进工业适配性研究：
-\begin{itemize}
-  \item 在 SWE-bench-Java 或自建多语言基准上验证方法的跨语言适应性
-  \item 研究在大型单体仓库（百万行代码级别）中的检索效率与覆盖率
-  \item 针对问题描述质量差（无代码标识符、描述模糊）的实例设计专项增强策略
-  \item 结合持续集成系统（CI/CD）设计面向工业部署的成本预算控制机制
-\end{itemize}
+\subsection{方法描述}
 
+\texttt{baseline\_raw} 是无任何增强的对照基线。
+它直接将原始 \texttt{problem\_statement} 作为 task prompt 传给 mini-swe-agent，
+不增加任何检索结果、工作流提示或 skill memory。
+
+\begin{algorithm}[H]
+\caption{baseline\_raw：无压缩基线}
+\label{alg:baseline}
+\KwIn{问题描述 $s$，仓库快照 $r$}
+\KwOut{task prompt $\hat{s}$}
+\BlankLine
+$\hat{s} \leftarrow s$ \tcp*{直接使用原始 issue，不做任何增强}
+\Return $\hat{s}$\;
+\end{algorithm}
+
+\subsection{参数设置}
+
+\begin{table}[htbp]
+\centering
+\caption{baseline\_raw 参数配置}
+\label{tab:baseline-params}
+\begin{tabular}{lll}
+\toprule
+参数 & 值 & 说明 \\
+\midrule
+\texttt{method.name} & \texttt{none} & 不启用任何上下文增强 \\
+\texttt{agent.max\_steps} & 40 & 最大执行步数 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{预期行为}
+
+agent 在空白上下文中自行决定搜索策略，通常需要多轮 \texttt{grep}/\texttt{find}
+才能定位目标文件，搜索阶段产生大量 词元。
+该方法的价值不在于节省成本，而在于提供对照组，用于衡量其他方法的增益。
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{方法二：rag\_topk（文件级 RAG 检索）}
+\label{sec:rag-topk}
+
+\subsection{方法描述}
+
+\texttt{rag\_topk} 在 agent 运行前，先根据 issue 文本从仓库中检索出少量候选文件，
+并将这些文件的代码片段注入 task prompt。
+其核心是：\textbf{用轻量规则检索替代 agent 的早期搜索阶段}，
+减少 agent 在全仓库范围执行 \texttt{grep}/\texttt{find} 的 词元 开销。
+
+\subsection{实现流程}
+
+完整流程见算法~\ref{alg:rag-topk}。
+
+\begin{algorithm}[H]
+\caption{rag\_topk：文件级 BM25 检索注入}
+\label{alg:rag-topk}
+\KwIn{问题描述 $s$，仓库快照 $r$（Docker \texttt{/testbed}），$k=4$，\texttt{snippet\_lines}=220}
+\KwOut{增强后的 task prompt $\hat{s}$}
+
+\BlankLine
+\tcc{Step 1: 从 issue 中提取查询词}
+$T \leftarrow \text{ExtractTerms}(s)$ \tcp*{提取标识符、类名、函数名等，去除停用词，取前 12 个}
+
+\BlankLine
+\tcc{Step 2: 在 Docker 中用 rg 检索候选文件}
+$\text{cmd} \leftarrow$ \texttt{"rg -l -i -m 1 <pattern> . --glob '!*.json' | head -24"}\;
+$\text{candidates} \leftarrow \text{DockerRun}(r,\; \text{cmd})$ \tcp*{最多 24 个候选文件路径}
+
+\BlankLine
+\tcc{Step 3: 读取候选文件前 snippet\_lines 行}
+\For{每个候选文件 $f$}{
+$\text{content}[f] \leftarrow \text{DockerRun}(r,\; \texttt{"sed -n '1,220p' "} + f)$\;
+}
+
+\BlankLine
+\tcc{Step 4: BM25 相关性打分，选 top-k 文件}
+\For{每个候选文件 $f$}{
+$\text{score}[f] \leftarrow \text{BM25}(T,\; \text{content}[f]) + 2 \times \mathbb{1}[T \cap \text{path}(f) \neq \varnothing]$\;
+}
+$F_k \leftarrow \text{TopK}(\text{score},\; k=4)$\;
+
+\BlankLine
+\tcc{Step 5: 拼接候选文件片段到 prompt}
+$\hat{s} \leftarrow s + \text{"Repository hints:"} + \bigcup_{f \in F_k} \text{"[Candidate File] "} + f + \text{content}[f]$\;
+$\hat{s} \leftarrow \hat{s} + \text{"The additional context is a starting point..."}$\;
+\Return $\hat{s}$\;
+\end{algorithm}
+
+\subsection{BM25 打分细节}
+
+本文使用轻量自实现的 BM25（不依赖外部索引库），
+查询词集合来自对 issue 文本的正则提取，并对文件路径中的关键词匹配给予额外加权：
+
+\begin{lstlisting}[style=promptstyle, caption={TopKFileSelector BM25 打分（节选自 src/compression/context\_compressor.py）}, label={lst:bm25}]
+def _bm25_score(query, files):
+query_terms = re.findall(r"\w+", query.lower())
+scores = {}
+for path, content in files.items():
+words = re.findall(r"\w+", content.lower())
+word_freq = {w: words.count(w) for w in set(words)}
+score = sum(word_freq.get(t, 0) for t in query_terms)
+# 路径匹配额外加权
+path_score = sum(2 for t in query_terms if t in path.lower())
+scores[path] = score + path_score
+return scores
+\end{lstlisting}
+
+\subsection{参数设置}
+
+\begin{table}[htbp]
+\centering
+\caption{rag\_topk 参数配置}
+\label{tab:ragtopk-params}
+\begin{tabular}{lll}
+\toprule
+参数 & 值 & 说明 \\
+\midrule
+\texttt{top\_k\_files} & 4 & 注入候选文件数量 \\
+\texttt{snippet\_lines} & 220 & 每个候选文件的最大行数截取 \\
+\texttt{max\_candidate\_files} & 24 & \texttt{rg} 检索的最大候选数 \\
+\texttt{agent.max\_steps} & 40 & 最大执行步数 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{方法三：rag\_function（函数级裁剪检索）}
+\label{sec:rag-function}
+
+\subsection{方法描述}
+
+\texttt{rag\_function} 在 \texttt{rag\_topk} 的基础上增加了\textbf{函数级裁剪}步骤：
+对 top-k 候选文件，按 Python 顶层 \texttt{def}/\texttt{class} 边界切分代码块，
+只保留与 issue 相关的函数和类，丢弃无关代码块，从而进一步减少注入的 词元 数。
+
+\subsection{函数级裁剪实现}
+
+\begin{algorithm}[H]
+\caption{FunctionLevelTrimmer：函数级代码裁剪}
+\label{alg:func-trim}
+\KwIn{文件内容 $C$，查询词集合 $T$}
+\KwOut{裁剪后的文件内容 $C'$}
+
+\BlankLine
+$\text{blocks} \leftarrow \text{SplitByTopLevelDef}(C)$ \tcp*{按顶层 def/class 切分为块}
+$T_{\text{exp}} \leftarrow \text{ExpandIdentifiers}(T)$ \tcp*{展开驼峰和下划线标识符}
+$C' \leftarrow []$\;
+
+\BlankLine
+\For{每个代码块 $(t, \text{lines}) \in \text{blocks}$}{
+\uIf{$t = \texttt{import}$}{
+保留（import 语句始终保留）\;
+}
+\uElseIf{$t = \texttt{class\_sig}$}{
+保留类签名行\;
+}
+\uElseIf{$T_{\text{exp}} \cap \text{Terms}(\text{lines}) \neq \varnothing$}{
+保留（函数/类与查询词有交集）\;
+}
+\Else{
+丢弃（无关代码块）\;
+}
+}
+\Return $C'$\;
+\end{algorithm}
+
+标识符展开（\texttt{ExpandIdentifiers}）将驼峰命名和下划线命名拆分成子词，
+例如 \texttt{separability\_matrix} 展开为 \{\texttt{separability}, \texttt{matrix}\}，
+提高跨命名风格的匹配召回率。
+
+\subsection{参数设置与风险}
+
+\begin{table}[htbp]
+\centering
+\caption{rag\_function 参数配置}
+\label{tab:ragfunc-params}
+\begin{tabular}{lll}
+\toprule
+参数 & 值 & 说明 \\
+\midrule
+\texttt{top\_k\_files} & 4 & 同 rag\_topk \\
+\texttt{snippet\_lines} & 220 & 先截取前 220 行，再函数级裁剪 \\
+\texttt{enable\_function\_trim} & True & 启用函数级裁剪 \\
+\texttt{agent.max\_steps} & 40 & 最大执行步数 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+该方法的风险在于：若裁剪过激，可能丢失修复所需的辅助函数、类属性或导入关系，
+导致 agent 在后续执行中仍需重新读取文件，抵消压缩效果。
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{方法四：llmlingua\_original（语义文件重排序）}
+\label{sec:llmlingua}
+
+\subsection{方法描述}
+
+\texttt{llmlingua\_original} 将 LLMLingua~\cite{jiang2023llmlingua} 的语义选择思想
+适配到文件级检索场景。它不是对文件内容进行 词元 级压缩，而是用
+LLMLingua 的小型语言模型（\texttt{deepseek-coder-1.3b-base}）对候选文件进行
+\textbf{语义相关性重排序}，以替代 BM25 的词频统计。llmlingua\_original的原理如图~\ref{fig:overviewLLMLingua}所示。
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.82\linewidth]{figures/overviewLLMLingua.pdf}
+  \caption{LLMLingua系统架构图}
+  \label{fig:overviewLLMLingua}
+\end{figure}
+
+\subsection{LLMLingua 适配实现}
+
+\begin{algorithm}[H]
+\caption{llmlingua\_original：语义文件重排序}
+\label{alg:llmlingua}
+\KwIn{问题描述 $s$，候选文件集合 $F$（来自 rg 检索），$k=4$}
+\KwOut{增强后的 task prompt $\hat{s}$}
+
+\BlankLine
+\tcc{Step 1: 用 rg 和关键词召回候选文件（同 rag\_topk）}
+$F \leftarrow \text{CollectCandidates}(s, r)$\;
+
+\BlankLine
+\tcc{Step 2: 用 LLMLingua 对候选文件重排序}
+$\text{compressor} \leftarrow \text{PromptCompressor}(\texttt{"deepseek-coder-1.3b"})$\;
+\For{每个文件 $f \in F$}{
+将 $f$ 包装为 \texttt{SimpleNamespace(path=f, code\_content=content)}\;
+}
+$F_k \leftarrow \text{compressor.select\_cross\_files}(F,\; \text{question}=s,\; \text{topk}=4)$\;
+
+\BlankLine
+\tcc{Step 3: 同时启用函数级裁剪}
+$F_k \leftarrow \{f: \text{FunctionTrim}(\text{content}[f], s) \;\text{for}\; f \in F_k\}$\;
+
+\BlankLine
+$\hat{s} \leftarrow s + \text{format}(F_k)$\;
+\Return $\hat{s}$\;
+\end{algorithm}
+
+LLMLingua 的 \texttt{select\_cross\_files} 方法通过计算文件内容在问题条件下的
+困惑度（perplexity）来评估文件的语义相关性，
+相比 BM25 更能捕捉语义层面的关联，而非简单关键词共现。
+
+\subsection{参数设置}
+
+\begin{table}[htbp]
+\centering
+\caption{llmlingua\_original 参数配置}
+\label{tab:llmlingua-params}
+
+\setlength{\tabcolsep}{4pt}
+
+\begin{tabularx}{\textwidth}{p{4cm}lX}
+\toprule
+参数 & 值 & 说明 \\
+\midrule
+\texttt{llmlingua\_model\_name} & \texttt{deepseek-coder-1.3b-base} & 重排序用小模型 \\
+\texttt{llmlingua\_device\_map} & \texttt{cpu} & 在 CPU 上运行（避免 GPU 竞争） \\
+\texttt{top\_k\_files} & 4 & 保留文件数 \\
+\texttt{enable\_function\_trim} & True & 启用函数级裁剪 \\
+\texttt{agent.max\_steps} & 40 & 最大执行步数 \\
+\bottomrule
+\end{tabularx}
+
+\end{table}
+
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{方法五：skill\_abstraction（工作流技能构建）}
+\label{sec:skill-abstraction}
+
+\subsection{设计背景与问题动机}
+\label{subsec:skill-abs-motivation}
+
+在基线实验中，agent 的执行轨迹分析揭示了一个普遍现象：
+即使对于最终成功修复的 instance，agent 往往也要在搜索与阅读阶段消耗大量步骤，
+反复在不同文件之间跳转，或在同一文件中多次确认已读过的内容，才能逐步收敛到正确修复位置。
+对于失败的 instance，这一现象更加严重：agent 常常陷入一种"计划不清晰"的状态，
+每一步都重新试探搜索方向，缺乏连贯的目标感，最终耗尽全部步数预算而无功而返。
+
+这一现象的根本原因在于：大语言模型在面对开放式的仓库级修复任务时，
+\textbf{缺乏内建的任务分解能力}。模型知道最终目标是“修复 issue”，
+却没有一个清晰的心理模型引导其以最短路径到达目标。
+在没有约束的情况下，模型倾向于逐步探索、反复确认，
+而这种探索行为在 词元 计价环境中代价高昂。
+
+\texttt{skill\_abstraction} 的设计出发点正是对这一现象的直接回应：
+通过向 task prompt 中注入一段\textbf{结构化工作流提示}（workflow scaffold），
+为 agent 提供一个明确的六步求解框架，使其在整个修复过程中始终有清晰的阶段目标，
+从而减少规划阶段的冗余推理，提升每一步行动的目的性。
+
+\subsection{方法设计：结构化工作流脚手架}
+\label{subsec:skill-abs-design}
+
+工作流脚手架的核心是一段固定的自然语言指令，明确划定 agent 的六个执行阶段：
+
+\begin{lstlisting}[style=promptstyle, caption={skill\_abstraction 注入的工作流提示（节选自 src/agent/task\_context.py）}, label={lst:skill-scaffold}]
+Structured workflow:
+1. Reproduce or understand the issue briefly.
+2. Narrow to 1-3 candidate files.
+3. Locate the exact function or block to edit.
+4. Make the smallest patch that fixes the issue.
+5. Verify with a focused check.
+6. Submit the final patch only after verification.
+\end{lstlisting}
+
+这六步的设计并非随意排列，而是对成功修复轨迹的抽象提炼：
+
+\begin{enumerate}
+\item \textbf{理解（Understand）}：先理解问题本质，避免过早跳入代码搜索。
+这一步鼓励 agent 在行动前进行语义归因，减少"搜索方向错误"导致的回溯代价。
+\item \textbf{定位候选文件（Narrow）}：将搜索范围收敛到 1--3 个文件，
+而非遍历整个仓库。这直接约束了搜索阶段的宽度，防止无限扩展。
+\item \textbf{精确定位（Locate）}：在候选文件内定位到函数或代码块级别，
+进一步压缩后续阅读的范围。
+\item \textbf{最小补丁（Minimal patch）}：明确要求生成最小化修改，
+防止 agent 生成过度重构的补丁，减少编辑—验证的迭代轮次。
+\item \textbf{验证（Verify）}：在提交前先做局部验证，而非依赖测试套件，
+降低验证成本。
+\item \textbf{提交（Submit）}：只有验证通过后才提交，避免无效提交引发的额外步骤。
+\end{enumerate}
+
+从成本分析角度看，这六步的编排方式体现了"漏斗式收敛"的思路：
+每一步都将问题空间压缩到更小的范围，使后续步骤的搜索和阅读代价逐步降低。
+与 baseline\_raw 相比，agent 不再需要在每一步自行决定"下一步该做什么"，
+而是有一个清晰的路线图可以参照，从而将决策成本从"每步自主规划"转变为"沿路线图执行"。
+
+\subsection{实现流程}
+
+工作流脚手架注入在上下文检索之后执行：
+
+\begin{algorithm}[H]
+\caption{skill\_abstraction：工作流脚手架注入}
+\label{alg:skill-abstraction}
+\KwIn{问题描述 $s$，仓库快照 $r$}
+\KwOut{增强后的 task prompt $\hat{s}$}
+
+\BlankLine
+\tcc{Step 1: 检索候选文件（同 rag\_topk）}
+$F_k \leftarrow \text{RetrieveTopK}(s, r, k=4)$\;
+
+\BlankLine
+\tcc{Step 2: 构建 prompt：注入工作流提示 + 候选文件}
+$\hat{s} \leftarrow s$\;
+$\hat{s} \leftarrow \hat{s} + W_{\text{scaffold}}$ \tcp*{注入六步结构化工作流提示（固定字符串）}
+$\hat{s} \leftarrow \hat{s} + \text{format}(F_k)$ \tcp*{追加候选文件片段}
+$\hat{s} \leftarrow \hat{s} + \text{"The additional context is a starting point..."}$\;
+\Return $\hat{s}$\;
+\end{algorithm}
+
+工作流提示被插入在 issue 文本之后、候选文件片段之前，
+确保 agent 在看到代码上下文之前已经接收到工作流约束，
+避免模型在读取到第一个候选文件后就立刻发起不受控的搜索行为。
+
+\subsection{与上下文压缩方法的对比}
+
+\texttt{skill\_abstraction} 与 RAG 类方法的本质区别在于：
+RAG 方法优化的是"给 agent 看什么"（输入上下文的质量），
+而工作流脚手架优化的是"agent 如何用它所看到的"（决策过程的质量）。
+两者在机制上正交：
+同一组候选文件，在有工作流约束时，agent 更可能按序完成定位—修改—验证流程；
+在无约束时，即使文件已经正确，agent 也可能因为决策漂移而产生多余步骤。
+因此，\texttt{skill\_abstraction} 可以与 RAG 方法叠加使用，
+两者的优化目标不重叠。
+
+\subsection{参数设置}
+
+\begin{table}[htbp]
+\centering
+\caption{skill\_abstraction 参数配置}
+\label{tab:skill-abs-params}
+\begin{tabular}{lll}
+\toprule
+参数 & 值 & 说明 \\
+\midrule
+\texttt{include\_skill\_scaffold} & True & 启用工作流提示注入 \\
+\texttt{top\_k\_files} & 4 & 同时检索 top-k 候选文件 \\
+\texttt{snippet\_lines} & 220 & 文件片段行数 \\
+\texttt{agent.max\_steps} & 40 & 最大执行步数 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{方法六：skill\_memory\_md（静态经验记忆注入）}
+\label{sec:skill-memory}
+
+\subsection{设计背景与核心思想}
+\label{subsec:skill-mem-motivation}
+
+\texttt{skill\_abstraction} 解决了 agent 缺乏工作流约束的问题，
+但它注入的是"程序化的流程指令"，而非"来自实战经验的知识"。
+在实际修复轨迹中，即便 agent 知道"应该在 1--3 个文件中定位问题"，
+它在每类具体场景下究竟该如何搜索、应该避免哪些低效路径，仍是未知的。
+这类"如何做"的隐性经验，无法通过固定流程指令传递，
+而需要从历史成功案例中提炼和归纳。
+
+\texttt{skill\_memory\_md} 正是基于这一思路设计的原创方法：
+\textbf{将从已解决 instance 中归纳出的可迁移修复启发式经验，
+以结构化文本（\texttt{skills.md}）的形式注入 agent 的 task prompt，
+使其在面对新 instance 时能够复用这些"跨任务经验"}。
+
+这一设计的灵感来自两个维度的观察。
+
+\textbf{第一，从成功轨迹的阶段分析中发现规律性经验。}
+在对已 resolved instance 的轨迹进行仔细分析后，可以归纳出若干可复用的经验模式：
+例如，"对于描述参数验证行为的 issue，应优先从公共 API 入口点向内追溯"；
+"当 issue 中明确出现测试函数名时，优先检查最近的测试模块以推断目标代码路径"；
+"读取文件时避免整文件 dump，优先读取可疑行为所在函数，再视情况读一层调用方和被调用方"。
+这些经验不是某个具体 instance 的答案，而是\textbf{可以跨越不同仓库、不同 issue 类型被复用的策略模式}。
+
+\textbf{第二，从现有 agent 框架的记忆机制中获得启发。}
+SWE-agent 和 AutoCodeRover 等框架已经证明，
+向 agent 提供结构化的历史知识（工具文档、仓库摘要等）可以显著提升任务完成效率。
+但这些框架中的知识通常是\textbf{instance 特定的}（针对当前仓库的结构信息），
+而非\textbf{跨任务可迁移的}（从历史任务中提炼的策略经验）。
+\texttt{skill\_memory\_md} 填补了这一空白：
+它注入的是一套\textbf{与具体 instance 无关}的通用修复知识，
+使 agent 在开始每个新任务时已具备一定的"修复经验积累"。
+
+\subsection{skills.md 的构建方法论}
+\label{subsec:skills-md-construction}
+
+\texttt{skills.md} 的构建分为三个阶段：
+
+\textbf{（1）轨迹采样与分析。}
+从已完成实验的 resolved instance 中随机抽取代表性样本，
+逐一阅读其 \texttt{trajectory.json} 中的工具调用序列，
+重点关注：搜索阶段使用了哪些关键词、哪些搜索策略在最短步数内成功定位了目标文件、
+阅读阶段选择了哪些函数粒度、编辑阶段采用了何种最小化修改策略、
+验证阶段使用了什么命令。
+
+\textbf{（2）跨 instance 归纳抽象。}
+将具体操作提炼为与 instance 内容无关的策略描述，
+去除仓库名、函数名、具体错误信息等 instance 特定元素，
+保留可在新 instance 中复用的通用策略。
+例如，将"在某仓库的代码文件中通过搜索精确错误类名找到入口"
+抽象为"搜索 issue 中的精确错误消息名称或 API 名称，优先于搜索模糊关键词"。
+
+\textbf{（3）分阶段组织写入 skills.md。}
+将归纳出的启发式规则按照\texttt{SEARCH / READ / EDIT / VERIFY / SUBMIT} 五个阶段分节组织，
+保证注入到 agent 的经验与其执行阶段相对应，便于模型在执行特定阶段时参照相关规则。
+
+最终的 \texttt{skills.md} 包含五个模块，合计约 30 条启发式规则，
+词元 长度约 400--500（在 GPT-4o分词器下），属于轻量级注入，
+对总 词元 预算的影响可忽略不计。
+
+\subsection{skills.md 内容结构}
+
+\texttt{skills.md} 的核心内容如下所示，涵盖跨任务可迁移的修复经验：
+
+\begin{lstlisting}[style=promptstyle, caption={skills.md 内容节选（搜索与阅读启发式）}, label={lst:skills-md}]
+# Transferable Skills For Mini-SWE-Agent
+# Reusable heuristics distilled from previously resolved SWE-bench runs.
+
+## Core Workflow
+1. Identify 2-5 likely nouns, function names, classes, or modules from issue.
+2. Use rg to narrow candidate files before any large file reads.
+3. Once you have 1-3 plausible files, stop broad search; switch to local.
+4. Make the smallest patch that changes behavior at the suspected fault site.
+5. Run the narrowest verification first; submit once confirmed.
+
+## Search Heuristics
+- Search for exact error messages, API names, option names, and test names.
+- If the issue describes argument validation, start near the public API
+entrypoint and trace one level inward.
+- If tests are named in the issue metadata, inspect the nearest test module
+to infer target code paths.
+
+## Read Heuristics
+- Avoid whole-file dumps unless the file is short.
+- Read the function containing the suspected behavior first, then one
+caller and one callee if needed.
+- Do not re-read the same file unless checking a different symbol.
+
+## Edit Heuristics
+- Prefer minimal conditional changes, validation guards, or return-path
+fixes over broad refactors.
+- Preserve existing style and error semantics unless the issue requires
+new behavior.
+
+## Verification Heuristics
+- After editing, run the narrowest targeted check that can falsify quickly.
+- If targeted check passes, avoid broad test suites unless necessary.
+\end{lstlisting}
+
+\subsection{实现流程}
+
+\begin{algorithm}[H]
+\caption{skill\_memory\_md：静态经验记忆注入}
+\label{alg:skill-memory}
+\KwIn{问题描述 $s$，仓库快照 $r$，skill 文件路径 \texttt{skills.md}}
+\KwOut{增强后的 task prompt $\hat{s}$}
+
+\BlankLine
+$F_k \leftarrow \text{RetrieveTopK}(s, r, k=4)$ \tcp*{检索候选文件（同 rag\_topk）}
+$M \leftarrow \text{ReadFile}(\texttt{skills.md})$ \tcp*{加载静态 skill memory（约 400--500 词元）}
+
+\BlankLine
+$\hat{s} \leftarrow s$\;
+$\hat{s} \leftarrow \hat{s} + \text{"Transferable skill memory (reusable heuristics):"} + M$\;
+$\hat{s} \leftarrow \hat{s} + \text{format}(F_k)$\;
+\Return $\hat{s}$\;
+\end{algorithm}
+
+\texttt{skills.md} 的注入位置与 \texttt{skill\_abstraction} 的工作流提示类似，
+均置于 issue 文本之后、候选文件上下文之前，
+确保 agent 在接触具体代码之前已经获得了工作流和经验层面的知识，
+而非事后才参考。
+
+\subsection{skill\_memory 与 skill\_abstraction 的区别与互补}
+
+两种方法在设计目标上有本质区别，如表~\ref{tab:skill-compare}~所示。
+
+\begin{table}[htbp]
+\centering
+\caption{skill\_abstraction 与 skill\_memory\_md 的设计对比}
+\label{tab:skill-compare}
+
+\setlength{\tabcolsep}{4pt}
+
+\begin{tabularx}{\textwidth}{lXX}
+\toprule
+维度 & \texttt{skill\_abstraction} & \texttt{skill\_memory\_md} \\
+\midrule
+注入内容 & 六步固定流程指令 & 分阶段启发式经验规则 \\
+知识来源 & 人工抽象的通用流程 & 从 resolved 轨迹中归纳 \\
+作用粒度 & 宏观工作流约束 & 微观操作层面的经验复用 \\
+预期作用 & 减少规划空转、加快工作流收敛 & 提升每步决策质量、减少低效操作 \\
+成本改善机制 & 减少无目标探索步骤 & 提升每步有效信息获取率 \\
+\bottomrule
+\end{tabularx}
+
+\end{table}
+
+两种方法的互补性意味着，它们在理论上可以叠加使用：
+\texttt{skill\_abstraction} 保证 agent 整体路径正确，
+\texttt{skill\_memory\_md} 在每个阶段内部提供更细粒度的操作指引。
+本文未实现两者的直接组合（以保持各方法的独立可解释性），
+但这一方向是未来工作的自然延伸（见第~\ref{chap:conclusion}章）。
+
+\subsection{与检索增强方法的定位对比}
+
+从更宏观的角度看，工作流压缩方法（\texttt{skill\_abstraction}、\texttt{skill\_memory\_md}）
+与上下文压缩方法（RAG 类）的分工如下：
+RAG 类方法优化 agent 的\textbf{信息输入质量}（给对文件、给精确内容），
+工作流方法优化 agent 的\textbf{行动决策质量}（走对路径、用好经验）。
+在理想情况下，两条路径的组合（如"RAG 定位 + skill 决策"）
+可以同时压缩阅读成本和决策成本，实现更大幅度的 CPR 改善，
+这也是本文第~\ref{sec:hybrid}节和第~\ref{chap:conclusion}章展望中讨论的组合方向。
+
+\subsection{参数设置}
+
+\begin{table}[htbp]
+\centering
+\caption{skill\_memory\_md 参数配置}
+\label{tab:skill-mem-params}
+\begin{tabular}{lll}
+\toprule
+参数 & 值 & 说明 \\
+\midrule
+\texttt{include\_skill\_memory} & True & 启用 skill memory 注入 \\
+\texttt{skill\_file} & \texttt{skills.md} & skill memory 文件路径 \\
+\texttt{top\_k\_files} & 4 & 同时检索候选文件 \\
+\texttt{snippet\_lines} & 220 & 文件片段行数 \\
+\texttt{agent.max\_steps} & 40 & 最大执行步数 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{方法七：hybrid\_llmlingua（组合压缩）}
+\label{sec:hybrid}
+
+\subsection{方法描述}
+
+\texttt{hybrid\_llmlingua} 是本文设计的组合方法，将 LLMLingua 语义重排序、
+函数级裁剪和词元预算（token\_budget）截断三个压缩步骤串联，
+以最大化上下文压缩力度。它的目标是同时减少注入的文件数量和单文件的 词元 长度。
+
+\subsection{三阶段组合压缩流程}
+
+\begin{algorithm}[H]
+\caption{hybrid\_llmlingua：三阶段组合压缩}
+\label{alg:hybrid}
+\KwIn{问题描述 $s$，仓库快照 $r$，$k=4$，词元预算=2500}
+\KwOut{增强后的 task prompt $\hat{s}$}
+
+\BlankLine
+\tcc{阶段一：rg 召回候选文件（同 rag\_topk）}
+$F \leftarrow \text{CollectCandidates}(s, r)$ \tcp*{最多 24 个候选}
+
+\BlankLine
+\tcc{阶段二：LLMLingua 语义重排序，选 top-k}
+$F_k \leftarrow \text{LLMLinguaRank}(F,\; s,\; k=4)$\;
+
+\BlankLine
+\tcc{阶段三：函数级裁剪}
+\For{每个文件 $f \in F_k$}{
+$\text{content}[f] \leftarrow \text{FunctionTrim}(\text{content}[f],\; s)$\;
+}
+
+\BlankLine
+\tcc{阶段四：词元预算截断}
+$F_k \leftarrow \text{TokenBudgetTrim}(F_k,\; \text{budget}=2500)$\;
+\tcp*{按文件长度升序依次填入，超出 budget 则截断或跳过}
+
+\BlankLine
+$\hat{s} \leftarrow s + \text{format}(F_k)$\;
+\Return $\hat{s}$\;
+\end{algorithm}
+
+\subsection{词元预算截断逻辑}
+
+\texttt{TokenBudgetTrimmer} 按文件长度（词元数）从短到长依次填入：
+
+\begin{lstlisting}[style=promptstyle, caption={TokenBudgetTrimmer 截断逻辑（节选自 src/compression/context\_compressor.py）}, label={lst:budget-trimmer}]
+def trim(self, files, query):
+result, used = {}, 0
+sorted_files = sorted(files.items(),
+key=lambda kv: count_tokens(kv[1]))
+for path, content in sorted_files:
+tokens    = count_tokens(content)
+remaining = self.token_budget - used
+if tokens <= remaining:
+result[path] = content
+used += tokens
+elif remaining > 200:
+enc       = tiktoken.get_encoding("cl100k_base")
+truncated = enc.decode(enc.encode(content)[:remaining])
+result[path] = truncated + "\n# [TRUNCATED BY TOKEN BUDGET]"
+used += remaining
+if used >= self.token_budget:
+break
+return result
+\end{lstlisting}
+
+\subsection{参数设置}
+
+\begin{table}[htbp]
+\centering
+\caption{hybrid\_llmlingua 参数配置}
+\label{tab:hybrid-params}
+
+\setlength{\tabcolsep}{4pt}
+
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.2cm} l X}
+\toprule
+参数 & 值 & 说明 \\
+\midrule
+\texttt{top\_k\_files} & 4 & LLMLingua 保留文件数 \\
+\texttt{snippet\_lines} & 220 & 初始截取行数 \\
+\texttt{enable\_function\_trim} & True & 启用函数级裁剪 \\
+\texttt{token\_budget} & 2500 & 词元预算上限（基于 \texttt{cl100k\_base} 分词） \\
+\texttt{llmlingua\_model\_name} & \texttt{deepseek-coder-1.3b-base} & 重排序模型 \\
+\texttt{agent.max\_steps} & 40 & 最大执行步数 \\
+\bottomrule
+\end{tabularx}
+
+\end{table}
+
+\subsection{风险分析}
+
+多重压缩步骤叠加后，存在\textbf{过度压缩}的风险：
+若 LLMLingua 重排序遗漏了关键文件，或函数级裁剪丢弃了必要的辅助函数，
+再经过词元预算截断，最终注入的上下文可能已不包含修复所需信息。
+此时 agent 仍需自行补充搜索，反而增加了总词元消耗。
+因此该方法需要通过完整实验验证，确认组合压缩是否真正优于单一压缩。
+
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\section{方法总览与对比}
+\label{sec:method-summary}
+
+\subsection{统一接口与公平比较}
+
+所有七种方法都遵循第~\ref{subsec:method-io}~节定义的统一接口：
+输入为 $(s, r, \theta)$，输出为增强后的 task prompt $\hat{s}$。
+mini-swe-agent 的执行器、Docker 环境、词元计量网关、
+测试评估逻辑均保持一致，方法间的唯一变量是 \texttt{BuildContext} 阶段的行为。
+
+\subsection{方法分类与预期优化机制}
+
+\begin{table}[htbp]
+\centering
+\caption{七种方法的优化路径与预期节省原因}
+\label{tab:method-classification}
+
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.05}
+
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X}
+\toprule
+方法 & 优化路径 & 预期节省原因 \\
+\midrule
+\texttt{baseline\_raw}       & 无         & 对照组 \\
+\texttt{rag\_topk}           & 上下文压缩 & 减少全仓搜索 \\
+\texttt{rag\_function}       & 上下文压缩 & 减少文件内冗余 \\
+\texttt{llmlingua\_original} & 上下文压缩 & 语义精选高价值片段 \\
+\texttt{skill\_abstraction}  & 工作流压缩 & 减少规划空转 \\
+\texttt{skill\_memory\_md}   & 工作流压缩 & 复用跨任务经验 \\
+\texttt{hybrid\_llmlingua}   & 两路结合   & 同时压文件数和长度 \\
+\bottomrule
+\end{tabularx}
+
+\end{table}
+
+\subsection{方法实现依赖关系}
+
+图~\ref{fig:method-deps}~展示了各方法共享的代码模块依赖关系。
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.95\linewidth]{figures/method_deps.pdf}
+  \caption{方法模块依赖关系}
+  {\footnotesize 顶层为七种实验方法；中间为统一的 \texttt{TaskContextBuilder}，
+    根据方法类型调用对应组件（BM25 检索器、AST 函数裁剪器、
+    词元预算裁剪器、LLMLingua 排序器或 Skill 注入器）；
+    底层共享 \texttt{AgentRunner}—mini-swe-agent—Docker—词元计量网关的统一执行链路。}
+  \label{fig:method-deps}
+\end{figure}
 
 %% ─────────────────────────────────────────────────────────────────────────────
 \section{本章小结}
-\label{sec:chap07-summary}
+\label{sec:chap05-summary}
 
-本章对全文研究工作进行了系统总结与展望。
-在研究贡献方面，本文围绕代码修复智能体的高推理成本问题，
-建立了阶段化成本分析框架，提出并实现了上下文压缩与工作流压缩两条正交优化路径，
-在 500 条 SWE-bench Verified 实例上完成了覆盖七种方法的系统实验，
-得出了若干具有实践指导意义的量化结论。
+本章介绍了完整的实验平台与七种成本优化方法的实现细节，主要内容包括：
 
-核心结论可以用一句话概括：
-\textbf{代码修复智能体的成本瓶颈不在于生成补丁，而在于"搜索正确修复位置"的过程；
-改善这一过程的最有效手段是提升解决率与减少失败轨迹的无效消耗，
-而非简单地压缩输入 词元。}
+\begin{enumerate}
+\item \textbf{实验平台}：基于云服务器、官方 SWE-bench Docker 镜像和
+mini-swe-agent 构建统一执行环境，500 条 SWE-bench Verified instance
+在七种方法下独立运行，保证可比性。
 
-在局限性方面，本文工作受限于单模型依赖、评估基准分布偏差、
-手工 skill memory 的规模瓶颈与缺乏早停机制。
-这些局限性同时也指向了最有价值的未来研究方向：
-轨迹级早停、自动化 skill 构建、语义向量检索、分层 pipeline 设计
-以及跨模型泛化性验证。
+\item \textbf{词元计量网关}：设计本地 FastAPI 透明代理，
+精确记录每步输入词元和输出词元，
+为成本分析提供统一数据来源。
 
-本文的工作表明，代码修复智能体的工程部署可行性不仅取决于模型能力的提升，
-同样依赖于对执行过程的精细化管控与成本意识的系统化设计。
-随着大语言模型在软件工程自动化中的应用不断深入，
-对推理成本的系统研究将成为该领域不可回避的重要课题。
+\item \textbf{上下文压缩方法}（\texttt{rag\_topk}、\texttt{rag\_function}、
+\texttt{llmlingua\_original}）：通过关键词检索 + BM25 打分 / LLMLingua
+语义重排序 + 函数级裁剪，在 agent 运行前注入精简的候选文件上下文，
+目标是减少搜索和阅读阶段的词元消耗。
+
+\item \textbf{工作流压缩方法}（\texttt{skill\_abstraction}、\texttt{skill\_memory\_md}）：
+通过注入结构化工作流提示或静态跨任务经验记忆，引导 agent 更快进入
+有效编辑阶段，减少规划空转。
+
+\item \textbf{组合压缩方法}（\texttt{hybrid\_llmlingua}）：
+串联语义重排序、函数裁剪和词元预算截断，追求最大压缩力度，
+同时承担过度压缩的风险。
+\end{enumerate}
+
+各方法的实际效果将在第~\ref{chap:results}~章通过完整实验数据进行对比分析。
