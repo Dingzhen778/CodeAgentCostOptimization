@@ -52,3 +52,5 @@ testbed/
 
 #overleaf登陆认证
 .olauth
+# Overleaf 本地元数据
+.codex
